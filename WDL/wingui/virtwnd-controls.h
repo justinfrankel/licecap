@@ -357,7 +357,7 @@ class WDL_VirtualListBox : public WDL_VWnd
     int (*m_GetItemHeight)(WDL_VirtualListBox *sender, int idx); // returns -1 for default height
     void *m_GetItemInfo_ctx;
 
-    bool m_disable_ltr_cols;
+    bool m_disable_wordwise_cols;
 
   protected:
 
@@ -375,7 +375,7 @@ class WDL_VirtualListBox : public WDL_VWnd
       };
     };
 
-    bool AreItemsLeftToRightFirst(const layout_info &layout) const { return m_GetItemHeight == NULL && layout.columns > 1 && !m_disable_ltr_cols && !layout.hscrollbar_h; }
+    bool AreItemsWordWise(const layout_info &layout) const { return m_GetItemHeight == NULL && layout.columns > 1 && !m_disable_wordwise_cols && !layout.hscrollbar_h; }
     bool ScrollbarHit(int xpos, int ypos, const layout_info &layout);
     int ScrollbarGetInfo(int *start, int *size, int num_items, const layout_info &layout); // returns 1 for vscroll, 2 for hscroll, 0 if no scrolling
     int IndexFromPtInt(int x, int y, const layout_info &layout);

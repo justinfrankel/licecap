@@ -36,7 +36,7 @@ WDL_VirtualListBox::WDL_VirtualListBox()
   m_scrollbar_size=4;
   m_scrollbar_border=1;
   m_scrollbar_expanded = false;
-  m_disable_ltr_cols = false;
+  m_disable_wordwise_cols = false;
   m_cap_startitem=-1;
   m_cap_state=0;
   m_cap_startpos.x = m_cap_startpos.y = 0;
@@ -125,7 +125,7 @@ void WDL_VirtualListBox::CalcLayout(int num_items, layout_info *layout)
   if (item >= num_items)
   {
     int use_col = wdl_max(min_cols,cols);
-    if (m_GetItemHeight == NULL && !m_disable_ltr_cols && use_col>1 && h >= rh_base*2)
+    if (m_GetItemHeight == NULL && !m_disable_wordwise_cols && use_col>1 && h >= rh_base*2)
     {
       int viscnt = use_col * (h/rh_base);
       if (startitem + viscnt > num_items + use_col-1)
@@ -166,7 +166,7 @@ void WDL_VirtualListBox::CalcLayout(int num_items, layout_info *layout)
   int scroll_mode = 0;
   if (has_scroll)
   {
-    if (cols > 1 && (m_GetItemHeight!=NULL || m_disable_ltr_cols || h < rh_base*2))
+    if (cols > 1 && (m_GetItemHeight!=NULL || m_disable_wordwise_cols || h < rh_base*2))
       scroll_mode=2;
     else
       scroll_mode=1;
@@ -176,7 +176,7 @@ void WDL_VirtualListBox::CalcLayout(int num_items, layout_info *layout)
   layout->hscrollbar_h = scroll_mode == 2 ? m_scrollbar_size : 0;
   layout->item_area_w = w - layout->vscrollbar_w;
   layout->item_area_h = wdl_max(h - layout->hscrollbar_h,rh_base);
-  if (AreItemsLeftToRightFirst(*layout))
+  if (AreItemsWordWise(*layout))
   {
     int adj = layout->startpos%layout->columns;
     for (int x = 0; x <adj; x++)
@@ -313,7 +313,7 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
   CalcLayout(num_items,&layout);
   m_viewoffs = layout.startpos; // latch to new startpos
   const int num_cols = layout.columns;
-  const bool do_ltr = AreItemsLeftToRightFirst(layout);
+  const bool do_wordwise = AreItemsWordWise(layout);
 
   const int usedw = layout.item_area_w * rscale / WDL_VWND_SCALEBASE;
   const int vscrollsize = layout.vscrollbar_w * rscale / WDL_VWND_SCALEBASE;
@@ -355,7 +355,7 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
 
   int itempos=startpos;
   
-  for (int colpos = 0; colpos < (do_ltr ? 1 : num_cols); colpos ++)
+  for (int colpos = 0; colpos < (do_wordwise ? 1 : num_cols); colpos ++)
   {
     int col_x = r.left + ((usedw+m_colgap)*colpos) / num_cols;
     int col_w = r.left + ((usedw+m_colgap)*(colpos+1)) / num_cols - col_x - m_colgap;
@@ -371,7 +371,7 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
         rh = GetItemHeight(itempos,&flag);
       rh = rh * rscale / WDL_VWND_SCALEBASE;
 
-      if (!do_ltr)
+      if (!do_wordwise)
       {
         ly=y;
         y += rh;
@@ -528,7 +528,7 @@ void WDL_VirtualListBox::DoScroll(int dir, const layout_info *layout)
   if (dir < 0 && layout->columns>1)
   {
     int y=0;
-    if (AreItemsLeftToRightFirst(*layout))
+    if (AreItemsWordWise(*layout))
     {
       int np = wdl_max(0,m_viewoffs-layout->columns);
       if (m_viewoffs != np) { m_viewoffs = np; y=1; }
@@ -543,7 +543,7 @@ void WDL_VirtualListBox::DoScroll(int dir, const layout_info *layout)
   else if (dir > 0 && layout->columns>1)
   {
     int y=0;
-    if (AreItemsLeftToRightFirst(*layout))
+    if (AreItemsWordWise(*layout))
     {
       m_viewoffs+=layout->columns;
       y++;
@@ -816,12 +816,12 @@ bool WDL_VirtualListBox::GetItemRect(int item, RECT *r)
   
   if (r)
   {
-    const bool do_ltr = AreItemsLeftToRightFirst(layout);
+    const bool do_wordwise = AreItemsWordWise(layout);
     const int rh_base = GetRowHeight();
     int col = 0,y=0;
     for (int x=0;x<item;x++)
     {
-      if (do_ltr)
+      if (do_wordwise)
       {
         if (++col == layout.columns)
         {
@@ -841,7 +841,7 @@ bool WDL_VirtualListBox::GetItemRect(int item, RECT *r)
     int flag = 0;
     const int rh = item < layout.heights->GetSize() ? layout.GetHeight(item,&flag) : rh_base;
 
-    if (!do_ltr)
+    if (!do_wordwise)
     {
       if (y > 0 && y + rh > layout.item_area_h && (col < layout.columns-1 || (flag&ITEMH_FLAG_NOSQUISH) || y+rh_base > layout.item_area_h)) { col++; y = 0; }
     }
@@ -882,11 +882,11 @@ int WDL_VirtualListBox::IndexFromPtInt(int x, int y, const layout_info &layout)
   int xpos = 0;
   int col = 0;
 
-  const int do_ltr = AreItemsLeftToRightFirst(layout);
+  const int do_wordwise = AreItemsWordWise(layout);
   const int rh_base = GetRowHeight();
   int idx = 0;
 
-  if (do_ltr)
+  if (do_wordwise)
   {
     int ypos = 0;
     for (;;)
