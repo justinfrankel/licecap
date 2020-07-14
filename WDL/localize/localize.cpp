@@ -140,6 +140,7 @@ const char *__localizeFunc(const char *str, const char *subctx, int flags)
 #ifdef _DEBUG
   WDL_ASSERT(g_debug_langpack_has_loaded != false);
 #endif
+  if (WDL_NOT_NORMALLY(!str || !subctx)) return str;
   if (!g_translations.GetSize())
   {
 #ifdef WDL_LOCALIZE_HOOK_XLATE
