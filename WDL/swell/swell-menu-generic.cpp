@@ -142,7 +142,12 @@ int GetMenuItemCount(HMENU hMenu)
 int GetMenuItemID(HMENU hMenu, int pos)
 {
   MENUITEMINFO *item = WDL_NORMALLY(hMenu) ? hMenu->items.Get(pos) : NULL;
-  if (!item || item->hSubMenu) return -1;
+  if (!item)
+  {
+    WDL_ASSERT(pos==0); // do not assert if GetMenuItemID(0) is called on an empty menu
+    return -1;
+  }
+  if (item->hSubMenu) return -1;
   return item->wID;
 }
 

@@ -178,7 +178,11 @@ int GetMenuItemCount(HMENU hMenu)
 int GetMenuItemID(HMENU hMenu, int pos)
 {
   NSMenu *menu=(NSMenu *)hMenu;
-  if (WDL_NOT_NORMALLY(pos < 0 || pos >= (int)[menu numberOfItems])) return 0;
+  if (pos < 0 || pos >= (int)[menu numberOfItems])
+  {
+    WDL_ASSERT(pos==0); // don't assert if GetMenuItemID(0) is called on an empty menu
+    return 0;
+  }
   
   NSMenuItem *item=[menu itemAtIndex:pos]; 
   if (item) 
