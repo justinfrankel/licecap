@@ -481,6 +481,7 @@ SWELL_API_DEFINE(BOOL, TreeView_SetItem,(HWND hwnd, LPTVITEM pitem))
 SWELL_API_DEFINE(HTREEITEM, TreeView_HitTest, (HWND hwnd, TVHITTESTINFO *hti))
 SWELL_API_DEFINE(BOOL, TreeView_SetIndent,(HWND hwnd, int indent))
 
+SWELL_API_DEFINE(HTREEITEM, TreeView_GetParent, (HWND hwnd, HTREEITEM item))
 SWELL_API_DEFINE(HTREEITEM, TreeView_GetChild, (HWND hwnd, HTREEITEM item))
 SWELL_API_DEFINE(HTREEITEM, TreeView_GetNextSibling, (HWND hwnd, HTREEITEM item))
 SWELL_API_DEFINE(HTREEITEM, TreeView_GetRoot, (HWND hwnd))

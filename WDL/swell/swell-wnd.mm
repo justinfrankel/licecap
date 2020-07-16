@@ -6241,6 +6241,18 @@ HTREEITEM TreeView_GetRoot(HWND hwnd)
   return (HTREEITEM) tv->m_items->Get(0);
 }
 
+HTREEITEM TreeView_GetParent(HWND hwnd, HTREEITEM item)
+{
+  if (WDL_NOT_NORMALLY(!hwnd || ![(id)hwnd isKindOfClass:[SWELL_TreeView class]])) return NULL;
+
+  if (!item) return TreeView_GetRoot(hwnd);
+
+  SWELL_TreeView *tv=(SWELL_TreeView*)hwnd;
+  HTREEITEM__ *par=NULL;
+  int idx=0;
+  [tv findItem:item parOut:&par idxOut:&idx];
+  return par;
+}
 HTREEITEM TreeView_GetChild(HWND hwnd, HTREEITEM item)
 {
   if (WDL_NOT_NORMALLY(!hwnd || ![(id)hwnd isKindOfClass:[SWELL_TreeView class]])) return NULL;
