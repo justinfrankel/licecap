@@ -68,8 +68,6 @@
 #define WDL_FILEWRITE_POSTYPE long long
 #endif
 
-//#define WIN32_ASYNC_NOBUF_WRITE // this doesnt seem to give much perf increase (writethrough with buffering is fine, since ultimately writes get deferred anyway)
-
 class WDL_FileWrite
 {
 #ifdef WDL_WIN32_NATIVE_WRITE
@@ -126,7 +124,9 @@ public:
 
 
 public:
-  WDL_FileWrite(const char *filename, int allow_async=1, int bufsize=8192, int minbufs=16, int maxbufs=16, bool wantAppendTo=false, bool noFileLocking=false) // async==2 is unbuffered
+  // async==2 is write-through
+  // async==3 is non-buffered (win32-only)
+  WDL_FileWrite(const char *filename, int allow_async=1, int bufsize=8192, int minbufs=16, int maxbufs=16, bool wantAppendTo=false, bool noFileLocking=false) 
   {
     m_file_position=0;
     m_file_max_position=0;
@@ -151,11 +151,13 @@ public:
     #else
     const bool isNT = true;
     #endif
-    m_async = allow_async && isNT;
-#ifdef WIN32_ASYNC_NOBUF_WRITE
-    bufsize = (bufsize+4095)&~4095;
-    if (bufsize<4096) bufsize=4096;
-#endif
+    m_async = allow_async && isNT ? 1 : 0;
+    if (m_async && allow_async == 3 && !wantAppendTo)
+    {
+      m_async = 3;
+      bufsize = (bufsize+4095)&~4095;
+      if (bufsize<4096) bufsize=4096;
+    }
 
     int rwflag = GENERIC_WRITE;
     int createFlag= wantAppendTo?OPEN_ALWAYS:CREATE_ALWAYS;
@@ -165,11 +167,10 @@ public:
     if (m_async)
     {
       rwflag |= GENERIC_READ;
-#ifdef WIN32_ASYNC_NOBUF_WRITE
-      flag |= FILE_FLAG_OVERLAPPED|FILE_FLAG_NO_BUFFERING|FILE_FLAG_WRITE_THROUGH;
-#else
-      flag |= FILE_FLAG_OVERLAPPED|(allow_async>1 ? FILE_FLAG_WRITE_THROUGH: 0);
-#endif
+      if (m_async == 3)
+        flag |= FILE_FLAG_OVERLAPPED|FILE_FLAG_NO_BUFFERING|FILE_FLAG_WRITE_THROUGH;
+      else
+        flag |= FILE_FLAG_OVERLAPPED|(allow_async>1 ? FILE_FLAG_WRITE_THROUGH: 0);
     }
 
     {
@@ -511,8 +512,7 @@ public:
         if (m_file_position>m_file_max_position) m_file_max_position=m_file_position;
       }
 
-#ifdef WIN32_ASYNC_NOBUF_WRITE
-      if (ent->m_bufused&4095)
+      if (m_async == 3 && (ent->m_bufused&4095))
       {
         int offs=(ent->m_bufused&4095);
         char tmp[4096];
@@ -531,7 +531,7 @@ public:
 
         ent->m_bufused += 4096-offs;
       }
-#endif
+
       DWORD d=0;
 
       *(WDL_FILEWRITE_POSTYPE *)&ent->m_ol.Offset = ent->m_last_writepos;
@@ -591,8 +591,7 @@ public:
       m_file_position=pos;
       if (m_file_position>m_file_max_position) m_file_max_position=m_file_position;
 
-#ifdef WIN32_ASYNC_NOBUF_WRITE
-      if (m_file_position&4095)
+      if (m_async==3 && (m_file_position&4095))
       {
         WDL_FileWrite__WriteEnt *ent=m_empties.Get(0);
         if (ent)
@@ -612,7 +611,6 @@ public:
           ent->m_bufused=(int)psz;
         }
       }
-#endif
       return false;
     }
 
@@ -646,7 +644,7 @@ public:
 #ifdef WDL_WIN32_NATIVE_WRITE
   HANDLE GetHandle() { return m_fh; }
   HANDLE m_fh;
-  bool m_async;
+  int m_async; // 3 = unbuffered
 
   int m_async_bufsize, m_async_minbufs, m_async_maxbufs;
 
