@@ -7655,6 +7655,15 @@ void TreeView_DeleteAllItems(HWND hwnd)
   InvalidateRect(hwnd,NULL,FALSE);
 }
 
+void TreeView_EnsureVisible(HWND hwnd, HTREEITEM item)
+{
+  treeViewState *tvs = hwnd ? (treeViewState *)hwnd->m_private_data : NULL;
+  if (WDL_NOT_NORMALLY(!tvs)) return;
+  if (!item || !tvs->findItem(item,NULL,NULL)) return;
+  tvs->ensureItemVisible(hwnd,item);
+  InvalidateRect(hwnd,NULL,FALSE);
+}
+
 void TreeView_SelectItem(HWND hwnd, HTREEITEM item)
 {
   treeViewState *tvs = hwnd ? (treeViewState *)hwnd->m_private_data : NULL;

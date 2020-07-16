@@ -6061,6 +6061,15 @@ void TreeView_DeleteAllItems(HWND hwnd)
   [tv reloadData];
 }
 
+void TreeView_EnsureVisible(HWND hwnd, HTREEITEM item)
+{
+  if (WDL_NOT_NORMALLY(!hwnd || ![(id)hwnd isKindOfClass:[SWELL_TreeView class]])) return;
+  if (!item) return;
+  NSInteger row=[(SWELL_TreeView*)hwnd rowForItem:((HTREEITEM__*)item)->m_dh];
+  if (row>=0)
+    [(SWELL_TreeView*)hwnd scrollRowToVisible:row];
+}
+
 void TreeView_SelectItem(HWND hwnd, HTREEITEM item)
 {
   if (WDL_NOT_NORMALLY(!hwnd || ![(id)hwnd isKindOfClass:[SWELL_TreeView class]])) return;
