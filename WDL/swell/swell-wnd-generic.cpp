@@ -7784,6 +7784,17 @@ HTREEITEM TreeView_GetRoot(HWND hwnd)
   return tvs->m_root.m_children.Get(0);
 }
 
+HTREEITEM TreeView_GetParent(HWND hwnd, HTREEITEM item)
+{
+  if (!item) return TreeView_GetRoot(hwnd);
+  treeViewState *tvs = hwnd ? (treeViewState *)hwnd->m_private_data : NULL;
+
+  HTREEITEM par=NULL;
+  int idx=0;
+  if (WDL_NOT_NORMALLY(!tvs || !tvs->findItem(item,&par,&idx))) return NULL;
+  return par;
+}
+
 HTREEITEM TreeView_GetChild(HWND hwnd, HTREEITEM item)
 {
   treeViewState *tvs = hwnd ? (treeViewState *)hwnd->m_private_data : NULL;
