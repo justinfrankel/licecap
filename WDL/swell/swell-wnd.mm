@@ -6095,7 +6095,15 @@ void TreeView_DeleteItem(HWND hwnd, HTREEITEM item)
     {
       tv->m_items->Delete(idx,true);
     }
+
     [tv reloadData];
+
+    // this would be preferable but it's crashy crashy!
+    // SWELL_DataHold *dh = par ? par->m_dh : NULL;
+    // NSIndexSet *idxset=[NSIndexSet indexSetWithIndex:idx];
+    // [tv beginUpdates];
+    // [tv removeItemsAtIndexes:idxset inParent:dh withAnimation:0];
+    // [tv endUpdates];
   }
 }
 
