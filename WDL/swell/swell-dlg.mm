@@ -847,7 +847,26 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     m_wndproc((HWND)self,WM_NOTIFY,[(NSControl*)sender tag],(LPARAM)&nm);
   }
 }
-
+- (void)outlineViewItemWillExpand:(NSNotification*)notification
+{
+  NSOutlineView *sender=[notification object];
+  NMTREEVIEW nmhdr={{(HWND)sender,(UINT_PTR)[sender tag],TVN_ITEMEXPANDING},0,};  // todo: better treeview notifications
+  SWELL_DataHold *t=[[notification userInfo] valueForKey:@"NSObject"];
+  HTREEITEM hi = t ? (HTREEITEM)[t getValue] : NULL;
+  if (hi)
+  {
+    nmhdr.itemNew.hItem=hi;
+    nmhdr.itemNew.lParam=hi->m_param;
+  }
+  if (m_wndproc && !m_hashaddestroy)
+  {
+    m_wndproc((HWND)self, WM_NOTIFY, (int)[sender tag], (LPARAM)&nmhdr);
+  }
+}
+- (void)outlineViewItemWillCollapse:(NSNotification*)notification
+{
+  return [self outlineViewItemWillExpand:notification]; // yes it's the same notification
+}
 - (void)outlineViewSelectionDidChange:(NSNotification *)notification
 {
   NSOutlineView *sender=[notification object];

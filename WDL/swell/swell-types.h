@@ -436,6 +436,7 @@ typedef struct HTREEITEM__ *HTREEITEM;
 
 #define TVN_FIRST               (0U-400U)       // treeview
 #define TVN_SELCHANGED          (TVN_FIRST-2)
+#define TVN_ITEMEXPANDING       (TVN_FIRST-5)
 
 // swell-extension: WM_MOUSEMOVE set via capture in TVN_BEGINDRAG can return:
 //   -1 = drag not possible
