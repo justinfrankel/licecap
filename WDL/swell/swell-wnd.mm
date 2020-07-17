@@ -6240,7 +6240,7 @@ HTREEITEM TreeView_HitTest(HWND hwnd, TVHITTESTINFO *hti)
   }
   if (y >= maxy)
   {
-    hti->flags |= TVHT_BELOW;
+    hti->flags |= TVHT_NOWHERE;
   }
   
   return NULL; // not hit
