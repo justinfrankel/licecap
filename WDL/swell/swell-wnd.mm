@@ -5992,11 +5992,11 @@ HTREEITEM TreeView_InsertItem(HWND hwnd, TV_INSERTSTRUCT *ins)
   {
     if ([tv findItem:ins->hParent parOut:&par idxOut:&inspos])
     {
-      par = (HTREEITEM__ *)ins->hParent; 
+      par = (HTREEITEM__ *)ins->hParent;
     }
     else return 0;
   }
-  
+
   if (ins->hInsertAfter == TVI_FIRST) inspos=0;
   else if (ins->hInsertAfter == TVI_LAST || ins->hInsertAfter == TVI_SORT || !ins->hInsertAfter) inspos=par ? par->m_children.GetSize() : tv->m_items ? tv->m_items->GetSize() : 0;
   else inspos = par ? par->m_children.Find((HTREEITEM__*)ins->hInsertAfter)+1 : tv->m_items ? tv->m_items->Find((HTREEITEM__*)ins->hInsertAfter)+1 : 0;      
@@ -6012,8 +6012,22 @@ HTREEITEM TreeView_InsertItem(HWND hwnd, TV_INSERTSTRUCT *ins)
     tv->m_items->Insert(inspos,item);
   }
   else par->m_children.Insert(inspos,item);
-  
-  [tv reloadData];
+
+  // [tv reloadData] invalidates the contents and breaks stuff
+  // if we are in the middle of handling a treeview notification
+  if (SWELL_GetOSXVersion() >= 0x1070)
+  {
+    SWELL_DataHold *dh = par ? par->m_dh : NULL;
+    NSIndexSet *idxset=[NSIndexSet indexSetWithIndex:inspos];
+    [tv beginUpdates];
+    [tv insertItemsAtIndexes:idxset inParent:dh withAnimation:0];
+    [tv endUpdates];
+  }
+  else
+  {
+    [tv reloadData];
+  }
+
   return (HTREEITEM) item;
 }
 
