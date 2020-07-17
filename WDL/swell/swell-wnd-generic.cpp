@@ -5464,8 +5464,14 @@ static LRESULT treeViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
             {
               if (GET_X_LPARAM(lParam) < xo + (tvs->m_last_row_height/4)*2+3)
               {
-                hit->m_state ^= TVIS_EXPANDED;
-                InvalidateRect(hwnd,NULL,FALSE);
+                NMTREEVIEW nmhdr={{hwnd,(UINT_PTR)hwnd->m_id,TVN_ITEMEXPANDING},};  // todo: better treeview notifications
+                nmhdr.itemNew.hItem=hit;
+                nmhdr.itemNew.lParam=hit->m_param;
+                if (!SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nmhdr))
+                {
+                  hit->m_state ^= TVIS_EXPANDED;
+                  InvalidateRect(hwnd,NULL,FALSE);
+                }
                 return 0;
               }
             }
