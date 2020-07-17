@@ -372,6 +372,14 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL("SysTreeView32")
   return YES;
 }
 
+/*
+- (BOOL)outlineView:(NSOutlineView *)outlineView
+   shouldExpandItem:(id)item
+{
+  return NO; // optionally while dragging?
+}
+*/
+
 - (void)outlineView:(NSOutlineView *)outlineView
     draggingSession:(NSDraggingSession *)session
        endedAtPoint:(NSPoint)screenPoint
