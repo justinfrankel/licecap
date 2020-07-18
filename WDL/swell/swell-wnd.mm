@@ -5289,6 +5289,9 @@ HWND SetCapture(HWND hwnd)
   m_fakeCapture=hwnd;
   m_capChangeNotify = hwnd && [(id)hwnd respondsToSelector:@selector(swellCapChangeNotify)] && [(SWELL_hwndChild*)hwnd swellCapChangeNotify];
 
+  if (hwnd && WDL_NORMALLY([(id)hwnd isKindOfClass:[NSView class]]))
+    [[(NSView *)hwnd window] disableCursorRects];
+
   if (ocn && oc && oc != hwnd) SendMessage(oc,WM_CAPTURECHANGED,0,(LPARAM)hwnd);
   return oc;
 }
