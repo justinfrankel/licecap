@@ -193,29 +193,30 @@ class WDL_DirScan
 #ifdef _WIN32
        return !!(m_fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY); 
 #else
-#ifndef __APPLE__
-       // we could enable this on OSX, need to check to make sure realpath(x,NULL) is supported on 10.5+
        char tmp[2048];
-       if (m_ent && m_ent->d_type == DT_LNK)
+       if (m_ent) switch (m_ent->d_type)
        {
-         snprintf(tmp,sizeof(tmp),"%s/%s",m_leading_path.Get(),m_ent->d_name);
-         char *rp = realpath(tmp,NULL);
-         if (rp)
+         case DT_DIR: return 1;
+         case DT_LNK:
          {
-           DIR *d = opendir(rp);
-           free(rp);
+           snprintf(tmp,sizeof(tmp),"%s/%s",m_leading_path.Get(),m_ent->d_name);
+           char *rp = realpath(tmp,NULL);
+           if (!rp) return 0;
 
+           struct stat sb;
+           int ret = !stat(rp,&sb) && (sb.st_mode & S_IFMT) == S_IFDIR;
+           free(rp);
+           return ret;
+         }
+         case DT_UNKNOWN:
+         {
+           snprintf(tmp,sizeof(tmp),"%s/%s",m_leading_path.Get(),m_ent->d_name);
+           DIR *d = opendir(tmp);
            if (d) { closedir(d); return 1; }
+           return 0;
          }
        }
-       else if (m_ent && m_ent->d_type == DT_UNKNOWN)
-       {
-         snprintf(tmp,sizeof(tmp),"%s/%s",m_leading_path.Get(),m_ent->d_name);
-         DIR *d = opendir(tmp);
-         if (d) { closedir(d); return 1; }
-       }
-#endif
-       return m_ent && (m_ent->d_type == DT_DIR);
+       return 0;
 #endif
     }
 
