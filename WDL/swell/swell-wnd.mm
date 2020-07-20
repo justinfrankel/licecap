@@ -6179,10 +6179,15 @@ BOOL TreeView_SetItem(HWND hwnd, LPTVITEM pitem)
   if (![(SWELL_TreeView*)hwnd findItem:pitem->hItem parOut:&par idxOut:&idx]) return FALSE;
   
   HTREEITEM__ *ti = (HTREEITEM__*)pitem->hItem;
-  
-  if (pitem->mask & TVIF_CHILDREN) ti->m_haschildren = pitem->cChildren?1:0;
+
+  bool need_reload=false;
+  if (pitem->mask & TVIF_CHILDREN)
+  {
+    if (!ti->m_haschildren != !pitem->cChildren) need_reload=true;
+    ti->m_haschildren = pitem->cChildren?1:0;
+  }
   if (pitem->mask & TVIF_PARAM)  ti->m_param =  pitem->lParam;
-  
+
   if ((pitem->mask&TVIF_TEXT)&&pitem->pszText)
   {
     free(ti->m_value);
@@ -6221,7 +6226,11 @@ BOOL TreeView_SetItem(HWND hwnd, LPTVITEM pitem)
   
   if (pitem->stateMask & TVIS_EXPANDED)
     TreeView_Expand(hwnd,pitem->hItem,(pitem->state&TVIS_EXPANDED)?TVE_EXPAND:TVE_COLLAPSE);
-    
+
+  if (need_reload)
+  {
+    [(SWELL_TreeView*)hwnd reloadItem:ti->m_dh];
+  }
   
   return TRUE;
 }
