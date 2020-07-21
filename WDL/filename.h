@@ -65,7 +65,7 @@ static WDL_STATICFUNC_UNUSED void WDL_filename_filterstr(char *rd, char repl='_'
   wr = rd;
   while (*rd)
   {
-    char r=WDL_filename_filterchar(*rd++,repl,path_filter_mode>0)
+    char r=WDL_filename_filterchar(*rd++,repl,path_filter_mode>0);
     if (!r || (WDL_IS_DIRCHAR(r) && WDL_IS_DIRCHAR(lc))) continue; // filter multiple slashes in a row, or leading slash
     *wr++ = lc = r;
   }
