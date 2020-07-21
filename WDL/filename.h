@@ -46,13 +46,26 @@ static WDL_STATICFUNC_UNUSED char WDL_filename_filterchar(char p, char repl='_',
   return p;
 }
 
-// used for filename portion, typically (not whole filenames)
-static WDL_STATICFUNC_UNUSED void WDL_filename_filterstr(char *str, char repl='_', bool filterSlashes=true)
+static WDL_STATICFUNC_UNUSED void WDL_filename_filterstr(char *rd, char repl='_', int path_filter_mode=1)
 {
-  char *rd = str, *wr = str, lc = WDL_DIRCHAR;
+  char *wr, lc = WDL_DIRCHAR;
+  // path_filter_mode:
+  //   0 = remove leading slashes, consolidate duplicate slashes (use when filtering the filepart but allowing subdirectories)
+  //  >0 = filter slashes (use when filtering the filepart, disallowing subdirectories)
+  //  <0 = allow absolute paths, consolidate duplicate slashes (filtering a full path)
+  if (path_filter_mode<0)
+  {
+    #ifdef _WIN32
+      if (rd[0] && rd[1] == ':' && WDL_IS_DIRCHAR(rd[2])) rd += 3;
+      else if (WDL_IS_DIRCHAR(rd[0]) && WDL_IS_DIRCHAR(rd[1])) rd += 2;
+    #else
+      if (WDL_IS_DIRCHAR(*rd)) rd++;
+    #endif
+  }
+  wr = rd;
   while (*rd)
   {
-    char r=WDL_filename_filterchar(*rd++,repl,filterSlashes);
+    char r=WDL_filename_filterchar(*rd++,repl,path_filter_mode>0)
     if (!r || (WDL_IS_DIRCHAR(r) && WDL_IS_DIRCHAR(lc))) continue; // filter multiple slashes in a row, or leading slash
     *wr++ = lc = r;
   }
