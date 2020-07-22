@@ -160,9 +160,10 @@ struct SWELL_DlgResourceEntry
 #define TVS_LINESATROOT 0
 #define TVS_SHOWSELALWAYS 0
 #define TVS_HASBUTTONS 0
-#define BS_FLAT 0
 #define TVS_TRACKSELECT 0
 #define TVS_NONEVENHEIGHT 0
+#define TVS_NOTOOLTIPS 0
+#define BS_FLAT 0
 #define SS_SUNKEN 0
 #define BS_RIGHT 0
 #define WS_EX_STATICEDGE 0
