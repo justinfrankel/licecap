@@ -1729,6 +1729,7 @@ struct __SWELL_editControlState
     max_height=0;
     max_width=0;
     cache_linelen_strlen = cache_linelen_w = 0;
+    m_disable_contextmenu = false;
   }
   ~__SWELL_editControlState()  {}
 
@@ -1742,6 +1743,8 @@ struct __SWELL_editControlState
   // used for caching line lengths for multiline word-wrapping edit controls
   int cache_linelen_w, cache_linelen_strlen;
   WDL_TypedBuf<int> cache_linelen_bytes;
+
+  bool m_disable_contextmenu;
 
   bool deleteSelection(WDL_FastString *fs);
   int getSelection(WDL_FastString *fs, const char **ptrOut) const;
@@ -2402,6 +2405,8 @@ static LRESULT WINAPI editWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     break;
     case WM_CONTEXTMENU:
       {
+        if (es->m_disable_contextmenu) break;
+
         HMENU menu=CreatePopupMenu();
         MENUITEMINFO mi={sizeof(mi),MIIM_ID|MIIM_TYPE,MFT_STRING, 0,
               (UINT) 100, NULL,NULL,NULL,0,(char*)"Copy"};
@@ -8242,7 +8247,11 @@ void SWELL_DisableContextMenu(HWND hwnd, bool dis)
 {
   if (WDL_NORMALLY(hwnd))
   {
-    // todo
+    if (!strcmp(hwnd->m_classname,"Edit"))
+    {
+      __SWELL_editControlState *es = (__SWELL_editControlState*)hwnd->m_private_data;
+      if (es) es->m_disable_contextmenu = dis;
+    }
   }
 }
 
