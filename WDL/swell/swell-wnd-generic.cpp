@@ -8238,6 +8238,14 @@ int GetClassName(HWND hwnd, char *buf, int bufsz)
   return (int)strlen(buf);
 }
 
+void SWELL_DisableContextMenu(HWND hwnd, bool dis)
+{
+  if (WDL_NORMALLY(hwnd))
+  {
+    // todo
+  }
+}
+
 #ifdef _DEBUG
 void VALIDATE_HWND_LIST(HWND listHead, HWND par)
 {

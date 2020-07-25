@@ -584,6 +584,14 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 
 @implementation SWELL_hwndChild : NSView 
 
+- (NSMenu *)textView:(NSTextView *)view
+                menu:(NSMenu *)menu
+            forEvent:(NSEvent *)event
+             atIndex:(NSUInteger)charIndex
+{
+  return [view respondsToSelector:@selector(swellWantsContextMenu)] && ![(SWELL_TextView *)view swellWantsContextMenu] ? nil : menu;
+}
+
 -(void)viewDidHide
 {
   SendMessage((HWND)self, WM_SHOWWINDOW, FALSE, 0);

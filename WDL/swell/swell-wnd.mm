@@ -3259,6 +3259,16 @@ HWND SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, 
 
 STANDARD_CONTROL_NEEDSDISPLAY_IMPL("Edit")
 
+-(id)init
+{
+  if (NULL != (self = [super init]))
+  {
+    m_disable_menu = false;
+    m_tag = 0;
+  }
+  return self;
+}
+
 -(NSInteger) tag
 {
   return m_tag;
@@ -3383,10 +3393,31 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL("Edit")
   if (didBecomeFirstResponder) SendMessage(GetParent((HWND)self),WM_COMMAND,[self tag]|(EN_SETFOCUS<<16),(LPARAM)self);
   return didBecomeFirstResponder;
 }
+
+- (void)swellDisableContextMenu:(bool)dis
+{
+  m_disable_menu = dis;
+}
+
+- (bool)swellWantsContextMenu
+{
+  return !m_disable_menu;
+}
 @end
 
 @implementation SWELL_TextField
 STANDARD_CONTROL_NEEDSDISPLAY_IMPL([self isSelectable] ? "Edit" : "Static")
+
+- (id) init
+{
+  if (NULL != (self = [super init]))
+  {
+    m_disable_menu = false;
+    m_ctlcolor_set = false;
+    m_last_dark_mode = false;
+  }
+  return self;
+}
 
 - (BOOL)becomeFirstResponder;
 {
@@ -3445,6 +3476,21 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL([self isSelectable] ? "Edit" : "Static")
   }
   [super drawRect:r];
 }
+
+- (void)swellDisableContextMenu:(bool)dis
+{
+  m_disable_menu = dis;
+}
+
+- (NSMenu *)textView:(NSTextView *)view
+                menu:(NSMenu *)menu
+            forEvent:(NSEvent *)event
+             atIndex:(NSUInteger)charIndex
+{
+  return m_disable_menu ? nil : menu;
+}
+
+
 @end
 
 
@@ -6596,6 +6642,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL("combobox")
   {
     m_ids=new WDL_PtrList<char>;
     m_ignore_selchg = -1;
+    m_disable_menu = false;
   }
   return self;
 }
@@ -6606,6 +6653,20 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL("combobox")
   if (didBecomeFirstResponder) SendMessage(GetParent((HWND)self),WM_COMMAND,[self tag]|(EN_SETFOCUS<<16),(LPARAM)self);
   return didBecomeFirstResponder;
 }
+
+- (NSMenu *)textView:(NSTextView *)view
+                menu:(NSMenu *)menu
+            forEvent:(NSEvent *)event
+             atIndex:(NSUInteger)charIndex
+{
+  return m_disable_menu ? nil : menu;
+}
+
+- (void)swellDisableContextMenu:(bool)dis
+{
+  m_disable_menu=dis;
+}
+
 @end
 
 
@@ -7000,6 +7061,13 @@ bool SWELL_SetAppAutoHideMenuAndDock(int ah)
     return true;
   }
   return false;
+}
+
+
+void SWELL_DisableContextMenu(HWND hwnd, bool dis)
+{
+  if (WDL_NORMALLY(hwnd && [(id)hwnd respondsToSelector:@selector(swellDisableContextMenu:)]))
+    [(SWELL_TextField*)hwnd swellDisableContextMenu:dis];
 }
 
 #endif
