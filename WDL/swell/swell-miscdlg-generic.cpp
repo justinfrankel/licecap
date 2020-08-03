@@ -562,9 +562,12 @@ get_dir:
 
             char buf[maxPathLen];
             const char *filt = NULL;
-            buf[0]=0;
-            int a = (int) SendDlgItemMessage(hwnd,IDC_EXT,CB_GETCURSEL,0,0);
-            if (a>=0) filt = (const char *)SendDlgItemMessage(hwnd,IDC_EXT,CB_GETITEMDATA,a,0);
+            HWND ext = GetDlgItem(hwnd,IDC_EXT);
+            if (ext)
+            {
+              LRESULT a = SendMessage(ext,CB_GETCURSEL,0,0);
+              if (a != CB_ERR) filt = (const char *)SendMessage(ext,CB_GETITEMDATA,a,0);
+            }
 
             GetDlgItemText(hwnd,IDC_DIR,buf,sizeof(buf));
             preprocess_user_path(buf,sizeof(buf));
