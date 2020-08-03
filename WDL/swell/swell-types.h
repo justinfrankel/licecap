@@ -645,9 +645,13 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define MB_YESNO 4
 #define MB_RETRYCANCEL 5
 
+#define MB_DEFBUTTON1 0
+#define MB_DEFBUTTON2 0x00000100
+
 #define MB_ICONERROR 0
 #define MB_ICONSTOP 0
 #define MB_ICONINFORMATION 0
+#define MB_ICONWARNING 0
 #define MB_ICONQUESTION 0
 #define MB_TOPMOST 0
 #define MB_ICONEXCLAMATION 0
