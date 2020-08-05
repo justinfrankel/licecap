@@ -574,6 +574,15 @@ int MessageBox(HWND hwndParent, const char *text, const char *caption, int type)
     b2 = b3 ? b3 : tmp;
     if (b3) b3=tmp;
   }
+
+  if (b2 && b3)
+  {
+    // NSRunAlertPanel ordering meh
+    const int tmp = b3;
+    b3 = b2;
+    b2 = tmp;
+  }
+
   NSInteger ret = NSRunAlertPanel(title,@"%@",mbidtostr(b1),mbidtostr(b2),mbidtostr(b3),text2);
 
   [text2 release];
