@@ -1025,8 +1025,8 @@ EEL_F eel_lice_state::gfx_setimgdim(int img, EEL_F *w, EEL_F *h)
   int use_w = (int)*w;
   int use_h = (int)*h;
   if (use_w<1 || use_h < 1) use_w=use_h=0;
-  if (use_w > 2048) use_w=2048;
-  if (use_h > 2048) use_h=2048;
+  if (use_w > 8192) use_w=8192;
+  if (use_h > 8192) use_h=8192;
   
   LICE_IBitmap *bm=NULL;
   if (img >= 0 && img < m_gfx_images.GetSize()) 
@@ -2209,9 +2209,9 @@ static EEL_F NSEEL_CGEN_CALL _gfx_init(void *opaque, INT_PTR np, EEL_F **parms)
     #endif
 
     if (sug_w < 16) sug_w=16;
-    else if (sug_w > 2048) sug_w=2048;
+    else if (sug_w > 8192) sug_w=8192;
     if (sug_h < 16) sug_h=16;
-    else if (sug_h > 1600) sug_h=1600;
+    else if (sug_h > 8192) sug_h=8192;
 
     if (!ctx->hwnd_standalone)
     {
@@ -2927,7 +2927,7 @@ static const char *eel_lice_function_reference =
                    "srcx/srcy/srcw/srch specify the source rectangle (if omitted srcw/srch default to image size), destx/desty/destw/desth specify dest rectangle (if not specified, these will default to reasonable defaults -- destw/desth default to srcw/srch * scale). \0"
   "gfx_blitext\tsource,coordinatelist,rotation\tDeprecated, use gfx_blit instead.\0"
   "gfx_getimgdim\timage,w,h\tRetreives the dimensions of image (representing a filename: index number) into w and h. Sets these values to 0 if an image failed loading (or if the filename index is invalid).\0"
-  "gfx_setimgdim\timage,w,h\tResize image referenced by index 0.." EEL_LICE_DOC_MAXHANDLE ", width and height must be 0-2048. The contents of the image will be undefined after the resize.\0"
+  "gfx_setimgdim\timage,w,h\tResize image referenced by index 0.." EEL_LICE_DOC_MAXHANDLE ", width and height must be 0-8192. The contents of the image will be undefined after the resize.\0"
   "gfx_loadimg\timage,\"filename\"\tLoad image from filename into slot 0.." EEL_LICE_DOC_MAXHANDLE " specified by image. Returns the image index if success, otherwise -1 if failure. The image will be resized to the dimensions of the image file. \0"
   "gfx_gradrect\tx,y,w,h, r,g,b,a[, drdx, dgdx, dbdx, dadx, drdy, dgdy, dbdy, dady]\tFills a gradient rectangle with the color and alpha specified. drdx-dadx reflect the adjustment (per-pixel) applied for each pixel moved to the right, drdy-dady are the adjustment applied for each pixel moved toward the bottom. Normally drdx=adjustamount/w, drdy=adjustamount/h, etc.\0"
   "gfx_muladdrect\tx,y,w,h,mul_r,mul_g,mul_b[,mul_a,add_r,add_g,add_b,add_a]\tMultiplies each pixel by mul_* and adds add_*, and updates in-place. Useful for changing brightness/contrast, or other effects.\0"
