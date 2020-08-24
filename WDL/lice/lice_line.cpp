@@ -1936,6 +1936,8 @@ void LICE_ThickFLine(LICE_IBitmap* dest, double x1, double y1, double x2, double
     }
   }
 
+  bool steep = fabs(y2-y1) >= fabs(x2-x1);
+
   if (ClipFLine(&x1, &y1, &x2, &y2, w, h))
   {
     if (x1 != x2 || y1 != y2)
@@ -1949,7 +1951,7 @@ void LICE_ThickFLine(LICE_IBitmap* dest, double x1, double y1, double x2, double
       double dy = y2-y1;
 
       int b_max;
-      if (fabs(dx) > fabs(dy))
+      if (!steep)
       {
         a1 = x1;
         a2 = x2;
