@@ -4255,7 +4255,15 @@ void ListView_InsertColumn(HWND h, int pos, const LVCOLUMN *lvc)
   }
 
   [v addTableColumn:col];
-  v->m_cols->Add(col);
+  if (pos >= 0 && pos < v->m_cols->GetSize())
+  {
+    [v moveColumn:v->m_cols->GetSize() toColumn:pos];
+    v->m_cols->Insert(pos,col);
+  }
+  else
+  {
+    v->m_cols->Add(col);
+  }
   [col release];
 
   if (lvc->mask&LVCF_WIDTH)
