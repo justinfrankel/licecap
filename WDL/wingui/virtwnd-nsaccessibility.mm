@@ -47,6 +47,7 @@ class VWndBridgeNS;
 // Returns the UI Element that has the focus. You can assume that the search for the focus has already been narrowed down to the reciever. Override this method to do a deeper search with a UIElement - e.g. a NSMatrix would determine if one of its cells has the focus.
 - (id)accessibilityFocusedUIElement;
 
+- (BOOL)accessibilityPerformShowMenu;
 
 @end
 
@@ -648,6 +649,34 @@ public:
 }
 
 
+- (BOOL)accessibilityPerformShowMenu
+{
+  if (m_br->vwnd)
+  {
+    HWND h = m_br->vwnd->GetRealParent();
+    if (h)
+    {
+      RECT r;
+      WDL_VWnd *v = m_br->vwnd;
+      v->GetPosition(&r);
+      r.left = (r.right+r.left)/2;
+      r.bottom = (r.bottom+r.top)/2;
+      for (;;)
+      {
+        v=v->GetParent();
+        if (!v) break;
+        RECT r2;
+        v->GetPosition(&r2);
+        r.left += r2.left;
+        r.top += r2.top;
+      }
+      ClientToScreen(h,(LPPOINT)&r);
+      SendMessage(h,WM_CONTEXTMENU,(WPARAM)h,MAKELONG(r.left,r.top));
+      return YES;
+    }
+  }
+  return NO;
+}
 @end
 
 
