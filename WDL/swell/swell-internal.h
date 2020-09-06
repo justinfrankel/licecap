@@ -257,6 +257,8 @@ typedef struct WindowPropRec
 -(NSInteger)columnAtPoint:(NSPoint)pt;
 -(int)getColumnPos:(int)idx; // get current position of column that was originally at idx
 -(int)getColumnIdx:(int)pos; // get original index of column that is currently at position
+
+-(BOOL)accessibilityPerformShowMenu;
 @end
 
 @interface SWELL_ImageButtonCell : NSButtonCell

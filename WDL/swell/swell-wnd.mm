@@ -546,6 +546,20 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL("SysTreeView32")
 @implementation SWELL_ListView
 STANDARD_CONTROL_NEEDSDISPLAY_IMPL( m_lbMode ? "SysListView32_LB" : "SysListView32" )
 
+-(BOOL)accessibilityPerformShowMenu
+{
+  HWND par = (HWND)[self target];
+  if (par)
+  {
+    int row = (int)ListView_GetNextItem((HWND)self,-1,LVNI_FOCUSED);
+    int col = 0; // todo
+    NMLISTVIEW nmlv={{(HWND)self,(UINT_PTR)[self tag], NM_RCLICK}, row, col, 0, 0, 0, };
+    SendMessage(par,WM_NOTIFY,nmlv.hdr.idFrom,(LPARAM)&nmlv);
+    return YES;
+  }
+  return NO;
+}
+
 -(LONG)getSwellStyle { return style; }
 
 -(void)setSwellStyle:(LONG)st 
