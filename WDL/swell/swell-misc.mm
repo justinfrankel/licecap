@@ -22,6 +22,7 @@
 
 //#import <Carbon/Carbon.h>
 #import <Cocoa/Cocoa.h>
+#include <sys/poll.h>
 #include "swell.h"
 #define SWELL_IMPLEMENT_GETOSXVERSION
 #include "swell-internal.h"
@@ -218,6 +219,12 @@ int SWELL_ReadWriteProcessIO(HANDLE hand, int w/*stdin,stdout,stderr*/, char *bu
   if (!hdr || hdr->hdr.type != INTERNAL_OBJECT_NSTASK || !hdr->task) return 0;
   NSTask *tsk = (NSTask*)hdr->task;
   NSPipe *pipe = NULL;
+  bool async_mode = false;
+  if (w & (1<<24))
+  {
+    async_mode = true;
+    w &= ~ (1<<24);
+  }
   switch (w)
   {
     case 0: pipe = [tsk standardInput]; break;
@@ -245,6 +252,17 @@ int SWELL_ReadWriteProcessIO(HANDLE hand, int w/*stdin,stdout,stderr*/, char *bu
   }
   else 
   {
+    if (async_mode)
+    {
+      int handle = [fh fileDescriptor];
+      if (handle >= 0)
+      {
+        struct pollfd pl = { handle, POLLIN };
+        if (poll(&pl,1,0)<1) return 0;
+
+        return read(handle,buf,bufsz);
+      }
+    }
     NSData *d = NULL;
     @try
     {
