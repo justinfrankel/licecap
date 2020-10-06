@@ -2117,7 +2117,9 @@ static LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPAR
 extern "C" 
 {
   void *objc_getClass(const char *p);
+#ifndef _OBJC_OBJC_H_
   void *sel_getUid(const char *p);
+#endif
   void objc_msgSend(void);
 };
 #endif
