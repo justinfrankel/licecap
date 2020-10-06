@@ -139,10 +139,26 @@ INT_PTR SWELLAppMain(int msg, INT_PTR parm1, INT_PTR parm2); // to be implemente
 //
 
 
-
+#if defined(__APPLE__) && !defined(SWELL_USE_OBJC_BOOL)
+  #include <AvailabilityMacros.h>
+  // this may be safe to always use, but for now only use when using a very very modern SDK
+  #ifdef MAC_OS_X_VERSION_10_16
+    #define SWELL_USE_OBJC_BOOL
+  #endif
+#endif
 
 // basic types
-typedef signed char BOOL;
+#ifdef SWELL_USE_OBJC_BOOL
+  #include <objc/objc.h>
+  #ifndef __OBJC__
+    #undef NO
+    #undef YES
+    #undef Nil
+    #undef nil
+  #endif
+#else
+  typedef signed char BOOL;
+#endif
 typedef unsigned char BYTE;
 typedef unsigned short WORD;
 typedef unsigned int DWORD;
