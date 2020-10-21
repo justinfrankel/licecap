@@ -28,7 +28,7 @@
 #include "denormal.h"
 
 #if !defined(WDL_RESAMPLE_NO_SSE) && !defined(WDL_RESAMPLE_USE_SSE)
-  #if defined(__SSE2__) || _M_IX86_FP >= 2 || defined(_WIN64)
+  #if defined(__SSE2__) || _M_IX86_FP >= 2 || (defined(_WIN64) && (_MSC_VER > 1400 || __INTEL_COMPILER > 0))
     #define WDL_RESAMPLE_USE_SSE
   #endif
 #endif
