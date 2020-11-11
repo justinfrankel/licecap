@@ -736,7 +736,7 @@ const char *EnumMetadataKeyFromMexKey(const char *mexkey, int idx)
   {
     "INFO:INAM",
     "IXML:PROJECT",
-    "XMP:dc/title"
+    "XMP:dc/title",
     "ID3:TIT2",
     "APE:Title",
     "VORBIS:TITLE",
@@ -747,7 +747,7 @@ const char *EnumMetadataKeyFromMexKey(const char *mexkey, int idx)
   static const char *ARTIST_KEYS[]=
   {
     "INFO:IART",
-    "XMP:dm/artist"
+    "XMP:dm/artist",
     "ID3:TPE1",
     "APE:Artist",
     "VORBIS:ARTIST",
@@ -767,7 +767,7 @@ const char *EnumMetadataKeyFromMexKey(const char *mexkey, int idx)
   {
     "BWF:OriginationDate",
     "INFO:ICRD",
-    "XMP:dc/date"
+    "XMP:dc/date",
     "ID3:TYER",
     "APE:Year",
     "APE:Record Date",
@@ -924,7 +924,8 @@ void DumpMetadata(WDL_FastString *str, WDL_StringKeyedArray<char*> *metadata)
     }
   }
 
-  for (int i=0; i < metadata->GetSize(); ++i)
+  int i;
+  for (i=0; i < metadata->GetSize(); ++i)
   {
     const char *key;
     const char *val=metadata->Enumerate(i, &key);
@@ -942,6 +943,20 @@ void DumpMetadata(WDL_FastString *str, WDL_StringKeyedArray<char*> *metadata)
       key += slen+1;
     }
     str->AppendFormatted(4096, "    %s: %s\r\n", key, val);
+  }
+
+  int unk_cnt=0;
+  for (i=0; i < metadata->GetSize(); ++i)
+  {
+    const char *key;
+    metadata->Enumerate(i, &key);
+    if (key && key[0] == '!' && key[1])
+    {
+      if (!unk_cnt++) str->Append("Other file sections:\r\n");
+      str->AppendFormatted(4096, "    %s%s\r\n", key+1,
+        !strnicmp(key+1, "smed", 4) ?
+        " (proprietary Soundminer metadata)" : "");
+    }
   }
 }
 
