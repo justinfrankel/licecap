@@ -170,7 +170,7 @@ static int nseel_vms_referencing_globallist_cnt;
 nseel_globalVarItem *nseel_globalreg_list;
 static EEL_F *get_global_var(compileContext *ctx, const char *gv, int addIfNotPresent);
 
-static void *__newBlock_align(llBlock **start,int size, int align);
+static void *__newBlock_align(llBlock **start,int size, int align, int alloc_page_pad);
 
 #define OPCODE_IS_TRIVIAL(x) ((x)->opcodeType <= OPCODETYPE_VARPTRPTR)
 enum {
@@ -222,7 +222,7 @@ static opcodeRec *newOpCode(compileContext *ctx, const char *str, int opType)
 
   opcodeRec *rec = (opcodeRec*)__newBlock_align(ctx->isSharedFunctions ? &ctx->blocks_head_data : &ctx->tmpblocks,
                          (int) (sizeof(opcodeRec) + (str_sz>0 ? str_sz+1 : 0)),
-                         8);
+                         8, 0);
   if (rec)
   {
     memset(rec,0,sizeof(*rec));
@@ -259,10 +259,10 @@ static int mprotect_get_page_size(void)
 #endif
 }
 
-#define newCodeBlock(x,a) __newBlock_align(&ctx->blocks_head_code,x,a)
-#define newDataBlock(x,a) __newBlock_align(&ctx->blocks_head_data,x,a)
-#define newCtxDataBlock(x,a) __newBlock_align(&ctx->ctx_pblocks,x,a)
-#define newTmpBlock(ctx, size) __newBlock_align(&(ctx)->tmpblocks, size, 8)
+#define newCodeBlock(x,a) __newBlock_align(&ctx->blocks_head_code,x,a, mprotect_get_page_size())
+#define newDataBlock(x,a) __newBlock_align(&ctx->blocks_head_data,x,a,0)
+#define newCtxDataBlock(x,a) __newBlock_align(&ctx->ctx_pblocks,x,a,0)
+#define newTmpBlock(ctx, size) __newBlock_align(&(ctx)->tmpblocks, size, 8,0)
 
 static void mprotect_blocks(llBlock *llb, int exec)
 {
@@ -270,14 +270,16 @@ static void mprotect_blocks(llBlock *llb, int exec)
   while (llb)
   {
     void *start_p = llb->block, *end_p = llb->block + llb->sizeused;
+    // for code blocks, we will never execute code in a leading partial page of block,
+    // and sizeused will never extend into a trailing partial page
   #ifdef _WIN32
     DWORD ov;
-    UINT_PTR offs=((UINT_PTR)start_p)&~4095;
+    UINT_PTR offs=((UINT_PTR)start_p + 4095)&~4095;
     UINT_PTR eoffs=((UINT_PTR)end_p + 4095)&~4095;
     VirtualProtect((LPVOID)offs,eoffs-offs,exec ? (PAGE_EXECUTE_READWRITE) : (PAGE_READWRITE),&ov);
   #else
     const int pagesize = mprotect_get_page_size();
-    uintptr_t offs=((uintptr_t)start_p)&~(pagesize-1);
+    uintptr_t offs=((uintptr_t)start_p + pagesize-1)&~(pagesize-1);
     uintptr_t eoffs=((uintptr_t)end_p + pagesize-1)&~(pagesize-1);
     mprotect((void*)offs,eoffs-offs,exec ? (PROT_WRITE|PROT_READ|PROT_EXEC) : (PROT_READ|PROT_WRITE));
   #endif
@@ -834,7 +836,7 @@ static void freeBlocks(llBlock **start)
 }
 
 //---------------------------------------------------------------------------------------------------------------
-static void *__newBlock_align(llBlock **start, int size, int align)
+static void *__newBlock_align(llBlock **start, int size, int align, int alloc_page_pad)
 {
   llBlock *llb = *start;
   int alloc_adj, align_pos, sizeused;
@@ -850,9 +852,14 @@ static void *__newBlock_align(llBlock **start, int size, int align)
     }
   }
 
+  if (alloc_page_pad > align) align = alloc_page_pad;
   alloc_adj = size + align - 1 - LLB_DSIZE;
+  if (alloc_adj < 0) alloc_adj = 0;
 
-  llb = (llBlock *)malloc(sizeof(llBlock) + (alloc_adj > 0 ? alloc_adj : 0));
+  if (alloc_page_pad > 0)
+    alloc_adj += alloc_page_pad-1;
+
+  llb = (llBlock *)malloc(sizeof(llBlock) + alloc_adj);
   if (!llb) return NULL;
 
   align_pos = (int) (((INT_PTR)llb->block)&(align-1));
