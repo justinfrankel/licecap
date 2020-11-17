@@ -170,7 +170,7 @@ static int nseel_vms_referencing_globallist_cnt;
 nseel_globalVarItem *nseel_globalreg_list;
 static EEL_F *get_global_var(compileContext *ctx, const char *gv, int addIfNotPresent);
 
-static void *__newBlock(llBlock **start,int size, int wantMprotect);
+static void *__newBlock(llBlock **start,int size);
 
 #define OPCODE_IS_TRIVIAL(x) ((x)->opcodeType <= OPCODETYPE_VARPTRPTR)
 enum {
@@ -218,7 +218,7 @@ static void *newTmpBlock(compileContext *ctx, int size)
 {
   const int align = 8;
   const int a1=align-1;
-  char *p=(char*)__newBlock(&ctx->tmpblocks,size+a1, 0);
+  char *p=(char*)__newBlock(&ctx->tmpblocks,size+a1);
   return p+((align-(((INT_PTR)p)&a1))&a1);
 }
 
@@ -229,7 +229,7 @@ static void *__newBlock_align(compileContext *ctx, int size, int align, int isFo
                             (                            
                              isForCode < 0 ? (isForCode == -2 ? &ctx->ctx_pblocks : &ctx->tmpblocks) : 
                              isForCode > 0 ? &ctx->blocks_head_code : 
-                             &ctx->blocks_head_data) ,size+a1, isForCode>0);
+                             &ctx->blocks_head_data) ,size+a1);
   return p+((align-(((INT_PTR)p)&a1))&a1);
 }
 
@@ -263,9 +263,46 @@ static opcodeRec *newOpCode(compileContext *ctx, const char *str, int opType)
   return rec;
 }
 
+static int mprotect_get_page_size(void)
+{
+#ifndef EEL_DOESNT_NEED_EXEC_PERMS
+#ifndef _WIN32
+  static int pagesize;
+  if (!pagesize) pagesize = (int)sysconf(_SC_PAGESIZE);
+  if (pagesize) return pagesize;
+#endif
+  return 4096;
+#else
+  return 0;
+#endif
+}
+
 #define newCodeBlock(x,a) __newBlock_align(ctx,x,a,1)
 #define newDataBlock(x,a) __newBlock_align(ctx,x,a,0)
 #define newCtxDataBlock(x,a) __newBlock_align(ctx,x,a,-2)
+
+
+static void mprotect_blocks(llBlock *llb, int exec)
+{
+#ifndef EEL_DOESNT_NEED_EXEC_PERMS
+  while (llb)
+  {
+    void *start_p = llb->block, *end_p = llb->block + llb->sizeused;
+  #ifdef _WIN32
+    DWORD ov;
+    UINT_PTR offs=((UINT_PTR)start_p)&~4095;
+    UINT_PTR eoffs=((UINT_PTR)end_p + 4095)&~4095;
+    VirtualProtect((LPVOID)offs,eoffs-offs,exec ? (PAGE_EXECUTE_READWRITE) : (PAGE_READWRITE),&ov);
+  #else
+    const int pagesize = mprotect_get_page_size();
+    uintptr_t offs=((uintptr_t)start_p)&~(pagesize-1);
+    uintptr_t eoffs=((uintptr_t)end_p + pagesize-1)&~(pagesize-1);
+    mprotect((void*)offs,eoffs-offs,exec ? (PROT_WRITE|PROT_READ|PROT_EXEC) : (PROT_READ|PROT_WRITE));
+  #endif
+    llb = llb->next;
+  }
+#endif
+}
 
 static void freeBlocks(llBlock **start);
 
@@ -815,12 +852,8 @@ static void freeBlocks(llBlock **start)
 }
 
 //---------------------------------------------------------------------------------------------------------------
-static void *__newBlock(llBlock **start, int size, int wantMprotect)
+static void *__newBlock(llBlock **start, int size)
 {
-#if !defined(EEL_DOESNT_NEED_EXEC_PERMS) && defined(_WIN32)
-  DWORD ov;
-  UINT_PTR offs,eoffs;
-#endif
   llBlock *llb;
   int alloc_size;
   if (*start && (LLB_DSIZE - (*start)->sizeused) >= size)
@@ -832,33 +865,9 @@ static void *__newBlock(llBlock **start, int size, int wantMprotect)
 
   alloc_size=sizeof(llBlock);
   if ((int)size > LLB_DSIZE) alloc_size += size - LLB_DSIZE;
-  llb = (llBlock *)malloc(alloc_size); // grab bigger block if absolutely necessary (heh)
+  llb = (llBlock *)malloc(alloc_size);
   if (!llb) return NULL;
   
-#ifndef EEL_DOESNT_NEED_EXEC_PERMS
-  if (wantMprotect) 
-  {
-  #ifdef _WIN32
-    offs=((UINT_PTR)llb)&~4095;
-    eoffs=((UINT_PTR)llb + alloc_size + 4095)&~4095;
-    VirtualProtect((LPVOID)offs,eoffs-offs,PAGE_EXECUTE_READWRITE,&ov);
-  //  MessageBox(NULL,"vprotecting, yay\n","a",0);
-  #else
-    {
-      static int pagesize = 0;
-      if (!pagesize)
-      {
-        pagesize=(int)sysconf(_SC_PAGESIZE);
-        if (!pagesize) pagesize=4096;
-      }
-      uintptr_t offs,eoffs;
-      offs=((uintptr_t)llb)&~(pagesize-1);
-      eoffs=((uintptr_t)llb + alloc_size + pagesize-1)&~(pagesize-1);
-      mprotect((void*)offs,eoffs-offs,PROT_WRITE|PROT_READ|PROT_EXEC);
-    }
-  #endif
-  }
-#endif
   llb->sizeused=(size+7)&~7;
   llb->next = *start;  
   *start = llb;
@@ -5028,6 +5037,7 @@ had_error:
     }
     
     handle->blocks_code = ctx->blocks_head_code;
+    mprotect_blocks(handle->blocks_code,1);
     handle->blocks_data = ctx->blocks_head_data;
     ctx->blocks_head_code=0;
     ctx->blocks_head_data=0;
@@ -5152,6 +5162,7 @@ void NSEEL_code_free(NSEEL_CODEHANDLE code)
     nseel_evallib_stats[3]-=h->code_stats[3];
     nseel_evallib_stats[4]--;
 
+    mprotect_blocks(h->blocks_code,0);
 #if defined(__ppc__) && defined(__APPLE__)
     {
       FILE *fp = fopen("/var/db/receipts/com.apple.pkg.Rosetta.plist","r");
