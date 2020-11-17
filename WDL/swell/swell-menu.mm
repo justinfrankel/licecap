@@ -274,6 +274,8 @@ bool SetMenuItemModifier(HMENU hMenu, int idx, int flag, int code, unsigned int 
     DEFKP(VK_NEXT,NSPageDownFunctionKey)
     DEFKP(VK_PRIOR,NSPageUpFunctionKey)
     DEFKP(VK_SUBTRACT,'-')
+    DEFKP(VK_RETURN,'\r')
+    // hmm numpad enter, what to do: DEFKP(VK_RETURN|32768, '\r')
   }
    
   unsigned int mask2=0;
