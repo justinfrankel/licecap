@@ -170,7 +170,7 @@ static int nseel_vms_referencing_globallist_cnt;
 nseel_globalVarItem *nseel_globalreg_list;
 static EEL_F *get_global_var(compileContext *ctx, const char *gv, int addIfNotPresent);
 
-static void *__newBlock(llBlock **start,int size);
+static void *__newBlock_align(llBlock **start,int size, int align);
 
 #define OPCODE_IS_TRIVIAL(x) ((x)->opcodeType <= OPCODETYPE_VARPTRPTR)
 enum {
@@ -214,12 +214,6 @@ struct opcodeRec
 
 
 
-static void *__newBlock_align(llBlock **llb, int size, int align)
-{
-  const int a1=align-1;
-  char *p=(char*)__newBlock(llb, size+a1);
-  return p+((align-(((INT_PTR)p)&a1))&a1);
-}
 
 static opcodeRec *newOpCode(compileContext *ctx, const char *str, int opType)
 {
@@ -840,26 +834,34 @@ static void freeBlocks(llBlock **start)
 }
 
 //---------------------------------------------------------------------------------------------------------------
-static void *__newBlock(llBlock **start, int size)
+static void *__newBlock_align(llBlock **start, int size, int align)
 {
-  llBlock *llb;
-  int alloc_size;
-  if (*start && (LLB_DSIZE - (*start)->sizeused) >= size)
+  llBlock *llb = *start;
+  int alloc_adj, align_pos, sizeused;
+  if (llb && (sizeused = llb->sizeused) + size <= LLB_DSIZE)
   {
-    void *t=(*start)->block+(*start)->sizeused;
-    (*start)->sizeused+=(size+7)&~7;
-    return t;
+    align_pos = (int) (((INT_PTR)llb->block + sizeused)&(align-1));
+    if (align_pos) align_pos = align - align_pos;
+
+    if (sizeused + size + align_pos <= LLB_DSIZE)
+    {
+      llb->sizeused += size + align_pos;
+      return llb->block + sizeused + align_pos;
+    }
   }
 
-  alloc_size=sizeof(llBlock);
-  if ((int)size > LLB_DSIZE) alloc_size += size - LLB_DSIZE;
-  llb = (llBlock *)malloc(alloc_size);
+  alloc_adj = size + align - 1 - LLB_DSIZE;
+
+  llb = (llBlock *)malloc(sizeof(llBlock) + (alloc_adj > 0 ? alloc_adj : 0));
   if (!llb) return NULL;
+
+  align_pos = (int) (((INT_PTR)llb->block)&(align-1));
+  if (align_pos) align_pos = align - align_pos;
   
-  llb->sizeused=(size+7)&~7;
+  llb->sizeused = size + align_pos;
   llb->next = *start;  
   *start = llb;
-  return llb->block;
+  return llb->block + align_pos;
 }
 
 
