@@ -276,12 +276,12 @@ static void mprotect_blocks(llBlock *llb, int exec)
     DWORD ov;
     UINT_PTR offs=((UINT_PTR)start_p + 4095)&~4095;
     UINT_PTR eoffs=((UINT_PTR)end_p + 4095)&~4095;
-    VirtualProtect((LPVOID)offs,eoffs-offs,exec ? (PAGE_EXECUTE_READWRITE) : (PAGE_READWRITE),&ov);
+    VirtualProtect((LPVOID)offs,eoffs-offs,exec ? (PAGE_EXECUTE_READ) : (PAGE_READWRITE),&ov);
   #else
     const int pagesize = mprotect_get_page_size();
     uintptr_t offs=((uintptr_t)start_p + pagesize-1)&~(pagesize-1);
     uintptr_t eoffs=((uintptr_t)end_p + pagesize-1)&~(pagesize-1);
-    mprotect((void*)offs,eoffs-offs,exec ? (PROT_WRITE|PROT_READ|PROT_EXEC) : (PROT_READ|PROT_WRITE));
+    mprotect((void*)offs,eoffs-offs,exec ? (PROT_READ|PROT_EXEC) : (PROT_READ|PROT_WRITE));
   #endif
     llb = llb->next;
   }
