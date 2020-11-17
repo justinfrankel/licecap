@@ -218,7 +218,7 @@ static void *newTmpBlock(compileContext *ctx, int size)
 {
   const int align = 8;
   const int a1=align-1;
-  char *p=(char*)__newBlock(&ctx->tmpblocks_head,size+a1, 0);
+  char *p=(char*)__newBlock(&ctx->tmpblocks,size+a1, 0);
   return p+((align-(((INT_PTR)p)&a1))&a1);
 }
 
@@ -227,8 +227,8 @@ static void *__newBlock_align(compileContext *ctx, int size, int align, int isFo
   const int a1=align-1;
   char *p=(char*)__newBlock(
                             (                            
-                             isForCode < 0 ? (isForCode == -2 ? &ctx->pblocks : &ctx->tmpblocks_head) : 
-                             isForCode > 0 ? &ctx->blocks_head : 
+                             isForCode < 0 ? (isForCode == -2 ? &ctx->ctx_pblocks : &ctx->tmpblocks) : 
+                             isForCode > 0 ? &ctx->blocks_head_code : 
                              &ctx->blocks_head_data) ,size+a1, isForCode>0);
   return p+((align-(((INT_PTR)p)&a1))&a1);
 }
@@ -4481,9 +4481,9 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
   ctx->isSharedFunctions = !!(compile_flags & NSEEL_CODE_COMPILE_FLAG_COMMONFUNCS);
   ctx->functions_local = NULL;
 
-  freeBlocks(&ctx->tmpblocks_head);  // free blocks
-  freeBlocks(&ctx->blocks_head);  // free blocks
-  freeBlocks(&ctx->blocks_head_data);  // free blocks
+  freeBlocks(&ctx->tmpblocks);
+  freeBlocks(&ctx->blocks_head_code);
+  freeBlocks(&ctx->blocks_head_data);
   memset(ctx->l_stats,0,sizeof(ctx->l_stats));
 
   handle = (codeHandleType*)newDataBlock(sizeof(codeHandleType),8);
@@ -5027,15 +5027,15 @@ had_error:
 #endif
     }
     
-    handle->blocks = ctx->blocks_head;
+    handle->blocks_code = ctx->blocks_head_code;
     handle->blocks_data = ctx->blocks_head_data;
-    ctx->blocks_head=0;
+    ctx->blocks_head_code=0;
     ctx->blocks_head_data=0;
   }
   else
   {
     // failed compiling, or failed calloc()
-    handle=NULL;              // return NULL (after resetting blocks_head)
+    handle=NULL;
   }
 
 
@@ -5045,9 +5045,9 @@ had_error:
   ctx->isGeneratingCommonFunction=0;
   ctx->isSharedFunctions=0;
 
-  freeBlocks(&ctx->tmpblocks_head);  // free blocks
-  freeBlocks(&ctx->blocks_head);  // free blocks of code (will be nonzero only on error)
-  freeBlocks(&ctx->blocks_head_data);  // free blocks of data (will be nonzero only on error)
+  freeBlocks(&ctx->tmpblocks);
+  freeBlocks(&ctx->blocks_head_code);
+  freeBlocks(&ctx->blocks_head_data);
 
   if (handle)
   {
@@ -5162,11 +5162,11 @@ void NSEEL_code_free(NSEEL_CODEHANDLE code)
       }
       else
       {
-        freeBlocks(&h->blocks);
+        freeBlocks(&h->blocks_code);
       }
     }
 #else
-  freeBlocks(&h->blocks);
+    freeBlocks(&h->blocks_code);
 #endif
     
     freeBlocks(&h->blocks_data);
@@ -5245,12 +5245,12 @@ void NSEEL_VM_free(NSEEL_VMCTX _ctx) // free when done with a VM and ALL of its 
     EEL_GROWBUF_RESIZE(&ctx->varNameList,-1);
     NSEEL_VM_freeRAM(_ctx);
 
-    freeBlocks(&ctx->pblocks);
+    freeBlocks(&ctx->ctx_pblocks);
 
     // these should be 0 normally but just in case
-    freeBlocks(&ctx->tmpblocks_head);  // free blocks
-    freeBlocks(&ctx->blocks_head);  // free blocks
-    freeBlocks(&ctx->blocks_head_data);  // free blocks
+    freeBlocks(&ctx->tmpblocks);
+    freeBlocks(&ctx->blocks_head_code);
+    freeBlocks(&ctx->blocks_head_data);
 
 
     #ifndef NSEEL_SUPER_MINIMAL_LEXER

@@ -143,8 +143,7 @@ typedef struct _llBlock {
 } llBlock;
 
 typedef struct {
-  llBlock *blocks, 
-          *blocks_data;
+  llBlock *blocks_code, *blocks_data;
   void *workTable; // references a chunk in blocks_data
 
   void *code;
@@ -195,12 +194,12 @@ typedef struct _compileContext
   void *scanner;
   const char *rdbuf_start, *rdbuf, *rdbuf_end;
 
-  llBlock *tmpblocks_head, // used while compiling, and freed after compiling
+  llBlock *tmpblocks, // used while compiling, and freed after compiling
 
-          *blocks_head,  // used while compiling, transferred to code context (these are pages marked as executable)
+          *blocks_head_code,  // used while compiling, transferred to code context (whole pages marked as executable)
           *blocks_head_data, // used while compiling, transferred to code context
 
-          *pblocks; // persistent blocks, stores data used by varTable_Names, varTable_Values, etc.
+          *ctx_pblocks; // persistent blocks, stores data used by varTable_Names, varTable_Values, etc.
 
   int l_stats[4]; // source bytes, static code bytes, call code bytes, data bytes
   int has_used_global_vars;
