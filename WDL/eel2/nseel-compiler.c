@@ -214,22 +214,10 @@ struct opcodeRec
 
 
 
-static void *newTmpBlock(compileContext *ctx, int size)
-{
-  const int align = 8;
-  const int a1=align-1;
-  char *p=(char*)__newBlock(&ctx->tmpblocks,size+a1);
-  return p+((align-(((INT_PTR)p)&a1))&a1);
-}
-
-static void *__newBlock_align(compileContext *ctx, int size, int align, int isForCode) 
+static void *__newBlock_align(llBlock **llb, int size, int align)
 {
   const int a1=align-1;
-  char *p=(char*)__newBlock(
-                            (                            
-                             isForCode < 0 ? (isForCode == -2 ? &ctx->ctx_pblocks : &ctx->tmpblocks) : 
-                             isForCode > 0 ? &ctx->blocks_head_code : 
-                             &ctx->blocks_head_data) ,size+a1);
+  char *p=(char*)__newBlock(llb, size+a1);
   return p+((align-(((INT_PTR)p)&a1))&a1);
 }
 
@@ -238,9 +226,9 @@ static opcodeRec *newOpCode(compileContext *ctx, const char *str, int opType)
   const size_t strszfull = str ? strlen(str) : 0;
   const size_t str_sz = wdl_min(NSEEL_MAX_VARIABLE_NAMELEN, strszfull);
 
-  opcodeRec *rec = (opcodeRec*)__newBlock_align(ctx,
+  opcodeRec *rec = (opcodeRec*)__newBlock_align(ctx->isSharedFunctions ? &ctx->blocks_head_data : &ctx->tmpblocks,
                          (int) (sizeof(opcodeRec) + (str_sz>0 ? str_sz+1 : 0)),
-                         8, ctx->isSharedFunctions ? 0 : -1); 
+                         8);
   if (rec)
   {
     memset(rec,0,sizeof(*rec));
@@ -277,10 +265,10 @@ static int mprotect_get_page_size(void)
 #endif
 }
 
-#define newCodeBlock(x,a) __newBlock_align(ctx,x,a,1)
-#define newDataBlock(x,a) __newBlock_align(ctx,x,a,0)
-#define newCtxDataBlock(x,a) __newBlock_align(ctx,x,a,-2)
-
+#define newCodeBlock(x,a) __newBlock_align(&ctx->blocks_head_code,x,a)
+#define newDataBlock(x,a) __newBlock_align(&ctx->blocks_head_data,x,a)
+#define newCtxDataBlock(x,a) __newBlock_align(&ctx->ctx_pblocks,x,a)
+#define newTmpBlock(ctx, size) __newBlock_align(&(ctx)->tmpblocks, size, 8)
 
 static void mprotect_blocks(llBlock *llb, int exec)
 {
