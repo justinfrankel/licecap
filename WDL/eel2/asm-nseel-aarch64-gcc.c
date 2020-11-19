@@ -142,6 +142,17 @@ void nseel_asm_abs(void)
 void nseel_asm_abs_end(void) {}
 
 
+#define FLUSH_TO_ZERO \
+  "ldr x1, [x1]\n" \
+  "mov     x3, #0x10000000000000\n" \
+  "mov     x2, #0x20000000000000\n" \
+  "add     x1, x1, x3\n" \
+  "and     x1, x1, #0x7ff0000000000000\n" \
+  "cmp     x1, x2\n" \
+  "bgt     0f\n" \
+  "str     xzr, [x0]\n" \
+  "0:\n"
+
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_assign(void)
 {
@@ -150,6 +161,7 @@ void nseel_asm_assign(void)
    "ldr d0, [x0]\n"
    "mov x0, x1\n"
    "str d0, [x1]\n"
+    FLUSH_TO_ZERO
     FUNCTION_MARKER
   );
 }
@@ -162,6 +174,7 @@ void nseel_asm_assign_fromfp(void)
     FUNCTION_MARKER
    "mov x0, x1\n"
    "str d0, [x1]\n"
+    FLUSH_TO_ZERO
     FUNCTION_MARKER
   );
 }
@@ -214,6 +227,7 @@ void nseel_asm_add_op(void)
    "fadd d0, d1, d0\n"
    "mov x0, x1\n"
    "str d0, [x1]\n"
+    FLUSH_TO_ZERO
     FUNCTION_MARKER
   );
 }
@@ -253,6 +267,7 @@ void nseel_asm_sub_op(void)
    "fsub d0, d1, d0\n"
    "mov x0, x1\n"
    "str d0, [x1]\n"
+    FLUSH_TO_ZERO
     FUNCTION_MARKER
   );
 }
@@ -291,6 +306,7 @@ void nseel_asm_mul_op(void)
    "fmul d0, d0, d1\n"
    "mov x0, x1\n"
    "str d0, [x1]\n"
+    FLUSH_TO_ZERO
     FUNCTION_MARKER
   );
 }
@@ -329,6 +345,7 @@ void nseel_asm_div_op(void)
    "fdiv d0, d1, d0\n"
    "mov x0, x1\n"
    "str d0, [x1]\n"
+    FLUSH_TO_ZERO
     FUNCTION_MARKER
   );
 }
