@@ -191,4 +191,8 @@ static WDL_bool WDL_STATICFUNC_UNUSED WDL_TICKS_IN_RANGE_ENDING_AT(WDL_TICKTYPE 
   #define WDL_fopenA(fn,mode) fopen(fn,mode)
 #endif
 
+#ifndef WDL_ALLOW_UNSIGNED_DEFAULT_CHAR
+typedef char wdl_assert_failed_unsigned_char[((char)-1) > 0 ? -1 : 1];
+#endif
+
 #endif
