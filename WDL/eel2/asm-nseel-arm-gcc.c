@@ -137,6 +137,18 @@ __attribute__((naked)) void nseel_asm_abs(void)
 }
 __attribute__((naked)) void nseel_asm_abs_end(void) {}
 
+#define FLUSH_TO_ZERO \
+   "ldr r1, [r0, #4]\n" \
+   "movs    r2, #0\n" \
+   "movt    r2, #0x7ff0\n" \
+   "add     r1, r1, #0x00100000\n" \
+   "ands    r1, r1, r2\n" \
+   "cmp     r1, #0x00200000\n" \
+   "bgt 0f\n" \
+   "movs    r2, #0\n" \
+   "movs    r3, #0\n" \
+   "strd    r2, [r0]\n" \
+   "0:\n"
 
 //---------------------------------------------------------------------------------------------------------------
 __attribute__((naked)) void nseel_asm_assign(void)
@@ -146,6 +158,8 @@ __attribute__((naked)) void nseel_asm_assign(void)
    "fldd d0, [r0]\n"
    "mov r0, r1\n"
    "fstd d0, [r1]\n"
+
+    FLUSH_TO_ZERO
     FUNCTION_MARKER
   );
 }
@@ -158,6 +172,7 @@ __attribute__((naked)) void nseel_asm_assign_fromfp(void)
     FUNCTION_MARKER
    "mov r0, r1\n"
    "fstd d0, [r1]\n"
+    FLUSH_TO_ZERO
     FUNCTION_MARKER
   );
 }
@@ -210,6 +225,7 @@ __attribute__((naked)) void nseel_asm_add_op(void)
    "faddd d0, d1, d0\n"
    "mov r0, r1\n"
    "fstd d0, [r1]\n"
+    FLUSH_TO_ZERO
     FUNCTION_MARKER
   );
 }
@@ -249,6 +265,7 @@ __attribute__((naked)) void nseel_asm_sub_op(void)
    "fsubd d0, d1, d0\n"
    "mov r0, r1\n"
    "fstd d0, [r1]\n"
+    FLUSH_TO_ZERO
     FUNCTION_MARKER
   );
 }
@@ -287,6 +304,7 @@ __attribute__((naked)) void nseel_asm_mul_op(void)
    "fmuld d0, d0, d1\n"
    "mov r0, r1\n"
    "fstd d0, [r1]\n"
+    FLUSH_TO_ZERO
     FUNCTION_MARKER
   );
 }
@@ -325,6 +343,7 @@ __attribute__((naked)) void nseel_asm_div_op(void)
    "fdivd d0, d1, d0\n"
    "mov r0, r1\n"
    "fstd d0, [r1]\n"
+    FLUSH_TO_ZERO
     FUNCTION_MARKER
   );
 }
@@ -426,6 +445,7 @@ __attribute__((naked)) void nseel_asm_mod_op(void)
     "0:\n"
     "mov r0, r1\n"
     "fstd d0, [r1]\n"
+    FLUSH_TO_ZERO
     FUNCTION_MARKER
   );
 
