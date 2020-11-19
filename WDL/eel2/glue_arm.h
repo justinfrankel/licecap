@@ -301,11 +301,15 @@ static void  __attribute__((unused)) glue_setscr(unsigned int v)
 
 void eel_setfp_round() 
 { 
-  // glue_setscr(glue_getscr()|(3<<22));
+  const unsigned int s = glue_getscr();
+  if (s & (1<<24))
+    glue_setscr(s ^ (1<<24));
 }
 void eel_setfp_trunc() 
 { 
-  // glue_setscr(glue_getscr()&~(3<<22));
+  const unsigned int s = glue_getscr();
+  if (!(s & (1<<24)))
+    glue_setscr(s ^ (1<<24));
 }
 void eel_enterfp(int s[2]) 
 {

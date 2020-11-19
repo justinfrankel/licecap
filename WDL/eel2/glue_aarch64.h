@@ -190,7 +190,7 @@ static int GLUE_COPY_VALUE_AT_P1_TO_PTR(unsigned char *buf, void *destptr)
 
 #ifndef _MSC_VER
 #define GLUE_CALL_CODE(bp, cp, rt) do { \
-  unsigned int f; \
+  unsigned long f; \
   if (!(h->compile_flags&NSEEL_CODE_COMPILE_FLAG_NOFPSTATE) && \
       !((f=glue_getscr())&(1<<24))) {  \
     glue_setscr(f|(1<<24)); \
@@ -229,7 +229,8 @@ static void eel_callcode64(INT_PTR bp, INT_PTR cp, INT_PTR rt)
           "ldp x18, x20, [sp], 16\n"
           "ldp x21, x19, [sp], 16\n"
           "ldp x22, x23, [sp], 16\n"
-            ::"r" (cp), "r" (bp), "r" (rt), "r" (consttab) : "x1","x2","x3","x0");
+            ::"r" (cp), "r" (bp), "r" (rt), "r" (consttab) :"x0","x1","x2","x3","x4","x5","x6","x7",
+                                                            "x8","x9","x10","x11","x12","x13","x14","x15");
              
 };
 #endif
@@ -341,9 +342,15 @@ static void  __attribute__((unused)) glue_setscr(unsigned long v)
 
 void eel_setfp_round() 
 { 
+  const unsigned long s = glue_getscr();
+  if (s & (1<<24))
+    glue_setscr(s ^ (1<<24));
 }
 void eel_setfp_trunc() 
 { 
+  const unsigned long s = glue_getscr();
+  if (!(s & (1<<24)))
+    glue_setscr(s ^ (1<<24));
 }
 void eel_enterfp(int _s[2]) 
 {
