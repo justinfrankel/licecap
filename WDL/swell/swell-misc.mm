@@ -503,14 +503,6 @@ BOOL KillTimer(HWND hwnd, UINT_PTR timerid)
 
 ///////// PostMessage emulation
 
-BOOL PostMessage(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
-{
-  id del=[NSApp delegate];
-  if (del && [del respondsToSelector:@selector(swellPostMessage:msg:wp:lp:)])
-    return !![(SWELL_DelegateExtensions*)del swellPostMessage:hwnd msg:message wp:wParam lp:lParam];
-  return FALSE;
-}
-
 void SWELL_MessageQueue_Clear(HWND h)
 {
   id del=[NSApp delegate];
@@ -582,7 +574,8 @@ void SWELL_MessageQueue_Flush()
     }
     else
     {
-      SendMessage(p->hwnd,p->msg,p->wParam,p->lParam); 
+      if ([(id)p->hwnd respondsToSelector:@selector(swellCanPostMessage)] && [(id)p->hwnd swellCanPostMessage])
+        SendMessage(p->hwnd,p->msg,p->wParam,p->lParam); 
     }
     
     m_pmq_mutex->Enter();
@@ -669,15 +662,29 @@ static void SWELL_pmq_settimer(HWND h, UINT_PTR timerid, UINT rate, TIMERPROC tP
   m_pmq_size++;
 }
 
+BOOL PostMessage(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+  if (WDL_NORMALLY(m_pmq_mutex != NULL))
+  {
+    return SWELL_Internal_PostMessage(hwnd,message,wParam,lParam);
+  }
+
+  // legacy passthrough to delegate if caller is using its own swell impl, not threadsafe
+  id del=[NSApp delegate];
+  if (del && [del respondsToSelector:@selector(swellPostMessage:msg:wp:lp:)])
+    return !![(SWELL_DelegateExtensions*)del swellPostMessage:hwnd msg:message wp:wParam lp:lParam];
+  return FALSE;
+}
+
+
 BOOL SWELL_Internal_PostMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
   if (!hwnd||!m_pmq_mutex) return FALSE;
-  if (![(id)hwnd respondsToSelector:@selector(swellCanPostMessage)]) return FALSE;
-  
+
   BOOL ret=FALSE;
   m_pmq_mutex->Enter();
   
-  if ((m_pmq_empty||m_pmq_size<MAX_POSTMESSAGE_SIZE) && [(id)hwnd swellCanPostMessage])
+  if (m_pmq_empty||m_pmq_size<MAX_POSTMESSAGE_SIZE)
   {
     PMQ_rec *rec=m_pmq_empty;
     if (rec) m_pmq_empty=rec->next;
