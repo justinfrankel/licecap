@@ -1140,7 +1140,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL( m_lbMode ? "SysListView32_LB" : "SysListView
   NSView *ctl=[self controlView];
   if (!ctl) { [super drawWithFrame:cellFrame inView:controlView]; return; }
   
-  HDC hdc=GetDC((HWND)controlView);
+  HDC hdc=SWELL_CreateGfxContext([NSGraphicsContext currentContext]);
   if (hdc)
   {
     HWND notWnd = GetParent((HWND)ctl);
@@ -1148,7 +1148,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL( m_lbMode ? "SysListView32_LB" : "SysListView
     NSRECT_TO_RECT(&dis.rcItem,cellFrame);
     SendMessage(notWnd,WM_DRAWITEM,dis.CtlID,(LPARAM)&dis);
   
-    ReleaseDC((HWND)controlView,hdc);
+    SWELL_DeleteGfxContext(hdc);
   }
   
 }
@@ -1169,7 +1169,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL( m_lbMode ? "SysListView32_LB" : "SysListView
   SWELL_ListView_Row *row=m_ownctl->m_items->Get(itemidx);
   if (row) itemData=row->m_param;
 
-  HDC hdc=GetDC((HWND)controlView);
+  HDC hdc=SWELL_CreateGfxContext([NSGraphicsContext currentContext]);
   if (hdc)
   {
     HWND notWnd = GetParent((HWND)m_ownctl);
@@ -1177,7 +1177,7 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL( m_lbMode ? "SysListView32_LB" : "SysListView
     NSRECT_TO_RECT(&dis.rcItem,cellFrame);
     SendMessage(notWnd,WM_DRAWITEM,dis.CtlID,(LPARAM)&dis);
   
-    ReleaseDC((HWND)controlView,hdc);
+    SWELL_DeleteGfxContext(hdc);
   }
 }
 
