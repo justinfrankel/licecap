@@ -24,23 +24,16 @@ char *tag_strndup(const char *src, int len)
 
 void XMLCompliantAppend(WDL_FastString *str, const char *txt)
 {
-  if (!str) return;
-  int pos=str->GetLength();
-  str->Append(txt);
-  int len=str->GetLength();
-  for (int i=pos; i < len; ++i)
+  if (str && txt) for (;;)
   {
-    char c=str->Get()[i];
-    const char *repl=NULL;
-    if (c == '<') repl="&lt;";
-    else if (c == '>') repl="&gt;";
-    else if (c == '&') repl="&amp;";
-    if (repl)
+    char c = *txt++;
+    switch (c)
     {
-      str->DeleteSub(i, 1);
-      str->Insert(repl, i);
-      pos += strlen(repl)-1;
-      len += strlen(repl)-1;
+      case 0: return;
+      case '<': str->Append("&lt;"); break;
+      case '>': str->Append("&gt;"); break;
+      case '&': str->Append("&amp;"); break;
+      default: str->Append(&c,1); break;
     }
   }
 }
