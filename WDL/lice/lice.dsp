@@ -549,34 +549,6 @@ SOURCE=..\giflib\gifalloc.c
 
 # End Source File
 # End Group
-# Begin Group "tinyxml"
-
-# PROP Default_Filter ""
-# Begin Source File
-
-SOURCE=..\tinyxml\svgtiny_colors.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\tinyxml\tinystr.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=..\tinyxml\tinyxml.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=..\tinyxml\tinyxml.h
-# End Source File
-# Begin Source File
-
-SOURCE=..\tinyxml\tinyxmlerror.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=..\tinyxml\tinyxmlparser.cpp
-# End Source File
-# End Group
 # Begin Source File
 
 SOURCE=.\lice.cpp
@@ -822,24 +794,6 @@ SOURCE=.\lice_png.cpp
 # Begin Source File
 
 SOURCE=.\lice_png_write.cpp
-
-!IF  "$(CFG)" == "lice - Win32 Release"
-
-# ADD CPP /D "USE_ICC"
-
-!ELSEIF  "$(CFG)" == "lice - Win32 Debug"
-
-!ELSEIF  "$(CFG)" == "lice - Win32 Release Profile"
-
-# ADD BASE CPP /D "USE_ICC"
-# ADD CPP /D "USE_ICC"
-
-!ENDIF 
-
-# End Source File
-# Begin Source File
-
-SOURCE=.\lice_svg.cpp
 
 !IF  "$(CFG)" == "lice - Win32 Release"
 

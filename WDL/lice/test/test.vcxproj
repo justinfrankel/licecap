@@ -97,11 +97,6 @@
     <ClCompile Include="..\..\giflib\egif_lib.c" />
     <ClCompile Include="..\..\giflib\gif_hash.c" />
     <ClCompile Include="..\..\giflib\gifalloc.c" />
-    <ClCompile Include="..\..\tinyxml\svgtiny_colors.c" />
-    <ClCompile Include="..\..\tinyxml\tinystr.cpp" />
-    <ClCompile Include="..\..\tinyxml\tinyxml.cpp" />
-    <ClCompile Include="..\..\tinyxml\tinyxmlerror.cpp" />
-    <ClCompile Include="..\..\tinyxml\tinyxmlparser.cpp" />
     <ClCompile Include="..\lice.cpp" />
     <ClCompile Include="..\lice_arc.cpp" />
     <ClCompile Include="..\lice_bmp.cpp" />
@@ -115,7 +110,6 @@
     <ClCompile Include="..\lice_pcx.cpp" />
     <ClCompile Include="..\lice_png.cpp" />
     <ClCompile Include="..\lice_png_write.cpp" />
-    <ClCompile Include="..\lice_svg.cpp" />
     <ClCompile Include="..\lice_texgen.cpp" />
     <ClCompile Include="..\lice_text.cpp" />
     <ClCompile Include="..\lice_textnew.cpp" />

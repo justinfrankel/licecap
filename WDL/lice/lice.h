@@ -377,8 +377,6 @@ LICE_IBitmap *LICE_LoadGIF(const char *filename, LICE_IBitmap *bmp=NULL, int *nf
 
 LICE_IBitmap *LICE_LoadPCX(const char *filename, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
 
-LICE_IBitmap *LICE_LoadSVG(const char *filename, LICE_IBitmap *bmp=NULL);
-
 // bitmap saving
 bool LICE_WritePNG(const char *filename, LICE_IBitmap *bmp, bool wantalpha=true);
 bool LICE_WriteJPG(const char *filename, LICE_IBitmap *bmp, int quality=95, bool force_baseline=true);

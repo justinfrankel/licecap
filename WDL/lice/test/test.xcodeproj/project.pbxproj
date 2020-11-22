@@ -104,13 +104,6 @@
 		3350A9D2146B63B500702E1F /* lice_lvg.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3350A9D0146B63B500702E1F /* lice_lvg.cpp */; };
 		3350A9D3146B63B500702E1F /* lice_palette.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3350A9D1146B63B500702E1F /* lice_palette.cpp */; };
 		33651CDE10B766A6005FF751 /* swell-misc.mm in Sources */ = {isa = PBXBuildFile; fileRef = 33651CDD10B766A6005FF751 /* swell-misc.mm */; };
-		33651CE010B766B2005FF751 /* lice_svg.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 33651CDF10B766B2005FF751 /* lice_svg.cpp */; };
-		33651CEC10B766E1005FF751 /* libxml_tinyxml.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 33651CE310B766E1005FF751 /* libxml_tinyxml.cpp */; };
-		33651CED10B766E1005FF751 /* svgtiny_colors.c in Sources */ = {isa = PBXBuildFile; fileRef = 33651CE510B766E1005FF751 /* svgtiny_colors.c */; };
-		33651CEE10B766E1005FF751 /* tinystr.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 33651CE610B766E1005FF751 /* tinystr.cpp */; };
-		33651CEF10B766E1005FF751 /* tinyxml.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 33651CE810B766E1005FF751 /* tinyxml.cpp */; };
-		33651CF010B766E1005FF751 /* tinyxmlerror.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 33651CEA10B766E1005FF751 /* tinyxmlerror.cpp */; };
-		33651CF110B766E1005FF751 /* tinyxmlparser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 33651CEB10B766E1005FF751 /* tinyxmlparser.cpp */; };
 		33BD26B70ECF7811000A367A /* pl_cam.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 33BD26AC0ECF7811000A367A /* pl_cam.cpp */; };
 		33BD26B80ECF7811000A367A /* pl_make.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 33BD26AD0ECF7811000A367A /* pl_make.cpp */; };
 		33BD26B90ECF7811000A367A /* pl_math.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 33BD26AE0ECF7811000A367A /* pl_math.cpp */; };
@@ -273,16 +266,6 @@
 		3350A9D0146B63B500702E1F /* lice_lvg.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = lice_lvg.cpp; path = ../lice_lvg.cpp; sourceTree = SOURCE_ROOT; };
 		3350A9D1146B63B500702E1F /* lice_palette.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = lice_palette.cpp; path = ../lice_palette.cpp; sourceTree = SOURCE_ROOT; };
 		33651CDD10B766A6005FF751 /* swell-misc.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = "swell-misc.mm"; path = "../../swell/swell-misc.mm"; sourceTree = SOURCE_ROOT; };
-		33651CDF10B766B2005FF751 /* lice_svg.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = lice_svg.cpp; path = ../lice_svg.cpp; sourceTree = SOURCE_ROOT; };
-		33651CE310B766E1005FF751 /* libxml_tinyxml.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = libxml_tinyxml.cpp; path = ../../tinyxml/libxml_tinyxml.cpp; sourceTree = SOURCE_ROOT; };
-		33651CE410B766E1005FF751 /* libxml_tinyxml.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = libxml_tinyxml.h; path = ../../tinyxml/libxml_tinyxml.h; sourceTree = SOURCE_ROOT; };
-		33651CE510B766E1005FF751 /* svgtiny_colors.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = svgtiny_colors.c; path = ../../tinyxml/svgtiny_colors.c; sourceTree = SOURCE_ROOT; };
-		33651CE610B766E1005FF751 /* tinystr.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = tinystr.cpp; path = ../../tinyxml/tinystr.cpp; sourceTree = SOURCE_ROOT; };
-		33651CE710B766E1005FF751 /* tinystr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = tinystr.h; path = ../../tinyxml/tinystr.h; sourceTree = SOURCE_ROOT; };
-		33651CE810B766E1005FF751 /* tinyxml.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = tinyxml.cpp; path = ../../tinyxml/tinyxml.cpp; sourceTree = SOURCE_ROOT; };
-		33651CE910B766E1005FF751 /* tinyxml.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = tinyxml.h; path = ../../tinyxml/tinyxml.h; sourceTree = SOURCE_ROOT; };
-		33651CEA10B766E1005FF751 /* tinyxmlerror.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = tinyxmlerror.cpp; path = ../../tinyxml/tinyxmlerror.cpp; sourceTree = SOURCE_ROOT; };
-		33651CEB10B766E1005FF751 /* tinyxmlparser.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = tinyxmlparser.cpp; path = ../../tinyxml/tinyxmlparser.cpp; sourceTree = SOURCE_ROOT; };
 		33BD26AC0ECF7811000A367A /* pl_cam.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = pl_cam.cpp; path = ../../plush2/pl_cam.cpp; sourceTree = SOURCE_ROOT; };
 		33BD26AD0ECF7811000A367A /* pl_make.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = pl_make.cpp; path = ../../plush2/pl_make.cpp; sourceTree = SOURCE_ROOT; };
 		33BD26AE0ECF7811000A367A /* pl_math.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = pl_math.cpp; path = ../../plush2/pl_math.cpp; sourceTree = SOURCE_ROOT; };
@@ -429,8 +412,6 @@
 			children = (
 				3350A9D0146B63B500702E1F /* lice_lvg.cpp */,
 				3350A9D1146B63B500702E1F /* lice_palette.cpp */,
-				33651CE110B766B6005FF751 /* tinyxml */,
-				33651CDF10B766B2005FF751 /* lice_svg.cpp */,
 				33BD26C00ECF7830000A367A /* lice_bezier.h */,
 				33BD26C10ECF7830000A367A /* lice_bmp.cpp */,
 				33BD26C20ECF7830000A367A /* lice_ico.cpp */,
@@ -589,22 +570,6 @@
 			name = giflib;
 			sourceTree = "<group>";
 		};
-		33651CE110B766B6005FF751 /* tinyxml */ = {
-			isa = PBXGroup;
-			children = (
-				33651CE310B766E1005FF751 /* libxml_tinyxml.cpp */,
-				33651CE410B766E1005FF751 /* libxml_tinyxml.h */,
-				33651CE510B766E1005FF751 /* svgtiny_colors.c */,
-				33651CE610B766E1005FF751 /* tinystr.cpp */,
-				33651CE710B766E1005FF751 /* tinystr.h */,
-				33651CE810B766E1005FF751 /* tinyxml.cpp */,
-				33651CE910B766E1005FF751 /* tinyxml.h */,
-				33651CEA10B766E1005FF751 /* tinyxmlerror.cpp */,
-				33651CEB10B766E1005FF751 /* tinyxmlparser.cpp */,
-			);
-			name = tinyxml;
-			sourceTree = "<group>";
-		};
 		33BD26AA0ECF77F9000A367A /* plush2 */ = {
 			isa = PBXGroup;
 			children = (
@@ -649,8 +614,11 @@
 /* Begin PBXProject section */
 		29B97313FDCFA39411CA2CEA /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = C01FCF4E08A954540054247B /* Build configuration list for PBXProject "test" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = en;
 			hasScannedForEncodings = 1;
 			knownRegions = (
 				English,
@@ -796,13 +764,6 @@
 				33BD26CF0ECF7830000A367A /* lice_textnew.cpp in Sources */,
 				33BD26DF0ECF78C3000A367A /* fly.cpp in Sources */,
 				33651CDE10B766A6005FF751 /* swell-misc.mm in Sources */,
-				33651CE010B766B2005FF751 /* lice_svg.cpp in Sources */,
-				33651CEC10B766E1005FF751 /* libxml_tinyxml.cpp in Sources */,
-				33651CED10B766E1005FF751 /* svgtiny_colors.c in Sources */,
-				33651CEE10B766E1005FF751 /* tinystr.cpp in Sources */,
-				33651CEF10B766E1005FF751 /* tinyxml.cpp in Sources */,
-				33651CF010B766E1005FF751 /* tinyxmlerror.cpp in Sources */,
-				33651CF110B766E1005FF751 /* tinyxmlparser.cpp in Sources */,
 				3350A9D2146B63B500702E1F /* lice_lvg.cpp in Sources */,
 				3350A9D3146B63B500702E1F /* lice_palette.cpp in Sources */,
 			);
@@ -865,11 +826,11 @@
 		C01FCF4F08A954540054247B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ONLY_ACTIVE_ARCH_PRE_XCODE_3_1)";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.5;
-				ONLY_ACTIVE_ARCH_PRE_XCODE_3_1 = "$(NATIVE_ARCH_ACTUAL)";
+				ONLY_ACTIVE_ARCH = YES;
 				PREBINDING = NO;
 			};
 			name = Debug;
@@ -877,11 +838,11 @@
 		C01FCF5008A954540054247B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ONLY_ACTIVE_ARCH_PRE_XCODE_3_1)";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.5;
-				ONLY_ACTIVE_ARCH_PRE_XCODE_3_1 = "$(NATIVE_ARCH_ACTUAL)";
+				ONLY_ACTIVE_ARCH = YES;
 				PREBINDING = NO;
 			};
 			name = Release;
