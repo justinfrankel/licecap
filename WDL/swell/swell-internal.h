@@ -107,6 +107,7 @@ typedef unsigned int NSUInteger;
 
 @interface SWELL_DataHold : NSObject
 {
+  @public
   void *m_data;
 }
 -(id) initWithVal:(void *)val;
@@ -1072,7 +1073,11 @@ HTREEITEM__::~HTREEITEM__()
   free(m_value);
   m_children.Empty(true);
 #ifdef SWELL_TARGET_OSX
-  [m_dh release];
+  if (m_dh)
+  {
+    m_dh->m_data = NULL;
+    [m_dh release];
+  }
 #endif
 }
 
