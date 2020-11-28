@@ -6133,6 +6133,8 @@ void TreeView_DeleteItem(HWND hwnd, HTREEITEM item)
   
   if ([tv findItem:item parOut:&par idxOut:&idx])
   {
+    id retain_obj = [item->m_dh retain]; // workaround for macOS 10.10.5 bug using a cached pointer to this item in -beginUpdates
+
     if (par)
     {
       par->m_children.Delete(idx,true);
@@ -6154,6 +6156,7 @@ void TreeView_DeleteItem(HWND hwnd, HTREEITEM item)
     {
       [tv reloadData];
     }
+    [retain_obj release];
   }
 }
 
