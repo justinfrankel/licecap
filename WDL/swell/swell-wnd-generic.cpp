@@ -806,7 +806,7 @@ void SWELL_RunMessageLoop()
     // [now-rec->interval-some big range,now-rec->interval]
     if (WDL_TICKS_IN_RANGE_ENDING_AT(rec->lastFire, now - rec->interval, 100000))
     {
-      rec->lastFire = now;
+      rec->lastFire = GetTickCount();
 
       HWND h = rec->hwnd;
       TIMERPROC tProc = rec->tProc;
