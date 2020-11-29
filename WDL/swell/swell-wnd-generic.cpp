@@ -794,6 +794,25 @@ static TimerInfoRec *m_timer_list;
 static WDL_Mutex m_timermutex;
 static pthread_t m_pmq_mainthread;
 
+static TimerInfoRec *spare_timers;
+static void free_timer(TimerInfoRec *rec)
+{
+  int c = 3; // max spares
+  TimerInfoRec *p = spare_timers;
+  while (p)
+  {
+    if (--c <= 0)
+    {
+      free(rec);
+      return;
+    }
+    p = p->_next;
+  }
+  rec->_next=spare_timers;
+  spare_timers=rec;
+}
+
+
 void SWELL_RunMessageLoop()
 {
   SWELL_MessageQueue_Flush();
@@ -824,7 +843,7 @@ void SWELL_RunMessageLoop()
 
       if (--rec->refcnt < 0)
       {
-        free(rec);
+        free_timer(rec);
         rec = m_timer_list;
         continue;
       }
@@ -832,7 +851,6 @@ void SWELL_RunMessageLoop()
     rec=rec->_next;
   } 
 }
-
 
 UINT_PTR SetTimer(HWND hwnd, UINT_PTR timerid, UINT rate, TIMERPROC tProc)
 {
@@ -858,7 +876,9 @@ UINT_PTR SetTimer(HWND hwnd, UINT_PTR timerid, UINT rate, TIMERPROC tProc)
   bool recAdd=false;
   if (!rec) 
   {
-    rec=(TimerInfoRec*)malloc(sizeof(TimerInfoRec));
+    rec = spare_timers;
+    if (!rec) rec = (TimerInfoRec *)malloc(sizeof(TimerInfoRec));
+    else spare_timers = rec->_next;
     rec->refcnt = 0;
     recAdd=true;
   }
@@ -902,7 +922,7 @@ BOOL KillTimer(HWND hwnd, UINT_PTR timerid)
         else m_timer_list = nrec;
         
         if (--rec->refcnt < 0)
-          free(rec);
+          free_timer(rec);
 
         rv=TRUE;
         if (timerid!=(UINT_PTR)-1) break;
