@@ -782,7 +782,10 @@ typedef struct TimerInfoRec
   UINT_PTR timerid;
   HWND hwnd;
   UINT interval;
+
   DWORD lastFire;
+  int refcnt; // 0 normally, 1 if currently processing this timer
+
   TIMERPROC tProc;
   struct TimerInfoRec *_next;
 } TimerInfoRec;
@@ -807,6 +810,7 @@ void SWELL_RunMessageLoop()
     if (WDL_TICKS_IN_RANGE_ENDING_AT(rec->lastFire, now - rec->interval, 100000))
     {
       rec->lastFire = GetTickCount();
+      ++rec->refcnt;
 
       HWND h = rec->hwnd;
       TIMERPROC tProc = rec->tProc;
@@ -817,11 +821,11 @@ void SWELL_RunMessageLoop()
       else if (h) SendMessage(h,WM_TIMER,tid,0);
 
       m_timermutex.Enter();
-      TimerInfoRec *tr = m_timer_list;
-      while (tr && tr != rec) tr=tr->_next;
-      if (!tr) 
+
+      if (--rec->refcnt < 0)
       {
-        rec = m_timer_list;  // if no longer in the list, then abort
+        free(rec);
+        rec = m_timer_list;
         continue;
       }
     }
@@ -855,16 +859,17 @@ UINT_PTR SetTimer(HWND hwnd, UINT_PTR timerid, UINT rate, TIMERPROC tProc)
   if (!rec) 
   {
     rec=(TimerInfoRec*)malloc(sizeof(TimerInfoRec));
+    rec->refcnt = 0;
     recAdd=true;
   }
    
+  if (!hwnd) timerid = (UINT_PTR)rec;
+
   rec->tProc = tProc;
-  rec->timerid=timerid;
-  rec->hwnd=hwnd;
+  rec->timerid = timerid;
+  rec->hwnd = hwnd;
   rec->interval = rate<1?1: rate;
   rec->lastFire = GetTickCount();
-  
-  if (!hwnd) timerid = rec->timerid = (UINT_PTR)rec;
 
   if (recAdd)
   {
@@ -896,7 +901,8 @@ BOOL KillTimer(HWND hwnd, UINT_PTR timerid)
         if (lrec) lrec->_next = nrec;
         else m_timer_list = nrec;
         
-        free(rec);
+        if (--rec->refcnt < 0)
+          free(rec);
 
         rv=TRUE;
         if (timerid!=(UINT_PTR)-1) break;
