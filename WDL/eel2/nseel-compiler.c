@@ -457,10 +457,10 @@ static void *NSEEL_PProc_Stack_PeekTop(void *data, int data_size, compileContext
 }
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400
-static double __floor(double a) { return floor(a); }
-static double __ceil(double a) { return ceil(a); }
-#define floor __floor
-#define ceil __ceil
+static double eel__floor(double a) { return floor(a); }
+static double eel__ceil(double a) { return ceil(a); }
+#define floor eel__floor
+#define ceil eel__ceil
 #endif
 
 
