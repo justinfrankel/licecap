@@ -188,7 +188,7 @@ class WDL_DirScan
 #endif
       str->Append(GetCurrentFN()); 
     }
-    int GetCurrentIsDirectory() const
+    int GetCurrentIsDirectory() const // returns 1 if dir, 2 if symlink to dir, 4 if possibly-recursive symlink to dir
     { 
 #ifdef _WIN32
        return !!(m_fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY); 
@@ -204,7 +204,20 @@ class WDL_DirScan
            if (!rp) return 0;
 
            struct stat sb;
-           int ret = !stat(rp,&sb) && (sb.st_mode & S_IFMT) == S_IFDIR;
+           int ret = (!stat(rp,&sb) && (sb.st_mode & S_IFMT) == S_IFDIR) ? 2 : 0;
+           if (ret)
+           {
+             // treat symlinks of /path/to/foo -> /path from being resolved (avoiding obvious feedback loops)
+             const int rpl = (int) strlen(rp);
+             if (
+#ifdef __APPLE__
+               !strnicmp(rp,m_leading_path.Get(),rpl)
+#else
+               !strncmp(rp,m_leading_path.Get(),rpl)
+#endif
+                 && (m_leading_path.Get()[rpl] == '/' || m_leading_path.Get()[rpl] == 0)
+                 ) ret = 4;
+           }
            free(rp);
            return ret;
          }
