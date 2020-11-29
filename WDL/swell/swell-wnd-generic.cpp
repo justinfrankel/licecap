@@ -801,7 +801,10 @@ void SWELL_RunMessageLoop()
   TimerInfoRec *rec = m_timer_list;
   while (rec)
   {
-    if ((now-rec->lastFire) >= rec->interval)
+    // rec->lastFire might be after now, if the timer was set from another timer
+    // we should run this timer if rec->lastFire is in the interval
+    // [now-rec->interval-some big range,now-rec->interval]
+    if (WDL_TICKS_IN_RANGE_ENDING_AT(rec->lastFire, now - rec->interval, 100000))
     {
       rec->lastFire = now;
 
