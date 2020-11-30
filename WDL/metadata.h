@@ -922,7 +922,7 @@ void DumpMetadata(WDL_FastString *str, WDL_StringKeyedArray<char*> *metadata)
   {
     const char *key;
     const char *val=metadata->Enumerate(i, &key);
-    if (!key || !key[0] || !val || !val[0]) continue;
+    if (!key || !key[0] || !val || !val[0] || !strncmp(val, "[Binary data]", 13)) continue;
 
     const char *sep=strchr(key, ':');
     if (sep)
@@ -942,12 +942,12 @@ void DumpMetadata(WDL_FastString *str, WDL_StringKeyedArray<char*> *metadata)
   for (i=0; i < metadata->GetSize(); ++i)
   {
     const char *key;
-    metadata->Enumerate(i, &key);
-    if (key && key[0] == '!' && key[1])
+    const char *val=metadata->Enumerate(i, &key);
+    if (key && key[0] && val && (!val[0] || !strncmp(val, "[Binary data]", 13)))
     {
       if (!unk_cnt++) str->Append("Other file sections:\r\n");
-      str->AppendFormatted(4096, "    %s%s\r\n", key+1,
-        !strnicmp(key+1, "smed", 4) ?
+      str->AppendFormatted(4096, "    %s%s\r\n", key,
+        !strnicmp(key, "smed", 4) ?
         " (proprietary Soundminer metadata)" : "");
     }
   }
