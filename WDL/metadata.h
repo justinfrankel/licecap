@@ -653,7 +653,7 @@ const char *EnumMetadataSchemeFromFileType(const char *filetype, int idx)
 
   if (!filetype || !filetype[0]) return NULL;
 
-  if (!stricmp(filetype, ".wav") || !strcmp(filetype, ".bwf"))
+  if (!stricmp(filetype, ".wav") || !stricmp(filetype, ".bwf"))
   {
     if (idx == 0) return "BWF";
     if (idx == 1) return "INFO";
