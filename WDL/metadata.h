@@ -649,56 +649,55 @@ int PackApeChunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata)
 
 const char *EnumMetadataSchemeFromFileType(const char *filetype, int idx)
 {
-  // only used for rewriting metadata atm
-
   if (!filetype || !filetype[0]) return NULL;
 
-  if (!stricmp(filetype, ".wav") || !stricmp(filetype, ".bwf"))
+  if (filetype[0] == '.') ++filetype;
+  if (!stricmp(filetype, "bwf")) filetype="wav";
+  else if (!stricmp(filetype, "opus")) filetype="ogg";
+  else if (!stricmp(filetype, "aiff")) filetype="aif";
+
+  static const char *WAV_SCHEMES[]=
   {
-    if (idx == 0) return "BWF";
-    if (idx == 1) return "INFO";
-    if (idx == 2) return "IXML";
-    if (idx == 3) return "CART";
-    if (idx == 4) return "XMP";
-    if (idx == 5) return "ID3";
-    return NULL;
-  }
-  if (!stricmp(filetype, ".mp3"))
+    "BWF", "INFO", "IXML", "CART", "XMP", "ID3",
+  };
+  static const char *MP3_SCHEMES[]=
   {
-    if (idx == 0) return "ID3";
-    if (idx == 1) return "APE";
-    if (idx == 2) return "XMP";
-    return NULL;
-  }
-  if (!stricmp(filetype, ".flac"))
+    "ID3", "APE", "XMP",
+  };
+  static const char *FLAC_SCHEMES[]=
   {
-    if (idx == 0) return "VORBIS";
-    if (idx == 1) return "BWF";
-    if (idx == 2) return "IXML";
-    if (idx == 3) return "XMP";
-    return NULL;
-  }
-  if (!stricmp(filetype, ".ogg") || !stricmp(filetype, ".opus"))
+    "VORBIS", "BWF", "IXML", "XMP",
+  };
+  static const char *OGG_SCHEMES[]=
   {
-    if (idx == 0) return "VORBIS";
-    return NULL;
-  }
-  if (!stricmp(filetype, ".wv"))
+    "VORBIS",
+  };
+  static const char *WV_SCHEMES[]=
   {
-    if (idx == 0) return "APE";
-    return NULL;
-  }
-  if (!stricmp(filetype, ".aif") || !stricmp(filetype, ".aiff"))
+    "APE",
+  };
+  static const char *AIF_SCHEMES[]=
   {
-    if (idx == 0) return "IFF";
-    if (idx == 1) return "XMP";
-    return NULL;
-  }
-  if (!stricmp(filetype, ".rx2"))
+    "IFF", "XMP",
+  };
+  static const char *RX2_SCHEMES[]=
   {
-    if (idx == 0) return "REX";
-    return NULL;
-  }
+    "REX",
+  };
+
+#define DO_SCHEME_MAP(X) if (!stricmp(filetype, #X)) \
+  return idx < sizeof(X##_SCHEMES)/sizeof(X##_SCHEMES[0]) ? X##_SCHEMES[idx] : NULL;
+
+  DO_SCHEME_MAP(WAV);
+  DO_SCHEME_MAP(MP3);
+  DO_SCHEME_MAP(FLAC);
+  DO_SCHEME_MAP(OGG);
+  DO_SCHEME_MAP(WV);
+  DO_SCHEME_MAP(AIF);
+  DO_SCHEME_MAP(RX2);
+
+#undef DO_SCHEME_MAP
+
   return NULL;
 }
 
