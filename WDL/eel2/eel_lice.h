@@ -1169,7 +1169,19 @@ EEL_F eel_lice_state::gfx_setfont(void *opaque, int np, EEL_F **parms)
         if (!s->font) s->font=LICE_CreateFont();
         if (s->font)
         {
-          HFONT hf=CreateFont(sz,0,0,0,(fontflag&1) ? FW_BOLD : FW_NORMAL,!!(fontflag&2),!!(fontflag&4),FALSE,ANSI_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,s->last_fontname);
+          const int fw = (fontflag&1) ? FW_BOLD : FW_NORMAL;
+          HFONT hf=NULL;
+#if defined(_WIN32) && !defined(WDL_NO_SUPPORT_UTF8)
+          WCHAR wf[256];
+          if (WDL_DetectUTF8(s->last_fontname)>0 &&
+              GetVersion()<0x80000000 &&
+              MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,s->last_fontname,-1,wf,256))
+          {
+            hf = CreateFontW(sz,0,0,0,fw,!!(fontflag&2),!!(fontflag&4),FALSE,ANSI_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,wf);
+          }
+#endif
+          if (!hf) hf = CreateFont(sz,0,0,0,fw,!!(fontflag&2),!!(fontflag&4),FALSE,ANSI_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,s->last_fontname);
+
           if (!hf)
           {
             s->use_fonth=0; // disable this font
@@ -1189,7 +1201,17 @@ EEL_F eel_lice_state::gfx_setfont(void *opaque, int np, EEL_F **parms)
               {
                 oldFont = SelectObject(hdc,hf);
                 GetTextMetrics(hdc,&tm);
-                GetTextFace(hdc, sizeof(s->actual_fontname), s->actual_fontname);
+
+#if defined(_WIN32) && !defined(WDL_NO_SUPPORT_UTF8)
+                if (GetVersion()<0x80000000 &&
+                    GetTextFaceW(hdc,sizeof(wf)/sizeof(wf[0]),wf) &&
+                    WideCharToMultiByte(CP_UTF8,0,wf,-1,s->actual_fontname,sizeof(s->actual_fontname),NULL,NULL))
+                {
+                  s->actual_fontname[sizeof(s->actual_fontname)-1]=0;
+                }
+                else
+#endif
+                  GetTextFace(hdc, sizeof(s->actual_fontname), s->actual_fontname);
                 SelectObject(hdc,oldFont);
               }
             }
