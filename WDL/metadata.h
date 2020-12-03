@@ -1459,5 +1459,28 @@ double ReadMetadataPrefPos(WDL_StringKeyedArray<char*> *metadata, double srate)
   return -1.0;
 }
 
+void WriteMetadataPrefPos(double prefpos, double srate,
+  WDL_StringKeyedArray<char*> *metadata)
+{
+  if (!metadata) return;
+
+  metadata->Delete("BWF:TimeReference");
+  metadata->Delete("IXML:BEXT:BWF_TIME_REFERENCE_HIGH");
+  metadata->Delete("IXML:BEXT:BWF_TIME_REFERENCE_LOW");
+  metadata->Delete("XMP:dm/relativeTimestamp");
+
+  if (prefpos > 0.0)
+  {
+    char buf[128];
+    if (srate > 0.0)
+    {
+      snprintf(buf, sizeof(buf), "%lld", (WDL_INT64)(prefpos*srate));
+      metadata->Insert("BWF:TimeReference", strdup(buf));
+      // this causes IXML:BEXT element to be written as well
+    }
+    snprintf(buf, sizeof(buf), "%lld", (WDL_INT64)(prefpos*1000.0));
+    metadata->Insert("XMP:dm/relativeTimestamp", strdup(buf));
+  }
+}
 
 #endif // _METADATA_H_
