@@ -724,7 +724,7 @@ const char *EnumMetadataSchemeFromFileType(const char *filetype, int idx)
   };
   static const char *MP3_SCHEMES[]=
   {
-    "ID3", "APE", "XMP",
+    "ID3", "APE", "IXML", "XMP",
   };
   static const char *FLAC_SCHEMES[]=
   {
@@ -1126,12 +1126,13 @@ int IsID3TimeVal(const char *v)
   return 0;
 }
 
-int PackID3Chunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata, bool want_xmp)
+int PackID3Chunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata, bool want_ixml_xmp)
 {
   if (!hb || !metadata) return false;
 
-  if (want_xmp) want_xmp=HasScheme("XMP", metadata);
-  if (!HasScheme("ID3", metadata) && !want_xmp) return false;
+  bool want_ixml = want_ixml_xmp && HasScheme("IXML", metadata);
+  bool want_xmp = want_ixml_xmp && HasScheme("XMP", metadata);
+  if (!HasScheme("ID3", metadata) && !want_ixml && !want_xmp) return false;
 
   int olen=hb->GetSize();
 
@@ -1227,6 +1228,13 @@ int PackID3Chunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata, bool wa
         id3len += 10+apic_hdrlen+apic_datalen;
       }
     }
+  }
+
+  WDL_HeapBuf ixml;
+  if (want_ixml)
+  {
+    PackIXMLChunk(&ixml, metadata);
+    if (ixml.GetSize()) id3len += 10+5+ixml.GetSize();
   }
 
   WDL_HeapBuf xmp;
@@ -1406,6 +1414,20 @@ int PackID3Chunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata, bool wa
           memset(p, 0, apic_datalen);
         }
         p += apic_datalen;
+      }
+
+      if (ixml.GetSize())
+      {
+        memcpy(p, "PRIV", 4);
+        p += 4;
+        int len=ixml.GetSize()+5;
+        _AddSyncSafeInt32(len);
+        memcpy(p, "\x00\x00", 2);
+        p += 2;
+        memcpy(p, "iXML\x00", 5);
+        p += 5;
+        memcpy(p, ixml.Get(), ixml.GetSize());
+        p += ixml.GetSize();
       }
 
       if (xmp.GetSize())

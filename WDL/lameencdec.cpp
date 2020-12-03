@@ -47,7 +47,7 @@
 #endif
 
 // note: calling code should include WDL/metadata.h from somewhere to implement these functions
-int PackID3Chunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata, bool want_xmp);
+int PackID3Chunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata, bool want_ixml_xmp);
 int PackApeChunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata);
 int PackXMPChunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata);
 bool ParseUserDefMetadata(const char *id, const char *val,
