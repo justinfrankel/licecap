@@ -773,6 +773,7 @@ const char *EnumMetadataKeyFromMexKey(const char *mexkey, int idx)
 
   if (!strcmp(mexkey, "DATE")) mexkey="YEAR";
   else if (!strcmp(mexkey, "REAPER")) mexkey="DB_CUSTOM";
+  // callers handle PREFPOS
 
   // general priority order here:
   // BWF
