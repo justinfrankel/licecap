@@ -115,6 +115,30 @@ bool IsXMPMetadata(const char *name, WDL_FastString *key)
   return false;
 }
 
+double UnpackXMPTimestamp(wdl_xml_element *elem)
+{
+  double tval=-1.0;
+  int num=0, denom=0;
+  for (int i=0; i < elem->attributes.GetSize(); ++i)
+  {
+    char *attr;
+    const char *val=elem->attributes.Enumerate(i, &attr);
+    if (!strcmp(attr, "xmpDM:scale") && val && val[0])
+    {
+      if (sscanf(val, "%d/%d", &num, &denom) != 2) num=denom=0;
+    }
+    else if (!strcmp(attr, "xmpDM:value") && val && val[0])
+    {
+      tval=atof(val);
+    }
+  }
+  if (tval >= 0.0 && num > 0 && denom > 0)
+  {
+    return tval*(double)num/(double)denom;
+  }
+  return -1.0;
+}
+
 void UnpackXMPDescription(const char *curkey, wdl_xml_element *elem,
   WDL_StringKeyedArray<char*> *metadata)
 {
@@ -122,6 +146,18 @@ void UnpackXMPDescription(const char *curkey, wdl_xml_element *elem,
   {
     // xmp "tracks" are collections of markers and other related data,
     // todo maybe parse the markers but for now we know we can ignore this entire block
+    return;
+  }
+
+  if (!strcmp(elem->name, "xmpDM:relativeTimestamp"))
+  {
+    double tval=UnpackXMPTimestamp(elem);
+    if (tval >= 0.0)
+    {
+      char buf[512];
+      snprintf(buf, sizeof(buf), "%lld", (WDL_INT64)(tval*1000.0));
+      metadata->Insert("XMP:dm/relativeTimestamp", strdup(buf));
+    }
     return;
   }
 
@@ -404,6 +440,15 @@ int PackXMPChunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata)
             xmp.Append(val);
             xmp.Append("</rdf:li></rdf:Alt>");
             xmp.AppendFormatted(1024, "</%s:%s>", prefix, key);
+          }
+          else if (!strcmp(key, "dm/relativeTimestamp"))
+          {
+            // element
+            if (!pass) continue;
+
+            key += 3;
+            xmp.AppendFormatted(1024, "<%s:%s xmpDM:value=\"%s\" xmpDM:scale=\"1/1000\"/>",
+              prefix, key, val);
           }
           else
           {
