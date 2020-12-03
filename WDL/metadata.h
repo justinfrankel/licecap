@@ -21,6 +21,23 @@ char *tag_strndup(const char *src, int len)
   return dest;
 }
 
+WDL_INT64 ParseInt64(const char *val)
+{
+  WDL_INT64 i=0;
+  if (val)
+  {
+    const char *p=val;
+    while (*p)
+    {
+      int d=*p-'0';
+      if (d < 0 || d > 9) break;
+      i=(10*i)+d;
+      ++p;
+    }
+    if (*p) i=0;
+  }
+  return i;
+}
 
 void XMLCompliantAppend(WDL_FastString *str, const char *txt)
 {
