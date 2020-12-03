@@ -1429,5 +1429,35 @@ int PackID3Chunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata, bool wa
   return hb->GetSize()-olen;
 }
 
+double ReadMetadataPrefPos(WDL_StringKeyedArray<char*> *metadata, double srate)
+{
+  if (!metadata) return -1.0;
+
+  const char *spls=metadata->Get("BWF:TimeReference");
+  if (spls && spls[0] && srate > 0.0)
+  {
+    WDL_UINT64 i=ParseInt64(spls);
+    return (double)i/srate;
+  }
+
+  const char *hi=metadata->Get("IXML:BEXT:BWF_TIME_REFERENCE_HIGH");
+  const char *lo=metadata->Get("IXML:BEXT:BWF_TIME_REFERENCE_LOW");
+  if (hi && lo && lo[0] && srate > 0.0)
+  {
+    WDL_UINT64 ipos=atoi(lo);
+    if (hi[0]) ipos |= ((WDL_UINT64)atoi(hi))<<32;
+    return (double)ipos/srate;
+  }
+
+  const char *ms=metadata->Get("XMP:dm/relativeTimestamp");
+  if (ms && ms[0])
+  {
+    WDL_UINT64 i=ParseInt64(ms);
+    return (double)i/1000.0;
+  }
+
+  return -1.0;
+}
+
 
 #endif // _METADATA_H_
