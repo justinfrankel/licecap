@@ -1456,27 +1456,34 @@ double ReadMetadataPrefPos(WDL_StringKeyedArray<char*> *metadata, double srate)
 {
   if (!metadata) return -1.0;
 
-  const char *spls=metadata->Get("BWF:TimeReference");
-  if (spls && spls[0] && srate > 0.0)
+  const char *v=metadata->Get("BWF:TimeReference");
+  if (v && v[0] && srate > 0.0)
   {
-    WDL_UINT64 i=ParseInt64(spls);
+    WDL_UINT64 i=ParseInt64(v);
     return (double)i/srate;
   }
 
-  const char *hi=metadata->Get("IXML:BEXT:BWF_TIME_REFERENCE_HIGH");
-  const char *lo=metadata->Get("IXML:BEXT:BWF_TIME_REFERENCE_LOW");
-  if (hi && lo && lo[0] && srate > 0.0)
+  v=metadata->Get("IXML:BEXT:BWF_TIME_REFERENCE_LOW");
+  if (v && v[0] && srate > 0.0)
   {
-    WDL_UINT64 ipos=atoi(lo);
-    if (hi[0]) ipos |= ((WDL_UINT64)atoi(hi))<<32;
+    WDL_UINT64 ipos=atoi(v);
+    v=metadata->Get("IXML:BEXT:BWF_TIME_REFERENCE_HIGH");
+    if (v[0]) ipos |= ((WDL_UINT64)atoi(v))<<32;
     return (double)ipos/srate;
   }
 
-  const char *ms=metadata->Get("XMP:dm/relativeTimestamp");
-  if (ms && ms[0])
+  v=metadata->Get("XMP:dm/relativeTimestamp");
+  if (v && v[0])
   {
-    WDL_UINT64 i=ParseInt64(ms);
+    WDL_UINT64 i=ParseInt64(v);
     return (double)i/1000.0;
+  }
+
+  v=metadata->Get("VORBIS:TIME_REFERENCE");
+  if (v && v[0] && srate > 0.0)
+  {
+    WDL_UINT64 i=ParseInt64(v);
+    return (double)i/srate;
   }
 
   return -1.0;
@@ -1491,6 +1498,7 @@ void WriteMetadataPrefPos(double prefpos, double srate,
   metadata->Delete("IXML:BEXT:BWF_TIME_REFERENCE_HIGH");
   metadata->Delete("IXML:BEXT:BWF_TIME_REFERENCE_LOW");
   metadata->Delete("XMP:dm/relativeTimestamp");
+  metadata->Delete("VORBIS:TIME_REFERENCE");
 
   if (prefpos > 0.0)
   {
@@ -1500,6 +1508,7 @@ void WriteMetadataPrefPos(double prefpos, double srate,
       snprintf(buf, sizeof(buf), "%lld", (WDL_INT64)(prefpos*srate));
       metadata->Insert("BWF:TimeReference", strdup(buf));
       // this causes IXML:BEXT element to be written as well
+      metadata->Insert("VORBIS:TIME_REFERENCE", strdup(buf));
     }
     snprintf(buf, sizeof(buf), "%lld", (WDL_INT64)(prefpos*1000.0));
     metadata->Insert("XMP:dm/relativeTimestamp", strdup(buf));
