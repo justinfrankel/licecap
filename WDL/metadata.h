@@ -1024,8 +1024,9 @@ void CopyMetadata(WDL_StringKeyedArray<char*> *src, WDL_StringKeyedArray<char*> 
   {
     const char *key;
     const char *val=src->Enumerate(i, &key);
-    dest->AddUnsorted(key, strdup(val)); // already sorted
+    dest->AddUnsorted(key, strdup(val));
   }
+  dest->Resort(); // safe in case src/dest have diff sort attributes
 }
 
 
