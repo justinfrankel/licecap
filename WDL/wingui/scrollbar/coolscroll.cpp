@@ -115,6 +115,9 @@ typedef struct
 
   int liceThumbState;
 
+  BOOL resizingHthumb;
+
+
 } SCROLLBAR;
 
 //
@@ -138,8 +141,6 @@ typedef struct
 	// To prevent calling original WindowProc in response
 	// to our own temporary style change (fixes TreeView problem)
 	BOOL bPreventStyleChange;
-
-  BOOL resizingHthumb;
 
 
   // internal state stuff
@@ -977,7 +978,7 @@ static BOOL GetHScrollRect(SCROLLWND *sw, HWND hwnd, RECT *rect, BOOL *hasZoomBu
 					GetScrollMetric(FALSE, SM_CYHORZSB) : 0);
 
   if (hasZoomButtons) *hasZoomButtons=0;
-  if(sw->resizingHthumb)
+  if(sw->sbarHorz.resizingHthumb)
   {
     int zbs = GetZoomButtonSize(FALSE);
     if (rect->right - rect->left >= MIN_SIZE_FOR_ZOOMBUTTONS(zbs))
@@ -1018,7 +1019,7 @@ static BOOL GetVScrollRect(SCROLLWND *sw, HWND hwnd, RECT *rect, BOOL *hasZoomBu
 	}
 
   if (hasZoomButtons) *hasZoomButtons=0;
-  if(sw->resizingHthumb)
+  if(sw->sbarVert.resizingHthumb)
   {
     int zbs = GetZoomButtonSize(TRUE);
     if (rect->bottom - rect->top >= MIN_SIZE_FOR_ZOOMBUTTONS(zbs))
@@ -1138,7 +1139,6 @@ static UINT GetHorzScrollPortion(SCROLLBAR *sbar, HWND hwnd, const RECT *rect, i
 	int butwidth = GetScrollMetric(sbar->nBarType == SB_VERT, SM_SCROLL_LENGTH);
 	int scrollwidth  = rect->right-rect->left;
 	int workingwidth = scrollwidth - butwidth*2;
-  SCROLLWND *sw = GetScrollWndFromHwnd(hwnd);
 
 	if(y < rect->top || y >= rect->bottom)
 		return HTSCROLL_NONE;
@@ -1152,7 +1152,7 @@ static UINT GetHorzScrollPortion(SCROLLBAR *sbar, HWND hwnd, const RECT *rect, i
 		butwidth = scrollwidth / 2;	
 	}
 
-  if(sw->resizingHthumb&&hasZoomButtons)
+  if(sbar->resizingHthumb&&hasZoomButtons)
   {
     //check for resizer
     if(x>=rect->right)
@@ -1184,7 +1184,7 @@ static UINT GetHorzScrollPortion(SCROLLBAR *sbar, HWND hwnd, const RECT *rect, i
 	//check for point in the thumbbar
 	if(x >= thumbpos && x < thumbpos+thumbwidth)
 	{
-    if(sw->resizingHthumb)
+    if(sbar->resizingHthumb)
     {
       if(sbar->nBarType == SB_HORZ) //only for horizontal
       {
@@ -1494,7 +1494,7 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
 
         {
           RECT r = thumb;
-          if(sw->resizingHthumb)
+          if(sb->resizingHthumb)
           {
             if(sb->nBarType == SB_HORZ)
             {
@@ -1511,7 +1511,7 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
           DrawBlankButton(hwnd,hdc, &r);
         }
         
-        if(sw->resizingHthumb)
+        if(sb->resizingHthumb)
         {
           //draw left and right resizers
           if(sb->nBarType == SB_HORZ)
@@ -1603,7 +1603,7 @@ static LRESULT NCDrawHScrollbar(SCROLLBAR *sb, HWND hwnd, HDC hdc, const RECT *r
 
 		DrawScrollArrow(hwnd,sb, hdc, &r2, uRightButFlags, fMouseDownR, fMouseOverR,theme);
 
-    if(sw->resizingHthumb && hasZoomButtons)
+    if(sb->resizingHthumb && hasZoomButtons)
     {
     //zoom/resize buttons
     {
@@ -2091,13 +2091,13 @@ static LRESULT NCHitTest(SCROLLWND *sw, HWND hwnd, WPARAM wParam, LPARAM lParam)
 	//work out exactly where the Horizontal and Vertical scrollbars are
   BOOL hasZoomButtons;
 	GetHScrollRect(sw, hwnd, &hrect, &hasZoomButtons);
-  if (hasZoomButtons && sw->resizingHthumb) 
+  if (hasZoomButtons && sw->sbarHorz.resizingHthumb) 
   {
     int zbs = GetZoomButtonSize(FALSE);
     hrect.right += zbs*2+ZOOMBUTTON_RESIZER_SIZE(zbs);
   }
 	GetVScrollRect(sw, hwnd, &vrect,&hasZoomButtons);
-  if (hasZoomButtons && sw->resizingHthumb) 
+  if (hasZoomButtons && sw->sbarVert.resizingHthumb) 
   {
     int zbs = GetZoomButtonSize(TRUE);
     vrect.bottom += zbs*2+ZOOMBUTTON_RESIZER_SIZE(zbs);
@@ -2586,7 +2586,7 @@ static LRESULT ThumbTrackHorz(SCROLLBAR *sbar, HWND hwnd, int x, int y, const wd
     // no skinning
     {
       RECT r = rc2;
-      if(sw->resizingHthumb)
+      if(sbar->resizingHthumb)
       {
         if(sbar->nBarType == SB_HORZ)
         {
@@ -2603,7 +2603,7 @@ static LRESULT ThumbTrackHorz(SCROLLBAR *sbar, HWND hwnd, int x, int y, const wd
       DrawBlankButton(hwnd,hdc, &r);
     }
     
-    if(sw->resizingHthumb)
+    if(sbar->resizingHthumb)
     {
       //draw left and right resizers
       if(sbar->nBarType == SB_HORZ)
@@ -3028,7 +3028,7 @@ static LRESULT CoolSB_Timer(SCROLLWND *swnd, HWND hwnd, WPARAM wTimerId, LPARAM 
     RECT mor = swnd->MouseOverRect;
     BOOL hasZoomButtons = swnd->MouseOverRect_hasZoomButtons;
 
-    if (hasZoomButtons && swnd->resizingHthumb)
+    if (hasZoomButtons && (swnd->uMouseOverScrollbar==SB_VERT ? swnd->sbarVert.resizingHthumb : swnd->sbarHorz.resizingHthumb))
     {
       int zbs = GetZoomButtonSize(swnd->uMouseOverScrollbar==SB_VERT);
       int extrasz=zbs*2+ZOOMBUTTON_RESIZER_SIZE(zbs);
@@ -3500,7 +3500,8 @@ BOOL WINAPI InitializeCoolSB(HWND hwnd)
 
 	sw->bPreventStyleChange		 = FALSE;
 
-  sw->resizingHthumb = FALSE;
+  sw->sbarHorz.resizingHthumb = FALSE;
+  sw->sbarVert.resizingHthumb = FALSE;
 	
 	sw->oldproc = (WNDPROC)SetWindowLongPtr(hwnd, GWLP_WNDPROC, (INT_PTR)CoolSBWndProc);
 
@@ -3841,10 +3842,23 @@ BOOL WINAPI CoolSB_SetResizingThumb(HWND hwnd, BOOL active)
 	if(!(swnd = GetScrollWndFromHwnd(hwnd)))
 		return FALSE;
 
-  swnd->resizingHthumb = active;
+  swnd->sbarHorz.resizingHthumb = active;
+  swnd->sbarVert.resizingHthumb = active;
 
   return TRUE;
 }
+
+BOOL WINAPI CoolSB_SetResizingThumbEx(HWND hwnd, int nBar, BOOL active)
+{
+  SCROLLWND *swnd;
+  if(!(swnd = GetScrollWndFromHwnd(hwnd))) return FALSE;
+
+  if (nBar == SB_HORZ || nBar == SB_BOTH) swnd->sbarHorz.resizingHthumb = active;
+  if (nBar == SB_VERT || nBar == SB_BOTH) swnd->sbarVert.resizingHthumb = active;
+
+  return nBar == SB_BOTH || nBar == SB_HORZ || nBar == SB_VERT;
+}
+
 BOOL WINAPI CoolSB_SetThemeIndex(HWND hwnd, int idx)
 {
 	SCROLLWND *swnd;
