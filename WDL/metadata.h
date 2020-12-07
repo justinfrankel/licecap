@@ -736,7 +736,7 @@ const char *EnumMetadataSchemeFromFileType(const char *filetype, int idx)
   };
   static const char *WV_SCHEMES[]=
   {
-    "APE",
+    "BWF", "APE",
   };
   static const char *AIF_SCHEMES[]=
   {
