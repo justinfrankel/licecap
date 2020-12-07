@@ -720,7 +720,7 @@ const char *EnumMetadataSchemeFromFileType(const char *filetype, int idx)
 
   static const char *WAV_SCHEMES[]=
   {
-    "BWF", "INFO", "IXML", "CART", "XMP", "ID3",
+    "BWF", "INFO", "IXML", "CART", "XMP", "AXML", "ID3",
   };
   static const char *MP3_SCHEMES[]=
   {
