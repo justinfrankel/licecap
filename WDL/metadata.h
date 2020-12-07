@@ -824,6 +824,7 @@ const char *EnumMetadataKeyFromMexKey(const char *mexkey, int idx)
     "INFO:ICRD",
     "XMP:dc/date",
     "ID3:TYER",
+    "ID3:TDRC",
     "APE:Year",
     "APE:Record Date",
     "VORBIS:DATE",
