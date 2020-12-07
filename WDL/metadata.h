@@ -1458,6 +1458,8 @@ double ReadMetadataPrefPos(WDL_StringKeyedArray<char*> *metadata, double srate)
   if (!metadata) return -1.0;
 
   const char *v=metadata->Get("BWF:TimeReference");
+  if (!v || !v[0]) v=metadata->Get("ID3:TXXX:TIME_REFERENCE");
+  if (!v || !v[0]) v=metadata->Get("VORBIS:TIME_REFERENCE");
   if (v && v[0] && srate > 0.0)
   {
     WDL_UINT64 i=ParseInt64(v);
@@ -1480,13 +1482,6 @@ double ReadMetadataPrefPos(WDL_StringKeyedArray<char*> *metadata, double srate)
     return (double)i/1000.0;
   }
 
-  v=metadata->Get("VORBIS:TIME_REFERENCE");
-  if (v && v[0] && srate > 0.0)
-  {
-    WDL_UINT64 i=ParseInt64(v);
-    return (double)i/srate;
-  }
-
   return -1.0;
 }
 
@@ -1496,6 +1491,7 @@ void WriteMetadataPrefPos(double prefpos, double srate,
   if (!metadata) return;
 
   metadata->Delete("BWF:TimeReference");
+  metadata->Delete("ID3:TXXX:TIME_REFERENCE");
   metadata->Delete("IXML:BEXT:BWF_TIME_REFERENCE_HIGH");
   metadata->Delete("IXML:BEXT:BWF_TIME_REFERENCE_LOW");
   metadata->Delete("XMP:dm/relativeTimestamp");
@@ -1508,7 +1504,8 @@ void WriteMetadataPrefPos(double prefpos, double srate,
     {
       snprintf(buf, sizeof(buf), "%lld", (WDL_INT64)(prefpos*srate));
       metadata->Insert("BWF:TimeReference", strdup(buf));
-      // this causes IXML:BEXT element to be written as well
+      // BWF:TimeReference causes IXML:BEXT element to be written as well
+      metadata->Insert("ID3:TXXX:TIME_REFERENCE", strdup(buf));
       metadata->Insert("VORBIS:TIME_REFERENCE", strdup(buf));
     }
     snprintf(buf, sizeof(buf), "%lld", (WDL_INT64)(prefpos*1000.0));
