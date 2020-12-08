@@ -492,18 +492,20 @@ int PackXMPChunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata)
   return hb->GetSize()-olen;
 }
 
-int PackVorbisFrame(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata)
+int PackVorbisFrame(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata, bool for_vorbis)
 {
   if (!hb || !metadata) return 0;
 
-  if (!HasScheme("VORBIS", metadata)) return 0;
+  // for vorbis, we need an empty frame even if there's no metadata
+  if (!for_vorbis && !HasScheme("VORBIS", metadata)) return 0;
 
   int olen=hb->GetSize();
 
   const char *vendor="REAPER";
   const int vendorlen=strlen(vendor);
+  int framelen=4+vendorlen+4+for_vorbis;
 
-  int i, framelen=0, tagcnt=0;
+  int i, tagcnt=0;
   for (i=0; i < metadata->GetSize(); ++i)
   {
     const char *key;
@@ -519,59 +521,63 @@ int PackVorbisFrame(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata)
         ParseUserDefMetadata(key, val, &k, &v, &klen, &vlen);
       }
 
-      if (!framelen) framelen=4+vendorlen+4;
-      framelen +=4+klen+1+vlen; // +1?
+      int taglen=4+klen+1+vlen;
+      if (framelen+taglen >= 0xFFFFFF) break;
+      framelen += taglen;
       ++tagcnt;
     }
   }
-  if (framelen && framelen < 0xFFFFFF)
+
+  unsigned char *buf=(unsigned char*)hb->Resize(olen+framelen)+olen;
+  if (buf)
   {
-    unsigned char *buf=(unsigned char*)hb->Resize(olen+framelen)+olen;
-    if (buf)
+    unsigned char *p=buf;
+    memcpy(p, &vendorlen, 4);
+    p += 4;
+    memcpy(p, vendor, vendorlen);
+    p += vendorlen;
+    memcpy(p, &tagcnt, 4);
+    p += 4;
+
+    for (i=0; i < metadata->GetSize(); ++i)
     {
-      unsigned char *p=buf;
-      memcpy(p, &vendorlen, 4);
-      p += 4;
-      memcpy(p, vendor, vendorlen);
-      p += vendorlen;
-      memcpy(p, &tagcnt, 4);
-      p += 4;
-
-      for (i=0; i < metadata->GetSize(); ++i)
+      const char *key;
+      const char *val=metadata->Enumerate(i, &key);
+      if (!key || !key[0] || !val || !val[0]) continue;
+      if (!strncmp(key, "VORBIS:", 7) && key[7])
       {
-        const char *key;
-        const char *val=metadata->Enumerate(i, &key);
-        if (!key || !key[0] || !val || !val[0]) continue;
-        if (!strncmp(key, "VORBIS:", 7) && key[7])
+        key += 7;
+        const char *k=key, *v=val;
+        int klen=strlen(k), vlen=strlen(v);
+        if (!strncmp(key, "USER", 4))
         {
-          key += 7;
-          const char *k=key, *v=val;
-          int klen=strlen(k), vlen=strlen(v);
-          if (!strncmp(key, "USER", 4))
-          {
-            ParseUserDefMetadata(key, val, &k, &v, &klen, &vlen);
-          }
-
-          int taglen=klen+1+vlen; // +1?
-          memcpy(p, &taglen, 4);
-          p += 4;
-          while (*k)
-          {
-            *p++ = (*k >= ' ' && *k <= '}' && *k != '=') ? *k : ' ';
-            k++;
-          }
-          *p++='=';
-          memcpy(p, v, vlen);
-          p += vlen;
+          ParseUserDefMetadata(key, val, &k, &v, &klen, &vlen);
         }
-      }
 
-      if (WDL_NOT_NORMALLY(p-buf != framelen) || framelen > 0xFFFFFF)
-      {
-        hb->Resize(olen);
+        int taglen=klen+1+vlen;
+        memcpy(p, &taglen, 4);
+        p += 4;
+        while (*k)
+        {
+          *p++ = (*k >= ' ' && *k <= '}' && *k != '=') ? *k : ' ';
+          k++;
+        }
+        *p++='=';
+        memcpy(p, v, vlen);
+        p += vlen;
+
+        if (!--tagcnt) break;
       }
     }
+
+    if (for_vorbis) *p++=1; // framing bit
+
+    if (WDL_NOT_NORMALLY(p-buf != framelen) || framelen > 0xFFFFFF)
+    {
+      hb->Resize(olen);
+    }
   }
+
   return hb->GetSize()-olen;
 }
 
