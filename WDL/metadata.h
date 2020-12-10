@@ -931,8 +931,37 @@ bool HandleMexMetadataRequest(const char *mexkey, char *buf, int buflen,
 }
 
 
+void WriteMetadataPrefPos(double prefpos, int srate,
+  WDL_StringKeyedArray<char*> *metadata)
+{
+  if (!metadata) return;
+
+  metadata->Delete("BWF:TimeReference");
+  metadata->Delete("ID3:TXXX:TIME_REFERENCE");
+  metadata->Delete("IXML:BEXT:BWF_TIME_REFERENCE_HIGH");
+  metadata->Delete("IXML:BEXT:BWF_TIME_REFERENCE_LOW");
+  metadata->Delete("XMP:dm/relativeTimestamp");
+  metadata->Delete("VORBIS:TIME_REFERENCE");
+
+  if (prefpos > 0.0 && srate > 1)
+  {
+    char buf[128];
+    if (srate > 0.0)
+    {
+      snprintf(buf, sizeof(buf), "%lld", (WDL_INT64)(prefpos*(double)srate));
+      metadata->Insert("BWF:TimeReference", strdup(buf));
+      // BWF:TimeReference causes IXML:BEXT element to be written as well
+      metadata->Insert("ID3:TXXX:TIME_REFERENCE", strdup(buf));
+      metadata->Insert("VORBIS:TIME_REFERENCE", strdup(buf));
+    }
+    snprintf(buf, sizeof(buf), "%lld", (WDL_INT64)(prefpos*1000.0));
+    metadata->Insert("XMP:dm/relativeTimestamp", strdup(buf));
+  }
+}
+
+
 bool AddMexMetadata(WDL_StringKeyedArray<char*> *mex_metadata,
-  const char *filetype, WDL_StringKeyedArray<char*> *metadata)
+  const char *filetype, WDL_StringKeyedArray<char*> *metadata, int srate)
 {
   if (!mex_metadata || !metadata || !filetype || !filetype[0]) return false;
 
@@ -941,6 +970,15 @@ bool AddMexMetadata(WDL_StringKeyedArray<char*> *mex_metadata,
   {
     const char *mexkey;
     const char *val=mex_metadata->Enumerate(idx, &mexkey);
+
+    if (!strcmp(mexkey, "PREFPOS"))
+    {
+      int ms = val && val[0] ? ParseInt64(val) : 0;
+      WriteMetadataPrefPos((double)ms/1000.0, srate, metadata);
+      // caller may still have to do stuff if prefpos is represented
+      // in some other way outside the metadata we handle, like wavpack
+      continue;
+    }
 
     int s=0;
     const char *scheme;
@@ -1489,34 +1527,6 @@ double ReadMetadataPrefPos(WDL_StringKeyedArray<char*> *metadata, double srate)
   }
 
   return -1.0;
-}
-
-void WriteMetadataPrefPos(double prefpos, double srate,
-  WDL_StringKeyedArray<char*> *metadata)
-{
-  if (!metadata) return;
-
-  metadata->Delete("BWF:TimeReference");
-  metadata->Delete("ID3:TXXX:TIME_REFERENCE");
-  metadata->Delete("IXML:BEXT:BWF_TIME_REFERENCE_HIGH");
-  metadata->Delete("IXML:BEXT:BWF_TIME_REFERENCE_LOW");
-  metadata->Delete("XMP:dm/relativeTimestamp");
-  metadata->Delete("VORBIS:TIME_REFERENCE");
-
-  if (prefpos > 0.0)
-  {
-    char buf[128];
-    if (srate > 0.0)
-    {
-      snprintf(buf, sizeof(buf), "%lld", (WDL_INT64)(prefpos*srate));
-      metadata->Insert("BWF:TimeReference", strdup(buf));
-      // BWF:TimeReference causes IXML:BEXT element to be written as well
-      metadata->Insert("ID3:TXXX:TIME_REFERENCE", strdup(buf));
-      metadata->Insert("VORBIS:TIME_REFERENCE", strdup(buf));
-    }
-    snprintf(buf, sizeof(buf), "%lld", (WDL_INT64)(prefpos*1000.0));
-    metadata->Insert("XMP:dm/relativeTimestamp", strdup(buf));
-  }
 }
 
 #endif // _METADATA_H_
