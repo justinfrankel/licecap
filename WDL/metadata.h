@@ -581,12 +581,12 @@ int PackVorbisFrame(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata, bool
   return hb->GetSize()-olen;
 }
 
-bool UnpackVorbisFrame(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata)
+bool UnpackVorbisFrame(unsigned char *frame, int framelen,
+  WDL_StringKeyedArray<char*> *metadata)
 {
-  if (!hb || !metadata) return 0;
+  if (!frame || !framelen || !metadata) return 0;
 
-  char *p=(char*)hb->Get();
-  int framelen=hb->GetSize();
+  char *p=(char*)frame;
 
   int vendor_len=*(int*)p;
   if (4+vendor_len+4 > framelen) return false;
