@@ -503,15 +503,6 @@ BOOL KillTimer(HWND hwnd, UINT_PTR timerid)
 
 ///////// PostMessage emulation
 
-void SWELL_MessageQueue_Clear(HWND h)
-{
-  id del=[NSApp delegate];
-  if (del && [del respondsToSelector:@selector(swellPostMessageClearQ:)])
-    [(SWELL_DelegateExtensions*)del swellPostMessageClearQ:h];
-}
-
-
-
 // implementation of postmessage stuff
 
 
@@ -676,6 +667,19 @@ BOOL PostMessage(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
   return FALSE;
 }
 
+void SWELL_MessageQueue_Clear(HWND h)
+{
+  if (WDL_NORMALLY(m_pmq_mutex != NULL))
+  {
+    SWELL_Internal_PMQ_ClearAllMessages(h);
+  }
+  else
+  {
+    id del=[NSApp delegate];
+    if (del && [del respondsToSelector:@selector(swellPostMessageClearQ:)])
+      [(SWELL_DelegateExtensions*)del swellPostMessageClearQ:h];
+  }
+}
 
 BOOL SWELL_Internal_PostMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
