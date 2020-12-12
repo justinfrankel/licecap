@@ -1052,6 +1052,7 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
   m_metal_commandQueue=NULL;
   if (m_use_metal>0) swell_removeMetalDirty(self);
 #endif
+  SWELL_MessageQueue_Clear((HWND)self);
 
   [super dealloc];
 }
