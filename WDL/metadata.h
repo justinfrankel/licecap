@@ -958,12 +958,11 @@ void WriteMetadataPrefPos(double prefpos, int srate,
 }
 
 
-bool AddMexMetadata(WDL_StringKeyedArray<char*> *mex_metadata,
+void AddMexMetadata(WDL_StringKeyedArray<char*> *mex_metadata,
   const char *filetype, WDL_StringKeyedArray<char*> *metadata, int srate)
 {
-  if (!mex_metadata || !metadata || !filetype || !filetype[0]) return false;
+  if (!mex_metadata || !metadata || !filetype || !filetype[0]) return;
 
-  bool did_edit=false;
   for (int idx=0; idx < mex_metadata->GetSize(); ++idx)
   {
     const char *mexkey;
@@ -988,11 +987,9 @@ bool AddMexMetadata(WDL_StringKeyedArray<char*> *mex_metadata,
       {
         if (val && val[0]) metadata->Insert(key, strdup(val));
         else metadata->Delete(key);
-        did_edit=true;
       }
     }
   }
-  return did_edit;
 }
 
 
