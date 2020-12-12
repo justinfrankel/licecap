@@ -90,20 +90,19 @@ void UnpackXMLElement(const char *pre, wdl_xml_element *elem,
   }
 }
 
-bool UnpackIXMLChunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata)
+bool UnpackIXMLChunk(const char *buf, int buflen,
+  WDL_StringKeyedArray<char*> *metadata)
 {
-  if (!hb || !hb->GetSize() || !metadata) return false;
+  if (!buf || !buflen || !metadata) return false;
 
-  const char *p=(const char*)hb->Get();
-  int len=hb->GetSize();
-  while (len > 20 && strnicmp(p, "<BWFXML>", 8))
+  while (buflen > 20 && strnicmp(buf, "<BWFXML>", 8))
   {
-    ++p;
-    --len;
+    ++buf;
+    --buflen;
   }
-  if (len >= 20)
+  if (buflen >= 20)
   {
-    wdl_xml_parser xml(p, len);
+    wdl_xml_parser xml(buf, buflen);
     if (!xml.parse() && xml.element_root)
     {
       UnpackXMLElement("IXML", xml.element_root, metadata);
@@ -219,13 +218,12 @@ void UnpackXMPElement(wdl_xml_element *elem, WDL_StringKeyedArray<char*> *metada
   }
 }
 
-bool UnpackXMPChunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata)
+bool UnpackXMPChunk(const char *buf, int buflen,
+  WDL_StringKeyedArray<char*> *metadata)
 {
-  if (!hb || !hb->GetSize() || !metadata) return false;
+  if (!buf || !buflen || !metadata) return false;
 
-  const char *p=(const char*)hb->Get();
-  int len=hb->GetSize();
-  wdl_xml_parser xmp(p, len);
+  wdl_xml_parser xmp(buf, buflen);
   if (!xmp.parse() && xmp.element_root)
   {
     UnpackXMPElement(xmp.element_root, metadata);
