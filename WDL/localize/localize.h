@@ -19,12 +19,16 @@ WDL_AssocArray<WDL_UINT64, char *> *WDL_LoadLanguagePack(const char *buf, const 
 #define __LOCALIZE_VERFMT(str, ctx) str
 #define __LOCALIZE_NOCACHE(str, ctx) str
 #define __LOCALIZE_VERFMT_NOCACHE(str, ctx) str
+#define __LOCALIZE_LCACHE(str, ctx, pp) const char *pp = str
+#define __LOCALIZE_VERFMT_LCACHE(str, ctx, pp) const char *pp = str
 #else
 #define __LOCALIZE(str, ctx) __localizeFunc("" str "" , "" ctx "",0)
 #define __LOCALIZE_2N(str,ctx) __localizeFunc("" str "" , "" ctx "",LOCALIZE_FLAG_PAIR)
 #define __LOCALIZE_VERFMT(str, ctx) __localizeFunc("" str "", "" ctx "",LOCALIZE_FLAG_VERIFY_FMTS)
 #define __LOCALIZE_NOCACHE(str, ctx) __localizeFunc("" str "", "" ctx "",LOCALIZE_FLAG_NOCACHE)
 #define __LOCALIZE_VERFMT_NOCACHE(str, ctx) __localizeFunc("" str "", "" ctx "",LOCALIZE_FLAG_VERIFY_FMTS|LOCALIZE_FLAG_NOCACHE)
+#define __LOCALIZE_LCACHE(str, ctx, pp) static const char *pp; if (!pp) pp = __localizeFunc("" str "", "" ctx "",LOCALIZE_FLAG_NOCACHE)
+#define __LOCALIZE_VERFMT_LCACHE(str, ctx, pp) static const char *pp; if (!pp) pp = __localizeFunc("" str "", "" ctx "",LOCALIZE_FLAG_VERIFY_FMTS|LOCALIZE_FLAG_NOCACHE)
 #endif
 
 #define __LOCALIZE_REG_ONLY(str, ctx) str
