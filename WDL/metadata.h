@@ -1427,37 +1427,37 @@ int PackID3Chunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata, bool wa
   int i;
   for (i=0; i < metadata->GetSize(); ++i)
   {
-    const char *id;
-    const char *val=metadata->Enumerate(i, &id);
-    if (strlen(id) < 8 || strncmp(id, "ID3:", 4) || !val) continue;
-    id += 4;
-    if (!strncmp(id, "TXXX", 4))
+    const char *key;
+    const char *val=metadata->Enumerate(i, &key);
+    if (strlen(key) < 8 || strncmp(key, "ID3:", 4) || !val) continue;
+    key += 4;
+    if (!strncmp(key, "TXXX", 4))
     {
       const char *k, *v;
       int klen, vlen;
-      ParseUserDefMetadata(id, val, &k, &v, &klen, &vlen);
+      ParseUserDefMetadata(key, val, &k, &v, &klen, &vlen);
       id3len += 10+1+klen+1+vlen;
     }
-    else if (!strncmp(id, "TIME", 4))
+    else if (!strncmp(key, "TIME", 4))
     {
       if (IsID3TimeVal(val)) id3len += 10+1+4;
     }
-    else if (id[0] == 'T' && strlen(id) == 4)
+    else if (key[0] == 'T' && strlen(key) == 4)
     {
       id3len += 10+1+strlen(val);
     }
-    else if (!strcmp(id, "COMM"))
+    else if (!strcmp(key, "COMM"))
     {
       id3len += 10+5+strlen(val);
     }
-    else if (!strncmp(id, "CHAP", 4) && chapcnt < 255)
+    else if (!strncmp(key, "CHAP", 4) && chapcnt < 255)
     {
       const char *c1=strchr(val, ':');
       const char *c2 = c1 ? strchr(c1+1, ':') : NULL;
       if (c1)
       {
         ++chapcnt;
-        const char *toc_entry=id; // use "CHAP1", etc as the internal toc entry
+        const char *toc_entry=key; // use "CHAP1", etc as the internal toc entry
         const char *chap_name = c2 ? c2+1 : NULL;
         toc.Add(toc_entry, strlen(toc_entry)+1);
         id3len += 10+strlen(toc_entry)+1+16;
@@ -1543,17 +1543,17 @@ int PackID3Chunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata, bool wa
       _AddSyncSafeInt32(id3len-10);
       for (i=0; i < metadata->GetSize(); ++i)
       {
-        const char *id;
-        const char *val=metadata->Enumerate(i, &id);
-        if (strlen(id) < 8 || strncmp(id, "ID3:", 4) || !val) continue;
-        id += 4;
-        if (!strncmp(id, "TXXX", 4))
+        const char *key;
+        const char *val=metadata->Enumerate(i, &key);
+        if (strlen(key) < 8 || strncmp(key, "ID3:", 4) || !val) continue;
+        key += 4;
+        if (!strncmp(key, "TXXX", 4))
         {
-          memcpy(p, id, 4);
+          memcpy(p, key, 4);
           p += 4;
           const char *k, *v;
           int klen, vlen;
-          ParseUserDefMetadata(id, val, &k, &v, &klen, &vlen);
+          ParseUserDefMetadata(key, val, &k, &v, &klen, &vlen);
           _AddSyncSafeInt32(1+klen+1+vlen);
           memcpy(p, "\x00\x00\x03", 3); // UTF-8
           p += 3;
@@ -1563,12 +1563,12 @@ int PackID3Chunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata, bool wa
           memcpy(p, v, vlen);
           p += vlen;
         }
-        else if (!strncmp(id, "TIME", 4))
+        else if (!strncmp(key, "TIME", 4))
         {
           int tv=IsID3TimeVal(val);
           if (tv)
           {
-            memcpy(p, id, 4);
+            memcpy(p, key, 4);
             p += 4;
             _AddSyncSafeInt32(1+4);
             memcpy(p, "\x00\x00\x03", 3); // UTF-8
@@ -1579,9 +1579,9 @@ int PackID3Chunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata, bool wa
             p += 4;
           }
         }
-        else if (id[0] == 'T' && strlen(id) == 4)
+        else if (key[0] == 'T' && strlen(key) == 4)
         {
-          memcpy(p, id, 4);
+          memcpy(p, key, 4);
           p += 4;
           int len=strlen(val);
           _AddSyncSafeInt32(1+len);
@@ -1590,13 +1590,13 @@ int PackID3Chunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata, bool wa
           memcpy(p, val, len);
           p += len;
         }
-        else if (!strcmp(id, "COMM"))
+        else if (!strcmp(key, "COMM"))
         {
           // http://www.loc.gov/standards/iso639-2/php/code_list.php
           // most apps ignore this, itunes wants "eng" or something locale-specific
           const char *lang=metadata->Get("ID3:COMM_LANG");
 
-          memcpy(p, id, 4);
+          memcpy(p, key, 4);
           p += 4;
           int len=strlen(val);
           _AddSyncSafeInt32(5+len);
@@ -1619,7 +1619,7 @@ int PackID3Chunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata, bool wa
           memcpy(p, val, len);
           p += len;
         }
-        else if (!strncmp(id, "CHAP", 4) && chapcnt < 255)
+        else if (!strncmp(key, "CHAP", 4) && chapcnt < 255)
         {
           const char *c1=strchr(val, ':');
           const char *c2 = c1 ? strchr(c1+1, ':') : NULL;
@@ -1628,7 +1628,7 @@ int PackID3Chunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata, bool wa
             // note, the encoding ignores the chapter number (CHAP1, etc)
 
             ++chapcnt;
-            const char *toc_entry=id; // use "CHAP1", etc as the internal toc entry
+            const char *toc_entry=key; // use "CHAP1", etc as the internal toc entry
             const char *chap_name = c2 ? c2+1 : NULL;
             int st=atoi(val);
             int et=atoi(c1+1);
