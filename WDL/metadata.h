@@ -1457,7 +1457,7 @@ int PackID3Chunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata, bool wa
       if (c1)
       {
         ++chapcnt;
-        const char *toc_entry=key; // use "CHAP1", etc as the internal toc entry
+        const char *toc_entry=key; // use "CHAP001", etc as the internal toc entry
         const char *chap_name = c2 ? c2+1 : NULL;
         toc.Add(toc_entry, strlen(toc_entry)+1);
         id3len += 10+strlen(toc_entry)+1+16;
@@ -1625,10 +1625,10 @@ int PackID3Chunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata, bool wa
           const char *c2 = c1 ? strchr(c1+1, ':') : NULL;
           if (c1)
           {
-            // note, the encoding ignores the chapter number (CHAP1, etc)
+            // note, the encoding ignores the chapter number (CHAP001, etc)
 
             ++chapcnt;
-            const char *toc_entry=key; // use "CHAP1", etc as the internal toc entry
+            const char *toc_entry=key; // use "CHAP001", etc as the internal toc entry
             const char *chap_name = c2 ? c2+1 : NULL;
             int st=atoi(val);
             int et=atoi(c1+1);
