@@ -4349,12 +4349,13 @@ void ListView_SetColumn(HWND h, int pos, const LVCOLUMN *lvc)
   
   NSTableColumn *col=v->m_cols->Get(pos);
   if (!col) return;
-  
+
   if (lvc->mask&LVCF_FMT)
   {
-    if (lvc->fmt == LVCFMT_LEFT) [[col headerCell] setAlignment:NSLeftTextAlignment];
-    else if (lvc->fmt == LVCFMT_CENTER) [[col headerCell] setAlignment:NSCenterTextAlignment];
-    else if (lvc->fmt == LVCFMT_RIGHT) [[col headerCell] setAlignment:NSRightTextAlignment];
+    int align = lvc->fmt == LVCFMT_CENTER ? NSCenterTextAlignment :
+      lvc->fmt == LVCFMT_RIGHT ? NSRightTextAlignment : NSLeftTextAlignment;
+    [[col headerCell] setAlignment:align];
+    [[col dataCell] setAlignment:align];
   }
   if (lvc->mask&LVCF_WIDTH)
   {
