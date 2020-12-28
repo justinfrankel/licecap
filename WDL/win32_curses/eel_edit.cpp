@@ -1317,7 +1317,100 @@ int EEL_Editor::onChar(int c)
   return 0;
   }
 
-  return WDL_CursesEditor::onChar(c);
+  int rv = WDL_CursesEditor::onChar(c);
+
+  char sug[512];
+  sug[0]=0;
+
+  if (m_ui_state == UI_STATE_NORMAL && !m_selecting && m_top_margin > 0)
+  {
+    WDL_FastString *l=m_text.Get(m_curs_y);
+    if (l)
+    {
+      const char *p = l->Get(), *endp = p + l->GetLength(), *cursor = p + WDL_utf8_charpos_to_bytepos(p,m_curs_x);
+      int state = 0, toklen = 0;
+
+      const int MAX_TOK=512;
+      struct {
+        const char *tok;
+        int toklen;
+      } token_list[MAX_TOK];
+
+      int ntok = 0;
+      const char *tok;
+      while ((tok=sh_tokenize(&p,endp,&toklen,&state)) && cursor >= tok)
+      {
+        if (!state)
+        {
+          if (WDL_NOT_NORMALLY(ntok >= MAX_TOK))
+          {
+            memmove(token_list,token_list+1,sizeof(token_list) - sizeof(token_list[0]));
+            ntok--;
+          }
+          token_list[ntok].tok = tok;
+          token_list[ntok].toklen = toklen;
+          ntok++;
+        }
+      }
+
+      const int min_func_toklen = 3;
+      int t = ntok;
+      while (--t >= 0)
+      {
+        const int lc = token_list[t].tok[0], ac = lc==')' ? '(' : lc==']' ? '[' : 0;
+        if (ac)
+        {
+          int cnt=1;
+          while (--t>=0)
+          {
+            const int c = token_list[t].tok[0];
+            if (c == lc) cnt++;
+            else if (c == ac && !--cnt) break;
+          }
+          if (t > 0)
+          {
+            const int c = token_list[t-1].tok[0];
+            if (c != ')' && c != ']') t--;
+            continue;
+          }
+        }
+
+        if (t >= 0 && token_list[t].toklen >= min_func_toklen)
+        {
+          char buf[512];
+          lstrcpyn_safe(buf,token_list[t].tok,wdl_min(token_list[t].toklen+1, sizeof(buf)));
+
+          if (!peek_get_function_info(buf,sug,sizeof(sug),~0,m_curs_y))
+          {
+            // todo: fuzzy match list
+            sug[0]=0;
+          }
+        }
+      }
+    }
+  }
+
+  if (strcmp(sug,m_suggestion.Get()))
+  {
+    m_suggestion.Set(sug);
+    if (sug[0])
+    {
+      m_suggestion_x=m_curs_x;
+      m_suggestion_y=m_curs_y;
+      draw_top_line();
+      setCursor();
+    }
+  }
+  if (!sug[0] && m_suggestion_y>=0)
+  {
+    m_suggestion_x=m_suggestion_y=-1;
+    m_suggestion.Set("");
+    if (m_top_margin>0) draw_top_line();
+    else draw();
+    setCursor();
+  }
+
+  return rv;
 }
 
 void EEL_Editor::draw_top_line()
