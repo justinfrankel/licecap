@@ -261,6 +261,7 @@ typedef struct functionType {
 } functionType;
 
 functionType *nseel_getFunctionByName(compileContext *ctx, const char *name, int *mchk); // sets mchk (if non-NULL) to how far allowed to scan forward for duplicate names
+functionType *nseel_enumFunctions(compileContext *ctx, int idx);
 
 opcodeRec *nseel_createCompiledValue(compileContext *ctx, EEL_F value);
 opcodeRec *nseel_createCompiledValuePtr(compileContext *ctx, EEL_F *addrValue, const char *namestr);

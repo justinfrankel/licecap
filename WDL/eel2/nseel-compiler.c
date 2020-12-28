@@ -619,6 +619,7 @@ static int functable_lowerbound(functionType *list, int list_sz, const char *nam
 }
 
 static int funcTypeCmp(const void *a, const void *b) { return stricmp(((functionType*)a)->name,((functionType*)b)->name); }
+
 functionType *nseel_getFunctionByName(compileContext *ctx, const char *name, int *mchk)
 {
   eel_function_table *tab = ctx && ctx->registered_func_tab ? ctx->registered_func_tab : &default_user_funcs;
@@ -647,6 +648,21 @@ functionType *nseel_getFunctionByName(compileContext *ctx, const char *name, int
       }
       return tab->list + idx;
     }
+  }
+
+  return NULL;
+}
+
+functionType *nseel_enumFunctions(compileContext *ctx, int idx)
+{
+  eel_function_table *tab = ctx && ctx->registered_func_tab ? ctx->registered_func_tab : &default_user_funcs;
+  const int fn1size = (int) (sizeof(fnTable1)/sizeof(fnTable1[0]));
+  if (idx >= 0 && idx < fn1size) return fnTable1 + idx;
+  if ((!ctx || !(ctx->current_compile_flags&NSEEL_CODE_COMPILE_FLAG_ONLY_BUILTIN_FUNCTIONS)) && tab->list)
+  {
+    idx -= fn1size;
+    if (idx>=0 && idx < tab->list_size)
+      return tab->list + idx;
   }
 
   return NULL;
