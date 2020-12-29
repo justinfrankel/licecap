@@ -114,6 +114,12 @@ public:
   int m_suggestion_hwnd_sel;
   int m_suggestion_tokpos, m_suggestion_toklen; // bytepos/len
 
+  void ensure_code_func_cache_valid();
+  WDL_PtrList<char> m_code_func_cache; // list of code functions, first 4 bytes of the pointer is integer line offset, followed by name
+  DWORD m_code_func_cache_time; // last GetTickCount() for invalidation
+  int m_code_func_cache_lines; // last m_text.GetSize() for invalidation
+
+
   bool m_case_sensitive; // for function detection, and maybe other places
   const char *m_function_prefix; // defaults to "function "
   const char *m_comment_str; // defaults to "//"

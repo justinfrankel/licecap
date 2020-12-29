@@ -27,11 +27,14 @@ EEL_Editor::EEL_Editor(void *cursesCtx) : WDL_CursesEditor(cursesCtx)
 
   m_suggestion_hwnd=NULL;
   // m_suggestion_hwnd_sel/m_suggestion_hwnd_list are both managed by suggestionProc
+  m_code_func_cache_lines=0;
+  m_code_func_cache_time=0;
 }
 
 EEL_Editor::~EEL_Editor()
 {
   if (m_suggestion_hwnd) DestroyWindow(m_suggestion_hwnd);
+  m_code_func_cache.Empty(true,free);
 }
 
 #define sh_func_ontoken(x,y)
@@ -1029,13 +1032,19 @@ int EEL_Editor::peek_get_function_info(const char *name, char *sstr, size_t sstr
 {
   if ((chkmask&4) && m_function_prefix && *m_function_prefix)
   {
+    ensure_code_func_cache_valid();
+
     const size_t nlen = strlen(name);
     const char *prefix = m_function_prefix;
     const int prefix_len = (int) strlen(m_function_prefix);
-    for (int i=0; i < m_text.GetSize(); ++i)
+    for (int i = 0; i < m_code_func_cache.GetSize(); i ++)
     {
-      WDL_FastString* s=m_text.Get(i);
-      if (s && i != ignoreline)
+      const char *cacheptr = m_code_func_cache.Get(i);
+      int line;
+      WDL_FastString *s;
+      if (!(m_case_sensitive ? strcmp(cacheptr+4, name):stricmp(cacheptr+4,name)) &&
+          (line=*(int *)cacheptr) != ignoreline &&
+          (s=m_text.Get(line)) != NULL)
       {
         const char* p= s->Get();
         while (*p)
@@ -1058,6 +1067,7 @@ int EEL_Editor::peek_get_function_info(const char *name, char *sstr, size_t sstr
           }
           p++;
         }
+        WDL_ASSERT(false /* error resolving, stale cache?*/);
       }
     }
   }
@@ -1868,6 +1878,60 @@ void EEL_Editor::onRightClick(HWND hwnd)
   else
   {
     doWatchInfo(0);
+  }
+}
+
+void EEL_Editor::ensure_code_func_cache_valid()
+{
+  if (!m_function_prefix || !*m_function_prefix) return;
+  const DWORD now = GetTickCount();
+  if (m_text.GetSize()==m_code_func_cache_lines && (now-m_code_func_cache_time)<5000) return;
+
+  m_code_func_cache_lines = m_text.GetSize();
+  m_code_func_cache_time = now;
+
+  m_code_func_cache.Empty(true,free);
+
+  const char *prefix = m_function_prefix;
+  const int prefix_len = (int) strlen(m_function_prefix);
+  for (int i=0; i < m_text.GetSize(); ++i)
+  {
+    WDL_FastString* s=m_text.Get(i);
+    if (WDL_NORMALLY(s))
+    {
+      const char *p = s->Get();
+      while (*p)
+      {
+        if (m_case_sensitive ? !strncmp(p,prefix,prefix_len) : !strnicmp(p,prefix,prefix_len))
+        {
+          p+=prefix_len;
+          while (*p == ' ') p++;
+          if ((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') || *p == '_')
+          {
+            const char *q = p+1;
+            while ((*q >= '0' && *q <= '9') ||
+                   (*q >= 'a' && *q <= 'z') ||
+                   (*q >= 'A' && *q <= 'Z') ||
+                   *q == ':' || // lua
+                   *q == '_' || *q == '.') q++;
+
+            const char *endp = q;
+            while (*q == ' ') q++;
+            if (*q == '(')
+            {
+              // add function
+              int len = (int) (endp - p);
+              char *v = (char *)malloc(len+1+sizeof(int));
+              *(int *)v = i;
+              lstrcpyn_safe(v+sizeof(int),p,len+1);
+              m_code_func_cache.Add(v);
+              p = q;
+            }
+          }
+        }
+        p++;
+      }
+    }
   }
 }
 
