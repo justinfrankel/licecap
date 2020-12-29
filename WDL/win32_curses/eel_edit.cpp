@@ -919,6 +919,107 @@ void EEL_Editor::doParenMatching()
   }
 }
 
+static int word_len(const char *p)
+{
+  int l = 0;
+  if (*p >= 'a' && *p <='z')
+  {
+    l++;
+    // lowercase word
+    while (p[l] && p[l] != '_' && !(p[l] >= 'A' && p[l] <='Z')) l++;
+  }
+  else if (*p >= 'A' && *p <= 'Z')
+  {
+    l++;
+    if (p[l] >= 'A'  && p[l] <='Z') // UPPERCASE word
+      while (p[l] && p[l] != '_' && !(p[l] >= 'a' && p[l] <='z')) l++;
+    else // Titlecase word
+      while (p[l] && p[l] != '_' && !(p[l] >= 'A' && p[l] <='Z')) l++;
+  }
+  return l;
+}
+
+static bool search_str(const char *str, int reflen, const char *word, int wordlen)
+{
+  reflen -= wordlen;
+  for (int y = 0; y <= reflen; y ++)
+    if (!strnicmp(str+y,word,wordlen)) return true;
+  return false;
+}
+
+int EEL_Editor::fuzzy_match(const char *codestr, const char *refstr)
+{
+  // codestr is user-typed, refstr is the reference function name
+  const int reflen = (int)strlen(refstr), codelen = (int)strlen(codestr);
+  int lendiff = reflen - codelen;
+  if (lendiff < 0) lendiff = -lendiff;
+
+  const char *word = codestr;
+  bool had_track = false, had_media = false;
+  int score = 0;
+  for (;;)
+  {
+    while (*word == '_') word++;
+    const int wordlen = word_len(word);
+    if (!wordlen) break;
+
+    if (search_str(refstr,reflen,word,wordlen))
+    {
+      score += wordlen;
+    }
+    else
+    {
+      if (wordlen == 3 && !strnicmp(word,"Num",3) && search_str(refstr,reflen,"Count",5)) score += 3;
+      else if (wordlen == 5 && !strnicmp(word,"Count",5) && search_str(refstr,reflen,"Num",3))
+      {
+        score ++;
+        if (search_str(refstr,reflen,"Get",3)) score++;
+      }
+    }
+    if (wordlen == 5)
+    {
+      if (!strnicmp(word,"Media",5)) had_media=true;
+      else if (!strnicmp(word,"Track",5)) had_track=true;
+    }
+    word += wordlen;
+  }
+
+  if (!score) return 0;
+
+  if (had_track && !had_media && strstr(refstr,"MediaTrack"))
+    lendiff -= 5;
+
+  return score * 100 + 100 - wdl_clamp(lendiff,0,99);
+}
+
+void EEL_Editor::get_suggested_function_names(const char *fname, suggested_matchlist *list)
+{
+  int x;
+  peek_lock();
+  NSEEL_VMCTX vm = peek_want_VM_funcs() ? peek_get_VM() : NULL;
+  for (x=0;;x++)
+  {
+    functionType *p = nseel_enumFunctions((compileContext*)vm,x);
+    if (!p) break;
+    int score = fuzzy_match(fname,p->name);
+    if (score>0) list->add(p->name,score);
+  }
+  peek_unlock();
+  if (m_added_funclist)
+  {
+    for (x = 0; x < m_added_funclist->GetSize(); x ++)
+    {
+      const char *ptr = NULL;
+      char *v = m_added_funclist->Enumerate(x,&ptr);
+      if (v && WDL_NORMALLY(ptr))
+      {
+        const int score = fuzzy_match(fname,ptr);
+        if (score>0) list->add(ptr,score);
+      }
+    }
+  }
+}
+
 int EEL_Editor::peek_get_function_info(const char *name, char *sstr, size_t sstr_sz, int chkmask, int ignoreline)
 {
   if ((chkmask&4) && m_function_prefix && *m_function_prefix)
@@ -1317,12 +1418,16 @@ int EEL_Editor::onChar(int c)
   return 0;
   }
 
-  int rv = WDL_CursesEditor::onChar(c);
+
+  int do_sug = (m_ui_state == UI_STATE_NORMAL && !m_selecting && m_top_margin > 0) ? 1 : 0;
+  if (do_sug && c==KEY_RIGHT && !SHIFT_KEY_DOWN && !ALT_KEY_DOWN && !CTRL_KEY_DOWN) do_sug = 2;
+
+  int rv = do_sug == 2 ? 0 : WDL_CursesEditor::onChar(c);
 
   char sug[512];
   sug[0]=0;
 
-  if (m_ui_state == UI_STATE_NORMAL && !m_selecting && m_top_margin > 0)
+  if (do_sug)
   {
     WDL_FastString *l=m_text.Get(m_curs_y);
     if (l)
@@ -1338,7 +1443,7 @@ int EEL_Editor::onChar(int c)
 
       int ntok = 0;
       const char *tok;
-      while ((tok=sh_tokenize(&p,endp,&toklen,&state)) && cursor >= tok)
+      while ((tok=sh_tokenize(&p,endp,&toklen,&state)) && cursor >= (*tok=='(' || *tok=='[' ? tok+1 : tok))
       {
         if (!state)
         {
@@ -1379,16 +1484,38 @@ int EEL_Editor::onChar(int c)
         {
           char buf[512];
           lstrcpyn_safe(buf,token_list[t].tok,wdl_min(token_list[t].toklen+1, sizeof(buf)));
+          if (peek_get_function_info(buf,sug,sizeof(sug),~0,m_curs_y)) break;
 
-          if (!peek_get_function_info(buf,sug,sizeof(sug),~0,m_curs_y))
+          if (t == ntok-1)
           {
-            // todo: fuzzy match list
-            sug[0]=0;
+            suggested_matchlist ml(1);
+            get_suggested_function_names(buf,&ml);
+
+            const char *p = ml.get(0);
+            if (p && *p)
+            {
+              if (do_sug == 2 && cursor >= token_list[t].tok + token_list[t].toklen)
+              {
+                preSaveUndoState();
+                int offs = (int)(token_list[t].tok-l->Get());
+                l->DeleteSub(offs,token_list[t].toklen);
+                l->Insert(p,offs);
+                m_curs_x = WDL_utf8_bytepos_to_charpos(l->Get(),offs+strlen(p));
+                draw();
+                saveUndoState();
+                setCursor();
+                do_sug = 1;
+              }
+
+              if (peek_get_function_info(p,sug,sizeof(sug),~0,m_curs_y)) break;
+            }
           }
         }
       }
     }
   }
+
+  if (do_sug == 2) rv = WDL_CursesEditor::onChar(c);
 
   if (strcmp(sug,m_suggestion.Get()))
   {

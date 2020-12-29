@@ -6,6 +6,49 @@
 #include "curses_editor.h"
 #include "../assocarray.h"
 
+class suggested_matchlist {
+    enum { MAX_MATCHES=32, STR_SZ=128 };
+
+    int m_size, m_maxsz, m_scores[MAX_MATCHES];
+    char m_buf[MAX_MATCHES*STR_SZ];
+
+  public:
+
+    suggested_matchlist(int maxsz=MAX_MATCHES) : m_size(0) { m_maxsz=wdl_min(maxsz,MAX_MATCHES); }
+    ~suggested_matchlist() { }
+
+    int get_size() const { return m_size; }
+    const char *get(int idx) const { return idx>=0&&idx<m_size ? m_buf+(idx*STR_SZ) : NULL; };
+    int get_score(int idx) const { return idx>=0&&idx<m_size?m_scores[idx]:-1; }
+
+    void add(const char *p, int score=0x7FFFFFFF)
+    {
+      int x;
+      for (x = 0; x < m_size && m_scores[x] > score; x++);
+
+      // early-out if we're already in the list
+      while (x < m_size && m_scores[x] == score)
+        if (!strncmp(p,m_buf+x++*STR_SZ,STR_SZ-1)) return;
+
+      if (x == m_maxsz) return;
+
+      if (m_size < m_maxsz) m_size++;
+      if (x < m_size)
+      {
+        memmove(m_buf + STR_SZ*(x+1), m_buf + STR_SZ*x, (m_size-x-1)*STR_SZ);
+        memmove(m_scores + x + 1, m_scores + x, m_size-x-1);
+      }
+      lstrcpyn_safe(m_buf + STR_SZ*x,p,STR_SZ);
+      m_scores[x] = score;
+    }
+
+    void set_by_idx(int idx, const char *p)
+    {
+      char *b = (char*)get(idx);
+      if (b) lstrcpyn_safe(b,p?p:"",STR_SZ);
+    }
+};
+
 // add EEL syntax highlighting and paren matching, hooks for watch/etc
 class EEL_Editor : public WDL_CursesEditor
 {
@@ -53,6 +96,8 @@ public:
 
   virtual bool line_has_openable_file(const char *line, int cursor_bytepos, char *fnout, size_t fnout_sz) { return false; }
   virtual int peek_get_function_info(const char *name, char *sstr, size_t sstr_sz, int chkmask, int ignoreline); // mask: 1=builtin, 2=m_added_funclist, 4=user functions. ignoreline= line to ignore function defs on.
+  virtual void get_suggested_function_names(const char *fname, suggested_matchlist *list);
+  virtual int fuzzy_match(const char *codestr, const char *refstr);
 
   virtual void draw_top_line();
 
