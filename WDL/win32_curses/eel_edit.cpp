@@ -1,5 +1,6 @@
 #ifdef _WIN32
 #include <windows.h>
+#include <windowsx.h>
 #else
 #include "../swell/swell.h"
 #endif
@@ -23,10 +24,14 @@ EEL_Editor::EEL_Editor(void *cursesCtx) : WDL_CursesEditor(cursesCtx)
   m_case_sensitive=false;
   m_comment_str="//"; // todo IsWithinComment() or something?
   m_function_prefix = "function ";
+
+  m_suggestion_hwnd=NULL;
+  // m_suggestion_hwnd_sel/m_suggestion_hwnd_list are both managed by suggestionProc
 }
 
 EEL_Editor::~EEL_Editor()
 {
+  if (m_suggestion_hwnd) DestroyWindow(m_suggestion_hwnd);
 }
 
 #define sh_func_ontoken(x,y)
@@ -1377,6 +1382,159 @@ void EEL_Editor::draw_bottom_line()
 #define SHIFT_KEY_DOWN (GetAsyncKeyState(VK_SHIFT)&0x8000)
 #define ALT_KEY_DOWN (GetAsyncKeyState(VK_MENU)&0x8000)
 
+#define WM_SUGGESTION_PROC_UPDATE (WM_USER+1111)
+
+static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+  switch (uMsg)
+  {
+    case WM_CREATE:
+      {
+#ifdef _WIN32
+        EEL_Editor *editor = (EEL_Editor *)((LPCREATESTRUCT)lParam)->lpCreateParams;
+#else
+        EEL_Editor *editor = (EEL_Editor *)lParam;
+#endif
+        SetWindowLongPtr(hwnd,GWLP_USERDATA,(LPARAM)editor);
+        editor->m_suggestion_hwnd = hwnd;
+        editor->m_suggestion_hwnd_list = new suggested_matchlist;
+        editor->m_suggestion_hwnd_sel = 0;
+      }
+    break;
+    case WM_DESTROY:
+      {
+        EEL_Editor *editor = (EEL_Editor *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        if (editor) 
+        {
+          editor->m_suggestion_hwnd = NULL;
+          delete editor->m_suggestion_hwnd_list;
+        }
+      }
+    break;
+    case WM_SUGGESTION_PROC_UPDATE:
+      {
+        EEL_Editor *editor = (EEL_Editor *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        if (!editor) return 0;
+        suggested_matchlist *src = (suggested_matchlist *)wParam, *ml = editor->m_suggestion_hwnd_list;
+        if (WDL_NORMALLY(src))
+        {
+          editor->m_suggestion_hwnd_sel = 0;
+          *ml = *src;
+        }
+
+        win32CursesCtx *ctx = (win32CursesCtx *)editor->m_cursesCtx;
+
+        const int fontw = ctx->m_font_w, fonth = ctx->m_font_h;
+        if (WDL_NOT_NORMALLY(!fontw || !fonth)) return 0;
+
+        const int xpos = (int) lParam * fontw;
+        RECT par_cr;
+        GetClientRect(GetParent(hwnd),&par_cr);
+
+        int use_w = 0, use_h = ml->get_size()*fonth;
+        for (int x = 0; x < ml->get_size(); x ++)
+        {
+          const char *p = ml->get(x);
+          if (WDL_NORMALLY(p!=NULL))
+          {
+            int l = strlen(p);
+            if (l > use_w) use_w=l;
+          }
+        }
+
+        use_w = 8 + use_w * fontw;
+        if (use_w > par_cr.right - xpos) use_w = par_cr.right - xpos;
+
+        const int cursor_line_y = ctx->m_cursor_y * fonth;
+        int ypos = cursor_line_y + fonth;
+        if (ypos + use_h > par_cr.bottom)
+        {
+          if (cursor_line_y > par_cr.bottom - ypos)
+          {
+            // more room at the top, but enough?
+            ypos = cursor_line_y - use_h;
+            if (ypos<0)
+            {
+              ypos = 0;
+              use_h = cursor_line_y;
+            }
+          }
+          else
+            use_h = par_cr.bottom - ypos;
+        }
+
+        SetWindowPos(hwnd,NULL,xpos,ypos,use_w,use_h, SWP_NOZORDER|SWP_NOACTIVATE);
+        ShowWindow(hwnd,SW_SHOWNA);
+      }
+    return 0;
+    case WM_LBUTTONDOWN:
+      {
+        EEL_Editor *editor = (EEL_Editor *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+        if (editor)
+        {
+          win32CursesCtx *ctx = (win32CursesCtx *)editor->m_cursesCtx;
+          if (ctx && ctx->m_font_h)
+          {
+            editor->m_suggestion_hwnd_sel = GET_Y_LPARAM(lParam) / ctx->m_font_h;
+            SetForegroundWindow(GetParent(hwnd));
+            SetFocus(GetParent(hwnd));
+            if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN && !CTRL_KEY_DOWN)
+            {
+              editor->onChar('\r');
+            }
+            else
+              InvalidateRect(hwnd,NULL,FALSE);
+          }
+        }
+      }
+    return 0;
+    case WM_PAINT:
+      {
+        PAINTSTRUCT ps;
+        if (BeginPaint(hwnd,&ps))
+        {
+          RECT r;
+          GetClientRect(hwnd,&r);
+
+          EEL_Editor *editor = (EEL_Editor *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+          if (editor && editor->m_suggestion_hwnd_list)
+          {
+            win32CursesCtx *ctx = (win32CursesCtx *)editor->m_cursesCtx;
+            HBRUSH br = CreateSolidBrush(ctx->colortab[WDL_CursesEditor::COLOR_TOPLINE][1]);
+            FillRect(ps.hdc,&r,br);
+            DeleteObject(br);
+
+            suggested_matchlist *ml = editor->m_suggestion_hwnd_list;
+
+            HGDIOBJ oldObj = SelectObject(ps.hdc,ctx->mOurFont);
+            const int fonth = ctx->m_font_h;
+            int ypos = 0;
+            SetBkMode(ps.hdc,TRANSPARENT);
+            for (int x = 0; x < ml->get_size(); x ++)
+            {
+              const char *p = ml->get(x);
+              if (WDL_NORMALLY(p))
+              {
+                const bool sel = x == editor->m_suggestion_hwnd_sel;
+                SetTextColor(ps.hdc,ctx->colortab[WDL_CursesEditor::COLOR_TOPLINE | (sel ? A_BOLD:0)][0]);
+                RECT tr = {4, ypos, r.right-4, ypos+fonth };
+                DrawTextUTF8(ps.hdc,p,-1,&tr,DT_SINGLELINE|DT_NOPREFIX|DT_TOP|DT_LEFT);
+              }
+              ypos += fonth;
+            }
+            SelectObject(ps.hdc,oldObj);
+          }
+
+
+          EndPaint(hwnd,&ps);
+        }
+      }
+    return 0;
+
+  }
+  return DefWindowProc(hwnd,uMsg,wParam,lParam);
+}
+
 int EEL_Editor::onChar(int c)
 {
   if ((m_ui_state == UI_STATE_NORMAL || m_ui_state == UI_STATE_MESSAGE) && 
@@ -1419,14 +1577,60 @@ int EEL_Editor::onChar(int c)
   }
 
 
-  int do_sug = (m_ui_state == UI_STATE_NORMAL && !m_selecting && m_top_margin > 0) ? 1 : 0;
-  if (do_sug && c==KEY_RIGHT && !SHIFT_KEY_DOWN && !ALT_KEY_DOWN && !CTRL_KEY_DOWN) do_sug = 2;
-
-  int rv = do_sug == 2 ? 0 : WDL_CursesEditor::onChar(c);
-
+  bool do_sug = (m_ui_state == UI_STATE_NORMAL && !m_selecting && m_top_margin > 0 && !CTRL_KEY_DOWN && !ALT_KEY_DOWN) ? 1 : 0, did_fuzzy = false;
+  int rv = 0;
   char sug[512];
   sug[0]=0;
 
+  if (do_sug)
+  {
+    if (m_suggestion_hwnd && WDL_NORMALLY(m_suggestion_hwnd_list) && !SHIFT_KEY_DOWN)
+    {
+      if (c == '\r')
+      {
+        char buf[512];
+        const char *ptr = m_suggestion_hwnd_list->get(m_suggestion_hwnd_sel);
+        lstrcpyn_safe(buf,ptr?ptr:"",sizeof(buf));
+        DestroyWindow(m_suggestion_hwnd);
+
+        WDL_FastString *l=m_text.Get(m_curs_y);
+        if (buf[0] && l &&
+            WDL_NORMALLY(m_suggestion_tokpos>=0 && m_suggestion_tokpos < l->GetLength()) &&
+            WDL_NORMALLY(m_suggestion_toklen>0) &&
+            WDL_NORMALLY(m_suggestion_tokpos+m_suggestion_toklen <= l->GetLength()))
+        {
+          preSaveUndoState();
+          l->DeleteSub(m_suggestion_tokpos,m_suggestion_toklen);
+          l->Insert(buf,m_suggestion_tokpos);
+          m_curs_x = WDL_utf8_bytepos_to_charpos(l->Get(),m_suggestion_tokpos+strlen(buf));
+          draw();
+          saveUndoState();
+          setCursor();
+          goto run_suggest;
+        }
+        return 0;
+      }
+      if (c == KEY_UP || c==KEY_DOWN)
+      {
+        m_suggestion_hwnd_sel += (c==KEY_UP) ? -1:1;
+        if (m_suggestion_hwnd_sel >= m_suggestion_hwnd_list->get_size())
+          m_suggestion_hwnd_sel = m_suggestion_hwnd_list->get_size()-1;
+        if (m_suggestion_hwnd_sel < 0)
+          m_suggestion_hwnd_sel=0;
+        InvalidateRect(m_suggestion_hwnd,NULL,FALSE);
+
+        const char *p = m_suggestion_hwnd_list->get(m_suggestion_hwnd_sel);
+        if (p) peek_get_function_info(p,sug,sizeof(sug),~0,m_curs_y);
+        goto finish_sug;
+      }
+    }
+
+    if (c==27 || (c>=KEY_DOWN && c<= KEY_F12 && c!=KEY_DC)) do_sug = false;
+  }
+
+  rv = WDL_CursesEditor::onChar(c);
+
+run_suggest:
   if (do_sug)
   {
     WDL_FastString *l=m_text.Get(m_curs_y);
@@ -1488,35 +1692,50 @@ int EEL_Editor::onChar(int c)
 
           if (t == ntok-1)
           {
-            suggested_matchlist ml(1);
+            suggested_matchlist ml;
             get_suggested_function_names(buf,&ml);
 
-            const char *p = ml.get(0);
-            if (p && *p)
+            if (ml.get_size()>0)
             {
-              if (do_sug == 2 && cursor >= token_list[t].tok + token_list[t].toklen)
+              win32CursesCtx *ctx = (win32CursesCtx *)m_cursesCtx;
+#ifdef _WIN32
+              static HINSTANCE last_inst;
+              const char *classname = "eel_edit_predicto";
+              HINSTANCE inst = (HINSTANCE)GetWindowLongPtr(ctx->m_hwnd,GWLP_HINSTANCE);
+              if (inst != last_inst)
               {
-                preSaveUndoState();
-                int offs = (int)(token_list[t].tok-l->Get());
-                l->DeleteSub(offs,token_list[t].toklen);
-                l->Insert(p,offs);
-                m_curs_x = WDL_utf8_bytepos_to_charpos(l->Get(),offs+strlen(p));
-                draw();
-                saveUndoState();
-                setCursor();
-                do_sug = 1;
+                last_inst = inst;
+                WNDCLASS wc={CS_DBLCLKS,suggestionProc,};
+                wc.lpszClassName=classname;
+                wc.hInstance=inst;
+                wc.hCursor=LoadCursor(NULL,IDC_ARROW);
+                RegisterClass(&wc);
               }
+              if (!m_suggestion_hwnd) CreateWindowEx(0,classname,"", WS_CHILD, 0,0,0,0, ctx->m_hwnd, NULL, inst, this);
 
-              if (peek_get_function_info(p,sug,sizeof(sug),~0,m_curs_y)) break;
+#else
+              if (!m_suggestion_hwnd) CreateDialogParam(NULL,NULL,ctx->m_hwnd, suggestionProc, (LPARAM)this);
+#endif
+
+              m_suggestion_toklen = token_list[t].toklen;
+              m_suggestion_tokpos = (int)(token_list[t].tok-l->Get());
+              if (m_suggestion_hwnd)
+              {
+                int xpos = WDL_utf8_bytepos_to_charpos(l->Get(),m_suggestion_tokpos) - m_offs_x;
+                SendMessage(m_suggestion_hwnd,WM_SUGGESTION_PROC_UPDATE,(WPARAM)&ml,xpos);
+              }
+              did_fuzzy = true;
+              const char *p = ml.get(m_suggestion_hwnd_sel);
+              if (p && peek_get_function_info(p,sug,sizeof(sug),~0,m_curs_y)) break;
             }
           }
         }
       }
     }
   }
+  if (!did_fuzzy && m_suggestion_hwnd) DestroyWindow(m_suggestion_hwnd);
 
-  if (do_sug == 2) rv = WDL_CursesEditor::onChar(c);
-
+finish_sug:
   if (strcmp(sug,m_suggestion.Get()))
   {
     m_suggestion.Set(sug);
