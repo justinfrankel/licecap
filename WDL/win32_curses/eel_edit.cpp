@@ -1893,7 +1893,9 @@ LRESULT EEL_Editor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
           }
         }
       }
-
+    case WM_LBUTTONDOWN:
+    case WM_RBUTTONDOWN:
+      if (m_suggestion_hwnd) DestroyWindow(m_suggestion_hwnd);
     break;
 
   }
