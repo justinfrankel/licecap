@@ -115,7 +115,12 @@ public:
   int m_suggestion_tokpos, m_suggestion_toklen; // bytepos/len
 
   void ensure_code_func_cache_valid();
-  WDL_PtrList<char> m_code_func_cache; // list of code functions, first 4 bytes of the pointer is integer line offset, followed by name
+
+  // list of code functions, first 4 bytes of the pointer is integer line offset
+  // followed by name
+  // followed by (parameter block)
+  // followed by trailing info
+  WDL_PtrList<char> m_code_func_cache;
   DWORD m_code_func_cache_time; // last GetTickCount() for invalidation
   int m_code_func_cache_lines; // last m_text.GetSize() for invalidation
 

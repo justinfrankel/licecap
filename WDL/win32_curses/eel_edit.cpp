@@ -1030,44 +1030,20 @@ void EEL_Editor::get_suggested_function_names(const char *fname, suggested_match
 
 int EEL_Editor::peek_get_function_info(const char *name, char *sstr, size_t sstr_sz, int chkmask, int ignoreline)
 {
-  if ((chkmask&4) && m_function_prefix && *m_function_prefix)
+  if (chkmask&4)
   {
     ensure_code_func_cache_valid();
-
-    const size_t nlen = strlen(name);
-    const char *prefix = m_function_prefix;
-    const int prefix_len = (int) strlen(m_function_prefix);
     for (int i = 0; i < m_code_func_cache.GetSize(); i ++)
     {
       const char *cacheptr = m_code_func_cache.Get(i);
-      int line;
-      WDL_FastString *s;
-      if (!(m_case_sensitive ? strcmp(cacheptr+4, name):stricmp(cacheptr+4,name)) &&
-          (line=*(int *)cacheptr) != ignoreline &&
-          (s=m_text.Get(line)) != NULL)
+      const char *nameptr = cacheptr + sizeof(int);
+      if (!(m_case_sensitive ? strcmp(nameptr, name):stricmp(nameptr,name)) &&
+          *(int *)cacheptr != ignoreline)
       {
-        const char* p= s->Get();
-        while (*p)
-        {
-          if (m_case_sensitive ? !strncmp(p,prefix,prefix_len) : !strnicmp(p,prefix,prefix_len))
-          {
-            p+=prefix_len;
-            while (*p == ' ') p++;
-            if (m_case_sensitive ? !strncmp(p,name,nlen) : !strnicmp(p,name,nlen))
-            {
-              const char *np = p+nlen;
-              while (*np == ' ') np++;
-
-              if (*np == '(')
-              {
-                lstrcpyn_safe(sstr,p,sstr_sz);
-                return 4;
-              }
-            }
-          }
-          p++;
-        }
-        WDL_ASSERT(false /* error resolving, stale cache?*/);
+        const char *parms = nameptr+strlen(nameptr)+1;
+        const char *trail = parms+strlen(parms)+1;
+        snprintf(sstr,sstr_sz,"%s%s%s%s",nameptr,parms,*trail?" " :"",trail);
+        return 4;
       }
     }
   }
@@ -1817,47 +1793,21 @@ void EEL_Editor::onRightClick(HWND hwnd)
 {
   WDL_LogicalSortStringKeyedArray<int> flist(m_case_sensitive);
   int i;
-  if (!(GetAsyncKeyState(VK_CONTROL)&0x8000) && m_function_prefix && *m_function_prefix)
+  if (!(GetAsyncKeyState(VK_CONTROL)&0x8000))
   {
-    const char *prefix = m_function_prefix;
-    const int prefix_len = (int) strlen(m_function_prefix);
-    const int comment_len=(int)strlen(m_comment_str);
-    for (i=0; i < m_text.GetSize(); ++i)
+    m_code_func_cache_lines = -1; // invalidate cache
+    ensure_code_func_cache_valid();
+    for (i = 0; i < m_code_func_cache.GetSize(); i ++)
     {
-      WDL_FastString* s=m_text.Get(i);
-      const char* p=s ? s->Get() : NULL;
-      if (p) while (*p)
-      {
-        if (!strncmp(p, m_comment_str, comment_len)) break;
+      const char *p = m_code_func_cache.Get(i);
+      const int line = *(int *)p;
+      p += sizeof(int);
 
-        if (m_case_sensitive ? !strncmp(p,prefix,prefix_len) : !strnicmp(p,prefix,prefix_len))
-        {
-          p+=prefix_len;
-          while (*p == ' ') p++;
-          if ((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') || *p == '_')
-          {
-            const char *q = p+1;
-            while ((*q >= '0' && *q <= '9') || 
-                   (*q >= 'a' && *q <= 'z') || 
-                   (*q >= 'A' && *q <= 'Z') || 
-                   *q == ':' || // lua
-                   *q == '_' || *q == '.') q++;
-
-            while (*q == ' ') q++;
-            if (*q == '(')
-            {
-              while (*q && *q != ')') q++;
-              if (*q) q++;
-
-              char buf[128];
-              lstrcpyn(buf, p, wdl_min(q-p+1, sizeof(buf)));
-              if (strlen(buf) > sizeof(buf)-2) lstrcpyn(buf+sizeof(buf)-5, "...", 4);
-              flist.AddUnsorted(buf, i);
-            }
-          }
-        }
-        p++;
-      }
+      const char *q = p+strlen(p)+1;
+      char buf[512];
+      snprintf(buf,sizeof(buf),"%s%s",p,q);
+      flist.AddUnsorted(buf,line);
+      p += 4;
     }
   }
   if (flist.GetSize())
@@ -1895,7 +1845,9 @@ void EEL_Editor::onRightClick(HWND hwnd)
 
 void EEL_Editor::ensure_code_func_cache_valid()
 {
-  if (!m_function_prefix || !*m_function_prefix) return;
+  const char *prefix = m_function_prefix;
+  if (!prefix || !*prefix) return;
+
   const DWORD now = GetTickCount();
   if (m_text.GetSize()==m_code_func_cache_lines && (now-m_code_func_cache_time)<5000) return;
 
@@ -1904,7 +1856,6 @@ void EEL_Editor::ensure_code_func_cache_valid()
 
   m_code_func_cache.Empty(true,free);
 
-  const char *prefix = m_function_prefix;
   const int prefix_len = (int) strlen(m_function_prefix);
   for (int i=0; i < m_text.GetSize(); ++i)
   {
@@ -1931,17 +1882,32 @@ void EEL_Editor::ensure_code_func_cache_valid()
             while (*q == ' ') q++;
             if (*q == '(')
             {
+              const char *endq = q;
+              while (*endq && *endq != ')') endq++;
+              if (*endq) endq++;
+              const char *r = endq;
+              while (*r == ' ') r++;
+
+              const int p_len = (int) (endp - p);
+              const int q_len = (int) (endq - q);
+              const int r_len = (int) strlen(r);
+
               // add function
-              int len = (int) (endp - p);
-              char *v = (char *)malloc(len+1+sizeof(int));
-              *(int *)v = i;
-              lstrcpyn_safe(v+sizeof(int),p,len+1);
-              m_code_func_cache.Add(v);
-              p = q;
+              char *v = (char *)malloc(sizeof(int) + p_len + q_len + r_len + 3), *wr = v;
+              if (WDL_NORMALLY(v))
+              {
+                *(int *)wr = i;  wr += sizeof(int);
+                lstrcpyn_safe(wr,p,p_len+1); wr += p_len+1;
+                lstrcpyn_safe(wr,q,q_len+1); wr += q_len+1;
+                lstrcpyn_safe(wr,r,r_len+1); wr += r_len+1;
+
+                m_code_func_cache.Add(v);
+              }
+              p = r; // continue parsing after parentheses
             }
           }
         }
-        p++;
+        if (*p) p++;
       }
     }
   }
