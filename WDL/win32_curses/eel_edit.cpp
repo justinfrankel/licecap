@@ -1587,7 +1587,7 @@ int EEL_Editor::onChar(int c)
   }
 
 
-  bool do_sug = (m_ui_state == UI_STATE_NORMAL && !m_selecting && m_top_margin > 0 && !CTRL_KEY_DOWN && !ALT_KEY_DOWN) ? 1 : 0, did_fuzzy = false;
+  int do_sug = (m_ui_state == UI_STATE_NORMAL && !m_selecting && m_top_margin > 0 && !CTRL_KEY_DOWN && !ALT_KEY_DOWN) ? 1 : 0, did_fuzzy = false;
   int rv = 0;
   char sug[512];
   sug[0]=0;
@@ -1635,7 +1635,7 @@ int EEL_Editor::onChar(int c)
       }
     }
 
-    if (c==27 || (c>=KEY_DOWN && c<= KEY_F12 && c!=KEY_DC)) do_sug = false;
+    if (c==27 || (c>=KEY_DOWN && c<= KEY_F12 && c!=KEY_DC)) do_sug = 2; // no fuzzy window
   }
 
   rv = WDL_CursesEditor::onChar(c);
@@ -1700,7 +1700,7 @@ run_suggest:
           lstrcpyn_safe(buf,token_list[t].tok,wdl_min(token_list[t].toklen+1, sizeof(buf)));
           if (peek_get_function_info(buf,sug,sizeof(sug),~0,m_curs_y)) break;
 
-          if (t == ntok-1)
+          if (t == ntok-1 && do_sug != 2)
           {
             suggested_matchlist ml;
             get_suggested_function_names(buf,&ml);
