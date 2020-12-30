@@ -1459,14 +1459,14 @@ static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         int ypos = cursor_line_y + fonth;
         if (ypos + use_h > par_cr.bottom)
         {
-          if (cursor_line_y > par_cr.bottom - ypos)
+          if (cursor_line_y-fonth > par_cr.bottom - ypos)
           {
             // more room at the top, but enough?
             ypos = cursor_line_y - use_h;
-            if (ypos<0)
+            if (ypos<fonth)
             {
-              ypos = 0;
-              use_h = cursor_line_y;
+              ypos = fonth;
+              use_h = cursor_line_y-fonth;
             }
           }
           else
