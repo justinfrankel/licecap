@@ -934,15 +934,15 @@ static int word_len(const char *p)
   {
     l++;
     // lowercase word
-    while (p[l] && p[l] != '_' && !(p[l] >= 'A' && p[l] <='Z')) l++;
+    while (p[l] && p[l] != '_' && p[l] != '.' && !(p[l] >= 'A' && p[l] <='Z')) l++;
   }
   else if (*p >= 'A' && *p <= 'Z')
   {
     l++;
     if (p[l] >= 'A'  && p[l] <='Z') // UPPERCASE word
-      while (p[l] && p[l] != '_' && !(p[l] >= 'a' && p[l] <='z')) l++;
+      while (p[l] && p[l] != '_' && p[l] != '.' && !(p[l] >= 'a' && p[l] <='z')) l++;
     else // Titlecase word
-      while (p[l] && p[l] != '_' && !(p[l] >= 'A' && p[l] <='Z')) l++;
+      while (p[l] && p[l] != '_' && p[l] != '.' && !(p[l] >= 'A' && p[l] <='Z')) l++;
   }
   return l;
 }
