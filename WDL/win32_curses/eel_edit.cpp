@@ -1705,6 +1705,17 @@ run_suggest:
             suggested_matchlist ml;
             get_suggested_function_names(buf,&ml);
 
+            ensure_code_func_cache_valid();
+            for (int x=0;x< m_code_func_cache.GetSize();x++)
+            {
+              const char *k = m_code_func_cache.Get(x) + 4;
+              if (WDL_NORMALLY(k))
+              {
+                int score = fuzzy_match(buf,k);
+                if (score > 0) ml.add(k,score);
+              }
+            }
+
             if (ml.get_size()>0)
             {
               win32CursesCtx *ctx = (win32CursesCtx *)m_cursesCtx;
