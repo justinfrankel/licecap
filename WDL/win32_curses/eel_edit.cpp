@@ -1470,7 +1470,7 @@ static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         const int fontw = ctx->m_font_w, fonth = ctx->m_font_h;
         if (WDL_NOT_NORMALLY(!fontw || !fonth)) return 0;
 
-        const int xpos = (int) lParam * fontw;
+        int xpos = (int) lParam * fontw;
         RECT par_cr;
         GetClientRect(GetParent(hwnd),&par_cr);
 
@@ -1486,7 +1486,11 @@ static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         }
 
         use_w = 8 + use_w * fontw;
-        if (use_w > par_cr.right - xpos) use_w = par_cr.right - xpos;
+        if (use_w > par_cr.right - xpos)
+        {
+          xpos = wdl_max(par_cr.right - use_w,0);
+          use_w = par_cr.right - xpos;
+        }
 
         const int cursor_line_y = ctx->m_cursor_y * fonth;
         int ypos = cursor_line_y + fonth;
