@@ -955,7 +955,7 @@ static bool search_str(const char *str, int reflen, const char *word, int wordle
   return false;
 }
 
-int EEL_Editor::fuzzy_match(const char *codestr, const char *refstr)
+static int fuzzy_match1(const char *codestr, const char *refstr)
 {
   // codestr is user-typed, refstr is the reference function name
   const int reflen = (int)strlen(refstr), codelen = (int)strlen(codestr);
@@ -998,6 +998,63 @@ int EEL_Editor::fuzzy_match(const char *codestr, const char *refstr)
     lendiff -= 5;
 
   return score * 100 + 100 - wdl_clamp(lendiff,0,99);
+}
+
+static int search_str_partial(const char *str, int reflen, const char *word, int wordlen)
+{
+  // find the longest leading segment of word in str
+  int best_len = 0;
+  for (int y = 0; y < reflen; y ++)
+  {
+    while (y < reflen && !strnicmp(str+y,word,best_len+1))
+    {
+      if (++best_len >= wordlen) return best_len;
+      reflen--;
+    }
+  }
+  return best_len;
+}
+
+static int fuzzy_match2(const char *codestr, const char *refstr)
+{
+  // codestr is user-typed, refstr is the reference function name
+  // our APIs are gfx_blah_blah or TrackBlahBlah so breaking the API up by words
+  // and searching the user-entered code should be effective
+  const int reflen = (int)strlen(refstr), codelen = (int)strlen(codestr);
+  int lendiff = reflen - codelen;
+  if (lendiff < 0) lendiff = -lendiff;
+
+  const char *word = refstr;
+  int score = 0;
+  for (;;)
+  {
+    while (*word == '_' || *word == '.') word++;
+    const int wordlen = word_len(word);
+    if (!wordlen) break;
+
+    if (WDL_stristr(refstr,word)==word)
+    {
+      int max_match_len = search_str_partial(codestr,codelen,word,wordlen);
+      if (max_match_len < 2 && wordlen == 5 && !strnicmp(word,"Count",5))
+      {
+        max_match_len = search_str_partial(codestr,codelen,"Num",3);
+      }
+      if (max_match_len>2)
+        score += max_match_len;
+    }
+    word += wordlen;
+  }
+
+  if (!score) return 0;
+
+  return score * 100 + 100 - wdl_clamp(lendiff,0,99);
+}
+
+int EEL_Editor::fuzzy_match(const char *codestr, const char *refstr)
+{
+  int score1 = fuzzy_match1(codestr,refstr);
+  int score2 = fuzzy_match2(codestr,refstr);
+  return wdl_max(score1,score2);
 }
 
 void EEL_Editor::get_suggested_function_names(const char *fname, suggested_matchlist *list)
