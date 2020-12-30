@@ -1657,7 +1657,7 @@ run_suggest:
 
       int ntok = 0;
       const char *tok;
-      while ((tok=sh_tokenize(&p,endp,&toklen,&state)) && cursor >= (*tok=='(' || *tok=='[' ? tok+1 : tok))
+      while ((tok=sh_tokenize(&p,endp,&toklen,&state)) && cursor > tok)
       {
         if (!state)
         {
