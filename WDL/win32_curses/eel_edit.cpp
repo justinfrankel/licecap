@@ -1627,7 +1627,7 @@ int EEL_Editor::onChar(int c)
 
   int do_sug = (m_ui_state == UI_STATE_NORMAL && !m_selecting && m_top_margin > 0 && !CTRL_KEY_DOWN && !ALT_KEY_DOWN) ? 1 : 0, did_fuzzy = false;
   int rv = 0;
-  char sug[512];
+  char sug[1024];
   sug[0]=0;
 
   if (do_sug)
@@ -1712,6 +1712,7 @@ run_suggest:
 
       const int min_func_toklen = 3;
       int t = ntok;
+      int comma_cnt = 0;
       while (--t >= 0)
       {
         const int lc = token_list[t].tok[0], ac = lc==')' ? '(' : lc==']' ? '[' : 0;
@@ -1727,16 +1728,46 @@ run_suggest:
           if (t > 0)
           {
             const int c = token_list[t-1].tok[0];
-            if (c != ')' && c != ']') t--;
+            if (c != ',' && c != ')' && c != ']') t--;
             continue;
           }
         }
+        if (t<0) break;
 
-        if (t >= 0 && token_list[t].toklen >= min_func_toklen)
+        if (token_list[t].tok[0] == ',') comma_cnt++;
+        if (token_list[t].toklen >= min_func_toklen)
         {
           char buf[512];
           lstrcpyn_safe(buf,token_list[t].tok,wdl_min(token_list[t].toklen+1, sizeof(buf)));
-          if (peek_get_function_info(buf,sug,sizeof(sug),~0,m_curs_y)) break;
+          if (peek_get_function_info(buf,sug,sizeof(sug),~0,m_curs_y))
+          {
+            if (comma_cnt > 0)
+            {
+              // hide previous parameters from sug's parameter fields so we know which parameters
+              // we are (hopefully on)
+              char *pstart = sug;
+              while (*pstart && *pstart != '(') pstart++;
+              if (*pstart == '(') pstart++;
+              int comma_pos = 0;
+              char *p = pstart;
+              while (comma_pos < comma_cnt)
+              {
+                while (*p == ' ') p++;
+                while (*p && *p != ',' && *p != ')') p++;
+                if (*p == ')') break;
+                if (*p) p++;
+                comma_pos++;
+              }
+
+              if (*p && *p != ')')
+              {
+                *pstart=0;
+                lstrcpyn_safe(buf,p,sizeof(buf));
+                snprintf_append(sug,sizeof(sug), "... , %s",buf);
+              }
+            }
+            break;
+          }
 
           if (t == ntok-1 && do_sug != 2)
           {
