@@ -1474,6 +1474,7 @@ static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         }
 
         SetWindowPos(hwnd,NULL,xpos,ypos,use_w,use_h, SWP_NOZORDER|SWP_NOACTIVATE);
+        InvalidateRect(hwnd,NULL,FALSE);
         ShowWindow(hwnd,SW_SHOWNA);
       }
     return 0;
