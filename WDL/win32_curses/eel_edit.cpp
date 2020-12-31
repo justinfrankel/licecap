@@ -1057,7 +1057,7 @@ int EEL_Editor::fuzzy_match(const char *codestr, const char *refstr)
   return wdl_max(score1,score2);
 }
 
-void EEL_Editor::get_suggested_function_names(const char *fname, suggested_matchlist *list)
+bool EEL_Editor::get_suggested_function_names(const char *fname, suggested_matchlist *list)
 {
   int x;
   peek_lock();
@@ -1083,6 +1083,7 @@ void EEL_Editor::get_suggested_function_names(const char *fname, suggested_match
       }
     }
   }
+  return true;
 }
 
 int EEL_Editor::peek_get_function_info(const char *name, char *sstr, size_t sstr_sz, int chkmask, int ignoreline)
@@ -1772,16 +1773,18 @@ run_suggest:
           if (t == ntok-1 && cursor <= token_list[t].tok + token_list[t].toklen && do_sug != 2)
           {
             suggested_matchlist ml;
-            get_suggested_function_names(buf,&ml);
 
-            ensure_code_func_cache_valid();
-            for (int x=0;x< m_code_func_cache.GetSize();x++)
+            if (get_suggested_function_names(buf,&ml))
             {
-              const char *k = m_code_func_cache.Get(x) + 4;
-              if (WDL_NORMALLY(k))
+              ensure_code_func_cache_valid();
+              for (int x=0;x< m_code_func_cache.GetSize();x++)
               {
-                int score = fuzzy_match(buf,k);
-                if (score > 0) ml.add(k,score);
+                const char *k = m_code_func_cache.Get(x) + 4;
+                if (WDL_NORMALLY(k))
+                {
+                  int score = fuzzy_match(buf,k);
+                  if (score > 0) ml.add(k,score);
+                }
               }
             }
 
