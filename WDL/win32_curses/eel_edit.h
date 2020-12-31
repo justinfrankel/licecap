@@ -41,12 +41,6 @@ class suggested_matchlist {
       lstrcpyn_safe(m_buf + STR_SZ*x,p,STR_SZ);
       m_scores[x] = score;
     }
-
-    void set_by_idx(int idx, const char *p)
-    {
-      char *b = (char*)get(idx);
-      if (b) lstrcpyn_safe(b,p?p:"",STR_SZ);
-    }
 };
 
 // add EEL syntax highlighting and paren matching, hooks for watch/etc
