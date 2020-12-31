@@ -681,8 +681,12 @@ void WDL_CursesEditor::draw_status_state()
   }
 
   char str[512];
-  snprintf(str, sizeof(str), "%sLine %d/%d, Col %d [%s]%s",
-    whichpane, m_curs_y+1, m_text.GetSize(), m_curs_x, 
+  const int pane_offs = m_paneoffs_y[!!m_curpane];
+  snprintf(str, sizeof(str), "%sLine %d/%d [%d-%d] Col %d [%s]%s",
+    whichpane,
+    m_curs_y+1, m_text.GetSize(),
+    pane_offs+1, wdl_min(pane_offs+1+paneh[!!m_curpane],m_text.GetSize()),
+    m_curs_x,
     (s_overwrite ? "OVR" : "INS"), (m_clean_undopos == m_undoStack_pos ? "" : "*"));
 
   int len=strlen(str);
