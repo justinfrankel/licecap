@@ -1682,9 +1682,10 @@ int EEL_Editor::onChar(int c)
         }
         return 0;
       }
-      if ((c == KEY_UP || c==KEY_DOWN) && !SHIFT_KEY_DOWN)
+      if ((c == KEY_UP || c==KEY_DOWN || c == KEY_NPAGE || c == KEY_PPAGE) && !SHIFT_KEY_DOWN)
       {
-        m_suggestion_hwnd_sel = wdl_max(m_suggestion_hwnd_sel,0) + (c==KEY_UP ? -1 : 1);
+        m_suggestion_hwnd_sel = wdl_max(m_suggestion_hwnd_sel,0) +
+          (c==KEY_UP ? -1 : c==KEY_DOWN ? 1 : c==KEY_NPAGE ? 4 : -4);
 
         if (m_suggestion_hwnd_sel >= m_suggestion_hwnd_list->get_size())
           m_suggestion_hwnd_sel = m_suggestion_hwnd_list->get_size()-1;
