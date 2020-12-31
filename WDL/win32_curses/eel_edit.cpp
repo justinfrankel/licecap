@@ -1919,14 +1919,9 @@ void EEL_Editor::onRightClick(HWND hwnd)
     GetCursorPos(&p);
     int ret=TrackPopupMenu(hm, TPM_NONOTIFY|TPM_RETURNCMD, p.x, p.y, 0, hwnd, NULL);
     DestroyMenu(hm);
-    if (ret-- > 0)
+    if (ret > 0)
     {
-      m_curs_y=ret;
-      m_select_x1=0;
-      m_select_x2=strlen(m_text.Get(ret)->Get());
-      m_select_y1=m_select_y2=ret;
-      m_selecting=1;
-      setCursor(0,0.25);
+      GoToLine(ret-1,true);
     }
   }
   else

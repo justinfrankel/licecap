@@ -1235,6 +1235,17 @@ void WDL_CursesEditor::highlight_line(int line)
   }
 }
 
+void WDL_CursesEditor::GoToLine(int line, bool dosel)
+{
+  WDL_FastString *fs = m_text.Get(line);
+  m_curs_y=line;
+  m_select_x1=0;
+  m_curs_x = m_select_x2 = WDL_NORMALLY(fs) ? WDL_utf8_get_charlen(fs->Get()) : 0;
+  m_select_y1=m_select_y2=line;
+  m_selecting=dosel?1:0;
+  setCursor(0,0.25);
+}
+
 void WDL_CursesEditor::runSearch()
 {
    if (s_search_string[0]) 

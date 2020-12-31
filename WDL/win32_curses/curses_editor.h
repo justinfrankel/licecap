@@ -42,6 +42,7 @@ public:
 
   virtual void highlight_line(int line);
 
+  void GoToLine(int line, bool dosel);
 
   enum
   {
