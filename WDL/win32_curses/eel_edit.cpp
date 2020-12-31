@@ -1769,7 +1769,7 @@ run_suggest:
             break;
           }
 
-          if (t == ntok-1 && do_sug != 2)
+          if (t == ntok-1 && cursor <= token_list[t].tok + token_list[t].toklen && do_sug != 2)
           {
             suggested_matchlist ml;
             get_suggested_function_names(buf,&ml);
