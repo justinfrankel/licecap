@@ -1424,6 +1424,7 @@ void WDL_CursesEditor::getLinesFromClipboard(WDL_FastString &buf, WDL_PtrList<co
 
 int WDL_CursesEditor::onChar(int c)
 {
+  static char s_linenumberbuf[14];
   // multitab
   if (m_ui_state == UI_STATE_MESSAGE)
   {
@@ -1591,6 +1592,83 @@ int WDL_CursesEditor::onChar(int c)
        bkgdset(COLOR_MESSAGE);
        mvaddstr(LINES-1,29,s_search_string);
        clrtoeol(); 
+       attrset(0);
+       bkgdset(0);
+     }
+     return 0;
+  }
+  if (m_ui_state == UI_STATE_GOTO_LINE)
+  {
+    switch (c)
+    {
+       case '\r': case '\n':
+         {
+           const char *p = s_linenumberbuf;
+           while (*p == ' ' || *p == '\t') p++;
+           int rel = 0;
+           if (*p == '+') rel=1;
+           else if (*p == '-') rel=-1;
+           if (rel) p++;
+           while (*p == ' ' || *p == '\t') p++;
+           int a = atoi(p);
+           if (a > 0)
+           {
+             if (rel) a = m_curs_y + a*rel;
+             else a--;
+
+             m_ui_state=UI_STATE_NORMAL;
+             m_curs_y = wdl_clamp(a,0,m_text.GetSize());
+             WDL_FastString *fs = m_text.Get(m_curs_y);
+             m_curs_x = fs ? WDL_utf8_get_charlen(fs->Get()) : 0;
+             m_selecting=0;
+             draw();
+             setCursor(0,-1.0);
+             break;
+           }
+         }
+         // fall through
+       case 27:
+         m_ui_state=UI_STATE_NORMAL;
+         draw();
+         setCursor();
+       break;
+       case KEY_BACKSPACE:
+         {
+           char *p = s_linenumberbuf;
+           if (*p) for (;;)
+           {
+             int sz=wdl_utf8_parsechar(p,NULL);
+             if (!p[sz])
+             {
+               *p=0;
+               break;
+             }
+             p+=sz;
+           }
+         }
+       break;
+       case KEY_IC:
+         if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN) break;
+       case 'V'-'A'+1:
+         {
+           WDL_PtrList<const char> lines;
+           WDL_FastString buf;
+           getLinesFromClipboard(buf,lines);
+           if (lines.Get(0))
+             lstrcatn(s_linenumberbuf,lines.Get(0),sizeof(s_linenumberbuf));
+         }
+       break;
+       default:
+         if ((c >= '0' && c<= '9') || c=='-' || c=='+')
+           snprintf_append(s_linenumberbuf,sizeof(s_linenumberbuf),"%c",c);
+        break;
+     }
+     if (m_ui_state == UI_STATE_GOTO_LINE)
+     {
+       attrset(COLOR_MESSAGE);
+       bkgdset(COLOR_MESSAGE);
+       mvaddstr(LINES-1,28,s_linenumberbuf);
+       clrtoeol();
        attrset(0);
        bkgdset(0);
      }
@@ -2284,6 +2362,20 @@ int WDL_CursesEditor::onChar(int c)
     {
       draw();
       setCursor();
+    }
+  break;
+  case 'J'-'A'+1:
+    if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN)
+    {
+      draw_message("");
+      attrset(COLOR_MESSAGE);
+      bkgdset(COLOR_MESSAGE);
+      mvaddstr(LINES-1,0,"Go to line (ESC to cancel): ");
+      s_linenumberbuf[0]=0;
+      clrtoeol();
+      attrset(0);
+      bkgdset(0);
+      m_ui_state=UI_STATE_GOTO_LINE;
     }
   break;
   case 13: //KEY_ENTER:
