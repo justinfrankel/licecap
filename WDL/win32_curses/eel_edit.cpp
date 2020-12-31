@@ -938,6 +938,7 @@ static int word_len(const char *p)
   }
   else if (*p >= 'A' && *p <= 'Z')
   {
+    if (!strcmp(p,"MIDI")) return 4;
     l++;
     if (p[l] >= 'A'  && p[l] <='Z') // UPPERCASE word
       while (p[l] && p[l] != '_' && p[l] != '.' && !(p[l] >= 'a' && p[l] <='z')) l++;
