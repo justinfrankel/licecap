@@ -1431,6 +1431,7 @@ void EEL_Editor::draw_bottom_line()
 static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
   static const char *help_text = "(up/down to select, tab to insert)";
+  static const char *help_text2 = "(tab or return to insert)";
   switch (uMsg)
   {
     case WM_CREATE:
@@ -1590,7 +1591,9 @@ static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
                                    ((ctx->colortab[WDL_CursesEditor::COLOR_TOPLINE][0]&0xfefefe)>>1);
               SetTextColor(ps.hdc,mix);
               RECT tr = {4, r.bottom-fonth, r.right-4, r.bottom };
-              DrawTextUTF8(ps.hdc,help_text,-1,&tr,DT_SINGLELINE|DT_NOPREFIX|DT_TOP|DT_CENTER);
+              DrawTextUTF8(ps.hdc,
+                  editor->m_suggestion_hwnd_sel >= 0 ? help_text2 : help_text,
+                  -1,&tr,DT_SINGLELINE|DT_NOPREFIX|DT_TOP|DT_CENTER);
             }
             SelectObject(ps.hdc,oldObj);
           }
