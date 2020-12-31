@@ -1442,7 +1442,7 @@ static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         SetWindowLongPtr(hwnd,GWLP_USERDATA,(LPARAM)editor);
         editor->m_suggestion_hwnd = hwnd;
         editor->m_suggestion_hwnd_list = new suggested_matchlist;
-        editor->m_suggestion_hwnd_sel = 0;
+        editor->m_suggestion_hwnd_sel = -1;
       }
     break;
     case WM_DESTROY:
@@ -1462,7 +1462,7 @@ static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         suggested_matchlist *src = (suggested_matchlist *)wParam, *ml = editor->m_suggestion_hwnd_list;
         if (WDL_NORMALLY(src))
         {
-          editor->m_suggestion_hwnd_sel = 0;
+          editor->m_suggestion_hwnd_sel = -1;
           *ml = *src;
         }
 
@@ -1529,7 +1529,7 @@ static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             SetFocus(GetParent(hwnd));
             if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN && !CTRL_KEY_DOWN)
             {
-              editor->onChar('\r');
+              editor->onChar('\t');
             }
             else
               InvalidateRect(hwnd,NULL,FALSE);
@@ -1559,12 +1559,13 @@ static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             const int fonth = ctx->m_font_h;
             int ypos = 0;
             SetBkMode(ps.hdc,TRANSPARENT);
+            const int selpos = wdl_max(editor->m_suggestion_hwnd_sel,0);
             for (int x = 0; x < ml->get_size(); x ++)
             {
               const char *p = ml->get(x);
               if (WDL_NORMALLY(p))
               {
-                const bool sel = x == editor->m_suggestion_hwnd_sel;
+                const bool sel = x == selpos;
                 SetTextColor(ps.hdc,ctx->colortab[WDL_CursesEditor::COLOR_TOPLINE | (sel ? A_BOLD:0)][0]);
                 RECT tr = {4, ypos, r.right-4, ypos+fonth };
                 DrawTextUTF8(ps.hdc,p,-1,&tr,DT_SINGLELINE|DT_NOPREFIX|DT_TOP|DT_LEFT);
@@ -1633,12 +1634,14 @@ int EEL_Editor::onChar(int c)
 
   if (do_sug)
   {
-    if (m_suggestion_hwnd && WDL_NORMALLY(m_suggestion_hwnd_list) && !SHIFT_KEY_DOWN)
+    if (m_suggestion_hwnd && WDL_NORMALLY(m_suggestion_hwnd_list))
     {
-      if (c == '\r')
+      // insert if tab or shift+enter or (enter if arrow-navigated)
+      if ((c == '\t' && !SHIFT_KEY_DOWN) ||
+          (c == '\r' && (m_suggestion_hwnd_sel>=0 || SHIFT_KEY_DOWN)))
       {
         char buf[512];
-        const char *ptr = m_suggestion_hwnd_list->get(m_suggestion_hwnd_sel);
+        const char *ptr = m_suggestion_hwnd_list->get(wdl_max(m_suggestion_hwnd_sel,0));
         lstrcpyn_safe(buf,ptr?ptr:"",sizeof(buf));
         DestroyWindow(m_suggestion_hwnd);
 
@@ -1659,13 +1662,15 @@ int EEL_Editor::onChar(int c)
         }
         return 0;
       }
-      if (c == KEY_UP || c==KEY_DOWN)
+      if ((c == KEY_UP || c==KEY_DOWN) && !SHIFT_KEY_DOWN)
       {
-        m_suggestion_hwnd_sel += (c==KEY_UP) ? -1:1;
+        m_suggestion_hwnd_sel = wdl_max(m_suggestion_hwnd_sel,0) + (c==KEY_UP ? -1 : 1);
+
         if (m_suggestion_hwnd_sel >= m_suggestion_hwnd_list->get_size())
           m_suggestion_hwnd_sel = m_suggestion_hwnd_list->get_size()-1;
         if (m_suggestion_hwnd_sel < 0)
           m_suggestion_hwnd_sel=0;
+
         InvalidateRect(m_suggestion_hwnd,NULL,FALSE);
 
         const char *p = m_suggestion_hwnd_list->get(m_suggestion_hwnd_sel);
@@ -1818,7 +1823,7 @@ run_suggest:
                 SendMessage(m_suggestion_hwnd,WM_SUGGESTION_PROC_UPDATE,(WPARAM)&ml,xpos);
               }
               did_fuzzy = true;
-              const char *p = ml.get(m_suggestion_hwnd_sel);
+              const char *p = ml.get(wdl_max(m_suggestion_hwnd_sel,0));
               if (p && peek_get_function_info(p,sug,sizeof(sug),~0,m_curs_y)) break;
             }
           }
