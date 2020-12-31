@@ -1430,6 +1430,7 @@ void EEL_Editor::draw_bottom_line()
 
 static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+  static const char *help_text = "(up/down to select, tab to insert)";
   switch (uMsg)
   {
     case WM_CREATE:
@@ -1475,13 +1476,13 @@ static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         RECT par_cr;
         GetClientRect(GetParent(hwnd),&par_cr);
 
-        int use_w = 0, use_h = ml->get_size()*fonth;
+        int use_w = (int)strlen(help_text), use_h = (ml->get_size() + 1)*fonth;
         for (int x = 0; x < ml->get_size(); x ++)
         {
           const char *p = ml->get(x);
           if (WDL_NORMALLY(p!=NULL))
           {
-            int l = strlen(p);
+            const int l = (int) strlen(p);
             if (l > use_w) use_w=l;
           }
         }
@@ -1524,15 +1525,24 @@ static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           win32CursesCtx *ctx = (win32CursesCtx *)editor->m_cursesCtx;
           if (ctx && ctx->m_font_h)
           {
-            editor->m_suggestion_hwnd_sel = GET_Y_LPARAM(lParam) / ctx->m_font_h;
-            SetForegroundWindow(GetParent(hwnd));
-            SetFocus(GetParent(hwnd));
-            if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN && !CTRL_KEY_DOWN)
+            RECT r;
+            GetClientRect(hwnd,&r);
+            const int maxv = r.bottom / ctx->m_font_h - 1;
+            int hit = GET_Y_LPARAM(lParam) / ctx->m_font_h;
+            if (hit >= 0 && hit < maxv)
             {
-              editor->onChar('\t');
+              if (editor->m_suggestion_hwnd_sel >= maxv)
+                hit += 1 + editor->m_suggestion_hwnd_sel-maxv;
+              editor->m_suggestion_hwnd_sel = hit;
+              SetForegroundWindow(GetParent(hwnd));
+              SetFocus(GetParent(hwnd));
+              if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN && !CTRL_KEY_DOWN)
+              {
+                editor->onChar('\t');
+              }
+              else
+                InvalidateRect(hwnd,NULL,FALSE);
             }
-            else
-              InvalidateRect(hwnd,NULL,FALSE);
           }
         }
       }
@@ -1556,11 +1566,14 @@ static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             suggested_matchlist *ml = editor->m_suggestion_hwnd_list;
 
             HGDIOBJ oldObj = SelectObject(ps.hdc,ctx->mOurFont);
-            const int fonth = ctx->m_font_h;
-            int ypos = 0;
             SetBkMode(ps.hdc,TRANSPARENT);
+
+            const int fonth = wdl_max(ctx->m_font_h,1);
+            const int maxv = r.bottom / fonth - 1;
             const int selpos = wdl_max(editor->m_suggestion_hwnd_sel,0);
-            for (int x = 0; x < ml->get_size(); x ++)
+            int ypos = 0;
+
+            for (int x = (selpos >= maxv ? 1+selpos-maxv : 0); x < ml->get_size() && ypos <= r.bottom-fonth*2; x ++)
             {
               const char *p = ml->get(x);
               if (WDL_NORMALLY(p))
@@ -1571,6 +1584,13 @@ static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
                 DrawTextUTF8(ps.hdc,p,-1,&tr,DT_SINGLELINE|DT_NOPREFIX|DT_TOP|DT_LEFT);
               }
               ypos += fonth;
+            }
+            {
+              const COLORREF mix = ((ctx->colortab[WDL_CursesEditor::COLOR_TOPLINE][1]&0xfefefe)>>1) +
+                                   ((ctx->colortab[WDL_CursesEditor::COLOR_TOPLINE][0]&0xfefefe)>>1);
+              SetTextColor(ps.hdc,mix);
+              RECT tr = {4, r.bottom-fonth, r.right-4, r.bottom };
+              DrawTextUTF8(ps.hdc,help_text,-1,&tr,DT_SINGLELINE|DT_NOPREFIX|DT_TOP|DT_CENTER);
             }
             SelectObject(ps.hdc,oldObj);
           }
