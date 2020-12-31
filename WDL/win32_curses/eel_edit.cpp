@@ -2008,6 +2008,7 @@ LRESULT EEL_Editor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
   switch (uMsg)
   {
     case WM_LBUTTONDBLCLK:
+      if (m_suggestion_hwnd) DestroyWindow(m_suggestion_hwnd);
       if (CURSES_INSTANCE && CURSES_INSTANCE->m_font_w && CURSES_INSTANCE->m_font_h)
       {
         const int y = ((short)HIWORD(lParam)) / CURSES_INSTANCE->m_font_h - m_top_margin;
@@ -2021,7 +2022,46 @@ LRESULT EEL_Editor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
             return 1;
           }
         }
+
+        // doubleclicking a function goes to it
+        if (!SHIFT_KEY_DOWN)
+        {
+          WDL_FastString *l=m_text.Get(m_curs_y);
+          if (l)
+          {
+            const char *p = l->Get(), *endp = p + l->GetLength(), *cursor = p + WDL_utf8_charpos_to_bytepos(p,m_curs_x);
+            int state = 0, toklen = 0;
+            const char *tok;
+            while ((tok=sh_tokenize(&p,endp,&toklen,&state)) && cursor > tok+toklen);
+
+            if (tok && cursor <= tok+toklen)
+            {
+              ensure_code_func_cache_valid();
+
+              while (toklen > 0)
+              {
+                for (int i = 0; i < m_code_func_cache.GetSize(); i ++)
+                {
+                  const char *p = m_code_func_cache.Get(i);
+                  int line = *(int *)p;
+                  p+=sizeof(int);
+                  if (line != m_curs_y && strlen(p) == toklen && (m_case_sensitive ? !strncmp(p,tok,toklen) : !strnicmp(p,tok,toklen)))
+                  {
+                    GoToLine(line,true);
+                    return 0;
+                  }
+                }
+
+                // try removing any foo. prefixes
+                while (toklen > 0 && *tok != '.') { tok++; toklen--; }
+                tok++;
+                toklen--;
+              }
+            }
+          }
+        }
       }
+    break;
     case WM_LBUTTONDOWN:
     case WM_RBUTTONDOWN:
       if (m_suggestion_hwnd) DestroyWindow(m_suggestion_hwnd);
