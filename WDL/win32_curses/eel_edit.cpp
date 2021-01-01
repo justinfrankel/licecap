@@ -1448,30 +1448,17 @@ static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
 {
   static const char *help_text = "(up/down to select, tab to insert)";
   static const char *help_text2 = "(tab or return to insert)";
+  EEL_Editor *editor;
   switch (uMsg)
   {
-    case WM_CREATE:
-      {
-#ifdef _WIN32
-        EEL_Editor *editor = (EEL_Editor *)((LPCREATESTRUCT)lParam)->lpCreateParams;
-#else
-        EEL_Editor *editor = (EEL_Editor *)lParam;
-#endif
-        SetWindowLongPtr(hwnd,GWLP_USERDATA,(LPARAM)editor);
-        editor->m_suggestion_hwnd = hwnd;
-        editor->m_suggestion_hwnd_sel = -1;
-      }
-    break;
     case WM_DESTROY:
-      {
-        EEL_Editor *editor = (EEL_Editor *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
-        if (editor) editor->m_suggestion_hwnd = NULL;
-      }
+      editor = (EEL_Editor *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+      if (editor) editor->m_suggestion_hwnd = NULL;
     break;
     case WM_SUGGESTION_PROC_UPDATE:
+      editor = (EEL_Editor *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+      if (editor)
       {
-        EEL_Editor *editor = (EEL_Editor *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
-        if (!editor) return 0;
         suggested_matchlist *ml = &editor->m_suggestion_list;
         win32CursesCtx *ctx = (win32CursesCtx *)editor->m_cursesCtx;
 
@@ -1524,36 +1511,36 @@ static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
       }
     return 0;
     case WM_LBUTTONDOWN:
+      editor = (EEL_Editor *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+      if (editor)
       {
-        EEL_Editor *editor = (EEL_Editor *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
-        if (editor)
+        win32CursesCtx *ctx = (win32CursesCtx *)editor->m_cursesCtx;
+        if (ctx && ctx->m_font_h)
         {
-          win32CursesCtx *ctx = (win32CursesCtx *)editor->m_cursesCtx;
-          if (ctx && ctx->m_font_h)
+          RECT r;
+          GetClientRect(hwnd,&r);
+          const int maxv = r.bottom / ctx->m_font_h - 1;
+          int hit = GET_Y_LPARAM(lParam) / ctx->m_font_h;
+          if (hit >= 0 && hit < maxv)
           {
-            RECT r;
-            GetClientRect(hwnd,&r);
-            const int maxv = r.bottom / ctx->m_font_h - 1;
-            int hit = GET_Y_LPARAM(lParam) / ctx->m_font_h;
-            if (hit >= 0 && hit < maxv)
+            if (editor->m_suggestion_hwnd_sel >= maxv)
+              hit += 1 + editor->m_suggestion_hwnd_sel-maxv;
+            editor->m_suggestion_hwnd_sel = hit;
+            SetForegroundWindow(GetParent(hwnd));
+            SetFocus(GetParent(hwnd));
+            if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN && !CTRL_KEY_DOWN)
             {
-              if (editor->m_suggestion_hwnd_sel >= maxv)
-                hit += 1 + editor->m_suggestion_hwnd_sel-maxv;
-              editor->m_suggestion_hwnd_sel = hit;
-              SetForegroundWindow(GetParent(hwnd));
-              SetFocus(GetParent(hwnd));
-              if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN && !CTRL_KEY_DOWN)
-              {
-                editor->onChar('\t');
-              }
-              else
-                InvalidateRect(hwnd,NULL,FALSE);
+              editor->onChar('\t');
             }
+            else
+              InvalidateRect(hwnd,NULL,FALSE);
           }
         }
       }
     return 0;
     case WM_PAINT:
+      editor = (EEL_Editor *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+      if (editor)
       {
         PAINTSTRUCT ps;
         if (BeginPaint(hwnd,&ps))
@@ -1561,54 +1548,48 @@ static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           RECT r;
           GetClientRect(hwnd,&r);
 
-          EEL_Editor *editor = (EEL_Editor *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
-          if (editor)
+          win32CursesCtx *ctx = (win32CursesCtx *)editor->m_cursesCtx;
+          HBRUSH br = CreateSolidBrush(ctx->colortab[WDL_CursesEditor::COLOR_TOPLINE][1]);
+          FillRect(ps.hdc,&r,br);
+          DeleteObject(br);
+
+          suggested_matchlist *ml = &editor->m_suggestion_list;
+
+          HGDIOBJ oldObj = SelectObject(ps.hdc,ctx->mOurFont);
+          SetBkMode(ps.hdc,TRANSPARENT);
+
+          const int fonth = wdl_max(ctx->m_font_h,1);
+          const int maxv = r.bottom / fonth - 1;
+          const int selpos = wdl_max(editor->m_suggestion_hwnd_sel,0);
+          int ypos = 0;
+
+          for (int x = (selpos >= maxv ? 1+selpos-maxv : 0); x < ml->get_size() && ypos <= r.bottom-fonth*2; x ++)
           {
-            win32CursesCtx *ctx = (win32CursesCtx *)editor->m_cursesCtx;
-            HBRUSH br = CreateSolidBrush(ctx->colortab[WDL_CursesEditor::COLOR_TOPLINE][1]);
-            FillRect(ps.hdc,&r,br);
-            DeleteObject(br);
-
-            suggested_matchlist *ml = &editor->m_suggestion_list;
-
-            HGDIOBJ oldObj = SelectObject(ps.hdc,ctx->mOurFont);
-            SetBkMode(ps.hdc,TRANSPARENT);
-
-            const int fonth = wdl_max(ctx->m_font_h,1);
-            const int maxv = r.bottom / fonth - 1;
-            const int selpos = wdl_max(editor->m_suggestion_hwnd_sel,0);
-            int ypos = 0;
-
-            for (int x = (selpos >= maxv ? 1+selpos-maxv : 0); x < ml->get_size() && ypos <= r.bottom-fonth*2; x ++)
+            const char *p = ml->get(x);
+            if (WDL_NORMALLY(p))
             {
-              const char *p = ml->get(x);
-              if (WDL_NORMALLY(p))
-              {
-                const bool sel = x == selpos;
-                SetTextColor(ps.hdc,ctx->colortab[WDL_CursesEditor::COLOR_TOPLINE | (sel ? A_BOLD:0)][0]);
-                RECT tr = {4, ypos, r.right-4, ypos+fonth };
-                DrawTextUTF8(ps.hdc,p,-1,&tr,DT_SINGLELINE|DT_NOPREFIX|DT_TOP|DT_LEFT);
-              }
-              ypos += fonth;
+              const bool sel = x == selpos;
+              SetTextColor(ps.hdc,ctx->colortab[WDL_CursesEditor::COLOR_TOPLINE | (sel ? A_BOLD:0)][0]);
+              RECT tr = {4, ypos, r.right-4, ypos+fonth };
+              DrawTextUTF8(ps.hdc,p,-1,&tr,DT_SINGLELINE|DT_NOPREFIX|DT_TOP|DT_LEFT);
             }
-            {
-              const COLORREF mix = ((ctx->colortab[WDL_CursesEditor::COLOR_TOPLINE][1]&0xfefefe)>>1) +
-                                   ((ctx->colortab[WDL_CursesEditor::COLOR_TOPLINE][0]&0xfefefe)>>1);
-              SetTextColor(ps.hdc,mix);
-              RECT tr = {4, r.bottom-fonth, r.right-4, r.bottom };
-              DrawTextUTF8(ps.hdc,
-                  editor->m_suggestion_hwnd_sel >= 0 ? help_text2 : help_text,
-                  -1,&tr,DT_SINGLELINE|DT_NOPREFIX|DT_TOP|DT_CENTER);
-            }
-            SelectObject(ps.hdc,oldObj);
+            ypos += fonth;
           }
-
+          {
+            const COLORREF mix = ((ctx->colortab[WDL_CursesEditor::COLOR_TOPLINE][1]&0xfefefe)>>1) +
+                                 ((ctx->colortab[WDL_CursesEditor::COLOR_TOPLINE][0]&0xfefefe)>>1);
+            SetTextColor(ps.hdc,mix);
+            RECT tr = {4, r.bottom-fonth, r.right-4, r.bottom };
+            DrawTextUTF8(ps.hdc,
+                editor->m_suggestion_hwnd_sel >= 0 ? help_text2 : help_text,
+                -1,&tr,DT_SINGLELINE|DT_NOPREFIX|DT_TOP|DT_CENTER);
+          }
+          SelectObject(ps.hdc,oldObj);
 
           EndPaint(hwnd,&ps);
         }
       }
     return 0;
-
   }
   return DefWindowProc(hwnd,uMsg,wParam,lParam);
 }
@@ -1812,28 +1793,30 @@ run_suggest:
             if (m_suggestion_list.get_size()>0)
             {
               win32CursesCtx *ctx = (win32CursesCtx *)m_cursesCtx;
-#ifdef _WIN32
-              static HINSTANCE last_inst;
-              const char *classname = "eel_edit_predicto";
-              HINSTANCE inst = (HINSTANCE)GetWindowLongPtr(ctx->m_hwnd,GWLP_HINSTANCE);
-              if (inst != last_inst)
-              {
-                last_inst = inst;
-                WNDCLASS wc={CS_DBLCLKS,suggestionProc,};
-                wc.lpszClassName=classname;
-                wc.hInstance=inst;
-                wc.hCursor=LoadCursor(NULL,IDC_ARROW);
-                RegisterClass(&wc);
-              }
-              if (!m_suggestion_hwnd) CreateWindowEx(0,classname,"", WS_CHILD, 0,0,0,0, ctx->m_hwnd, NULL, inst, this);
-
-#else
-              if (!m_suggestion_hwnd) CreateDialogParam(NULL,NULL,ctx->m_hwnd, suggestionProc, (LPARAM)this);
-#endif
-
               m_suggestion_toklen = token_list[t].toklen;
               m_suggestion_tokpos = (int)(token_list[t].tok-l->Get());
               m_suggestion_hwnd_sel = -1;
+              if (!m_suggestion_hwnd)
+              {
+#ifdef _WIN32
+                static HINSTANCE last_inst;
+                const char *classname = "eel_edit_predicto";
+                HINSTANCE inst = (HINSTANCE)GetWindowLongPtr(ctx->m_hwnd,GWLP_HINSTANCE);
+                if (inst != last_inst)
+                {
+                  last_inst = inst;
+                  WNDCLASS wc={CS_DBLCLKS,suggestionProc,};
+                  wc.lpszClassName=classname;
+                  wc.hInstance=inst;
+                  wc.hCursor=LoadCursor(NULL,IDC_ARROW);
+                  RegisterClass(&wc);
+                }
+                m_suggestion_hwnd = CreateWindowEx(0,classname,"", WS_CHILD, 0,0,0,0, ctx->m_hwnd, NULL, inst, NULL);
+#else
+                m_suggestion_hwnd = CreateDialogParam(NULL,NULL,ctx->m_hwnd, suggestionProc, 0);
+#endif
+                if (m_suggestion_hwnd) SetWindowLongPtr(m_suggestion_hwnd,GWLP_USERDATA,(LPARAM)this);
+              }
               if (m_suggestion_hwnd)
               {
                 int xpos = WDL_utf8_bytepos_to_charpos(l->Get(),m_suggestion_tokpos) - m_offs_x;
