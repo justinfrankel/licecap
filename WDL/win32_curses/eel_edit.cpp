@@ -1516,6 +1516,7 @@ static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
               SetTextColor(ps.hdc,ctx->colortab[
                   (mode == 2 ? WDL_CursesEditor::COLOR_TOPLINE : // variable
                    mode == 1 ? WDL_CursesEditor::SYNTAX_FUNC2 : // user func
+                   mode == 3 ? WDL_CursesEditor::SYNTAX_REGVAR :
                    WDL_CursesEditor::SYNTAX_KEYWORD)   // api func
                   | (sel ? A_BOLD:0)][0]);
               RECT tr = {4, ypos, r.right-4, ypos+fonth };
