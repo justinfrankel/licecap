@@ -1614,7 +1614,7 @@ int EEL_Editor::onChar(int c)
   }
 
 
-  int do_sug = (m_ui_state == UI_STATE_NORMAL && !m_selecting && m_top_margin > 0 && !CTRL_KEY_DOWN && !ALT_KEY_DOWN) ? 1 : 0, did_fuzzy = false;
+  int do_sug = (m_ui_state == UI_STATE_NORMAL && !m_selecting && m_top_margin > 0 && (c == 'L'-'A'+1 || (!CTRL_KEY_DOWN && !ALT_KEY_DOWN))) ? 1 : 0, did_fuzzy = false;
   int rv = 0;
   char sug[1024];
   sug[0]=0;
@@ -1667,7 +1667,7 @@ int EEL_Editor::onChar(int c)
       }
     }
 
-    if (c==27 || (c>=KEY_DOWN && c<= KEY_F12 && c!=KEY_DC)) do_sug = 2; // no fuzzy window
+    if (c==27 || c=='L'-'A'+1 || (c>=KEY_DOWN && c<= KEY_F12 && c!=KEY_DC)) do_sug = 2; // no fuzzy window
   }
 
   rv = WDL_CursesEditor::onChar(c);

@@ -451,8 +451,7 @@ LRESULT WDL_CursesEditor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LP
         }
       }
 
-      draw();
-      setCursor();
+      onChar('L'-'A'+1); // refresh, update suggestions
 
       if (uMsg == WM_LBUTTONDOWN) 
       {
@@ -2358,11 +2357,8 @@ int WDL_CursesEditor::onChar(int c)
     }
   break;
   case 'L'-'A'+1:
-    if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN)
-    {
-      draw();
-      setCursor();
-    }
+    draw();
+    setCursor();
   break;
   case 'J'-'A'+1:
     if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN)
