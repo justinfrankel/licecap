@@ -1442,12 +1442,10 @@ void EEL_Editor::draw_bottom_line()
 #define SHIFT_KEY_DOWN (GetAsyncKeyState(VK_SHIFT)&0x8000)
 #define ALT_KEY_DOWN (GetAsyncKeyState(VK_MENU)&0x8000)
 
-#define WM_SUGGESTION_PROC_UPDATE (WM_USER+1111)
-
+static const char *suggestion_help_text = "(up/down to select, tab to insert)";
+static const char *suggestion_help_text2 = "(tab or return to insert)";
 static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-  static const char *help_text = "(up/down to select, tab to insert)";
-  static const char *help_text2 = "(tab or return to insert)";
   EEL_Editor *editor;
   switch (uMsg)
   {
@@ -1455,61 +1453,6 @@ static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
       editor = (EEL_Editor *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
       if (editor) editor->m_suggestion_hwnd = NULL;
     break;
-    case WM_SUGGESTION_PROC_UPDATE:
-      editor = (EEL_Editor *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
-      if (editor)
-      {
-        suggested_matchlist *ml = &editor->m_suggestion_list;
-        win32CursesCtx *ctx = (win32CursesCtx *)editor->m_cursesCtx;
-
-        const int fontw = ctx->m_font_w, fonth = ctx->m_font_h;
-        if (WDL_NOT_NORMALLY(!fontw || !fonth)) return 0;
-
-        int xpos = (int) lParam * fontw;
-        RECT par_cr;
-        GetClientRect(GetParent(hwnd),&par_cr);
-
-        int use_w = (int)strlen(help_text), use_h = (ml->get_size() + 1)*fonth;
-        for (int x = 0; x < ml->get_size(); x ++)
-        {
-          const char *p = ml->get(x);
-          if (WDL_NORMALLY(p!=NULL))
-          {
-            const int l = (int) strlen(p);
-            if (l > use_w) use_w=l;
-          }
-        }
-
-        use_w = 8 + use_w * fontw;
-        if (use_w > par_cr.right - xpos)
-        {
-          xpos = wdl_max(par_cr.right - use_w,0);
-          use_w = par_cr.right - xpos;
-        }
-
-        const int cursor_line_y = ctx->m_cursor_y * fonth;
-        int ypos = cursor_line_y + fonth;
-        if (ypos + use_h > par_cr.bottom)
-        {
-          if (cursor_line_y-fonth > par_cr.bottom - ypos)
-          {
-            // more room at the top, but enough?
-            ypos = cursor_line_y - use_h;
-            if (ypos<fonth)
-            {
-              ypos = fonth;
-              use_h = cursor_line_y-fonth;
-            }
-          }
-          else
-            use_h = par_cr.bottom - ypos;
-        }
-
-        SetWindowPos(hwnd,NULL,xpos,ypos,use_w,use_h, SWP_NOZORDER|SWP_NOACTIVATE);
-        InvalidateRect(hwnd,NULL,FALSE);
-        ShowWindow(hwnd,SW_SHOWNA);
-      }
-    return 0;
     case WM_LBUTTONDOWN:
       editor = (EEL_Editor *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
       if (editor)
@@ -1581,7 +1524,7 @@ static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             SetTextColor(ps.hdc,mix);
             RECT tr = {4, r.bottom-fonth, r.right-4, r.bottom };
             DrawTextUTF8(ps.hdc,
-                editor->m_suggestion_hwnd_sel >= 0 ? help_text2 : help_text,
+                editor->m_suggestion_hwnd_sel >= 0 ? suggestion_help_text2 : suggestion_help_text,
                 -1,&tr,DT_SINGLELINE|DT_NOPREFIX|DT_TOP|DT_CENTER);
           }
           SelectObject(ps.hdc,oldObj);
@@ -1790,9 +1733,10 @@ run_suggest:
             m_suggestion_list.clear();
             get_suggested_function_names(buf,~0,&m_suggestion_list);
 
-            if (m_suggestion_list.get_size()>0)
+            win32CursesCtx *ctx = (win32CursesCtx *)m_cursesCtx;
+            if (m_suggestion_list.get_size()>0 &&
+                WDL_NORMALLY(ctx->m_hwnd) && WDL_NORMALLY(ctx->m_font_w) && WDL_NORMALLY(ctx->m_font_h))
             {
-              win32CursesCtx *ctx = (win32CursesCtx *)m_cursesCtx;
               m_suggestion_toklen = token_list[t].toklen;
               m_suggestion_tokpos = (int)(token_list[t].tok-l->Get());
               m_suggestion_hwnd_sel = -1;
@@ -1819,8 +1763,50 @@ run_suggest:
               }
               if (m_suggestion_hwnd)
               {
-                int xpos = WDL_utf8_bytepos_to_charpos(l->Get(),m_suggestion_tokpos) - m_offs_x;
-                SendMessage(m_suggestion_hwnd,WM_SUGGESTION_PROC_UPDATE,0,xpos);
+                const int fontw = ctx->m_font_w, fonth = ctx->m_font_h;
+                int xpos = (WDL_utf8_bytepos_to_charpos(l->Get(),m_suggestion_tokpos) - m_offs_x) * fontw;
+                RECT par_cr;
+                GetClientRect(ctx->m_hwnd,&par_cr);
+
+                int use_w = (int)strlen(suggestion_help_text), use_h = (m_suggestion_list.get_size() + 1)*fonth;
+                for (int x = 0; x < m_suggestion_list.get_size(); x ++)
+                {
+                  const char *p = m_suggestion_list.get(x);
+                  if (WDL_NORMALLY(p!=NULL))
+                  {
+                    const int l = (int) strlen(p);
+                    if (l > use_w) use_w=l;
+                  }
+                }
+
+                use_w = 8 + use_w * fontw;
+                if (use_w > par_cr.right - xpos)
+                {
+                  xpos = wdl_max(par_cr.right - use_w,0);
+                  use_w = par_cr.right - xpos;
+                }
+
+                const int cursor_line_y = ctx->m_cursor_y * fonth;
+                int ypos = cursor_line_y + fonth;
+                if (ypos + use_h > par_cr.bottom)
+                {
+                  if (cursor_line_y-fonth > par_cr.bottom - ypos)
+                  {
+                    // more room at the top, but enough?
+                    ypos = cursor_line_y - use_h;
+                    if (ypos<fonth)
+                    {
+                      ypos = fonth;
+                      use_h = cursor_line_y-fonth;
+                    }
+                  }
+                  else
+                    use_h = par_cr.bottom - ypos;
+                }
+
+                SetWindowPos(m_suggestion_hwnd,NULL,xpos,ypos,use_w,use_h, SWP_NOZORDER|SWP_NOACTIVATE);
+                InvalidateRect(m_suggestion_hwnd,NULL,FALSE);
+                ShowWindow(m_suggestion_hwnd,SW_SHOWNA);
               }
               did_fuzzy = true;
               const char *p = m_suggestion_list.get(wdl_max(m_suggestion_hwnd_sel,0));
