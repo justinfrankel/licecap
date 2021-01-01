@@ -7,40 +7,57 @@
 #include "../assocarray.h"
 
 class suggested_matchlist {
-    enum { MAX_MATCHES=32, STR_SZ=128 };
-
-    int m_size, m_maxsz, m_scores[MAX_MATCHES];
-    char m_buf[MAX_MATCHES*STR_SZ];
-
+    struct rec { char *val; int score, allocsz; };
+    WDL_TypedBuf<rec> m_list;
+    int m_list_valid;
   public:
 
-    suggested_matchlist(int maxsz=MAX_MATCHES) : m_size(0) { m_maxsz=wdl_min(maxsz,MAX_MATCHES); }
-    ~suggested_matchlist() { }
+    suggested_matchlist(int maxsz=80)
+    {
+      rec *list = m_list.ResizeOK(maxsz,false);
+      if (list) memset(list,0,maxsz*sizeof(*list));
+    }
+    ~suggested_matchlist()
+    {
+      for (int x = 0; x < m_list.GetSize(); x ++) free(m_list.Get()[x].val);
+    }
 
-    void clear() { m_size=0; }
-    int get_size() const { return m_size; }
-    const char *get(int idx) const { return idx>=0&&idx<m_size ? m_buf+(idx*STR_SZ) : NULL; };
-    int get_score(int idx) const { return idx>=0&&idx<m_size?m_scores[idx]:-1; }
+    int get_size() const { return m_list_valid; }
+    const char *get(int idx) const { return idx >= 0 && idx < m_list_valid ? m_list.Get()[idx].val : NULL; }
 
+    void clear() { m_list_valid = 0; }
     void add(const char *p, int score=0x7FFFFFFF)
     {
-      int x;
-      for (x = 0; x < m_size && m_scores[x] > score; x++);
+      rec *list = m_list.Get();
+      int insert_after;
+      for (insert_after = m_list_valid-1; insert_after >= 0 && score > list[insert_after].score; insert_after--);
 
-      // early-out if we're already in the list
-      while (x < m_size && m_scores[x] == score)
-        if (!strncmp(p,m_buf+x++*STR_SZ,STR_SZ-1)) return;
+      const int maxsz = m_list.GetSize();
+      WDL_ASSERT(m_list_valid <= maxsz);
+#ifdef _DEBUG
+      { for (int  y = 0; y < m_list_valid; y ++) { WDL_ASSERT(list[y].val != NULL); } }
+#endif
 
-      if (x == m_maxsz) return;
+      if (insert_after+1 >= maxsz) return;
 
-      if (m_size < m_maxsz) m_size++;
-      if (x < m_size)
+      for (int y=insert_after; y>=0 && list[y].score == score; y--) if (!strcmp(p,list[y].val)) return;
+
+      if (m_list_valid < maxsz) m_list_valid++;
+      rec r = list[maxsz-1];
+      WDL_ASSERT(r.val || (!r.allocsz && !r.score));
+
+      r.score = score;
+      const size_t plen = strlen(p);
+      if (!r.val || (plen+1) > r.allocsz)
       {
-        memmove(m_buf + STR_SZ*(x+1), m_buf + STR_SZ*x, (m_size-x-1)*STR_SZ);
-        memmove(m_scores + x + 1, m_scores + x, m_size-x-1);
+        free(r.val);
+        r.val = (char *)malloc( r.allocsz = wdl_max(plen,80)+36 );
       }
-      lstrcpyn_safe(m_buf + STR_SZ*x,p,STR_SZ);
-      m_scores[x] = score;
+      if (WDL_NORMALLY(r.val)) strcpy(r.val,p);
+
+      m_list.Delete(maxsz-1);
+      m_list.Insert(r,insert_after+1);
+      WDL_ASSERT(maxsz == m_list.GetSize());
     }
 };
 
