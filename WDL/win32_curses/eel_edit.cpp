@@ -1054,7 +1054,7 @@ static int eeledit_varenumfunc(const char *name, EEL_F *val, void *ctx)
 {
   void **parms = (void **)ctx;
   int score = ((EEL_Editor*)parms[2])->fuzzy_match((const char *)parms[1], name);
-  if (score > 0) ((suggested_matchlist*)parms[0])->add(name,score,2);
+  if (score > 0) ((suggested_matchlist*)parms[0])->add(name,score,suggested_matchlist::MODE_VAR);
   return 1;
 }
 
@@ -1090,7 +1090,7 @@ void EEL_Editor::get_suggested_function_names(const char *fname, int chkmask, su
       if (WDL_NORMALLY(k))
       {
         int score = fuzzy_match(fname,k);
-        if (score > 0) list->add(k,score,1);
+        if (score > 0) list->add(k,score,suggested_matchlist::MODE_USERFUNC);
       }
     }
   }
@@ -1514,10 +1514,10 @@ static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             {
               const bool sel = x == selpos;
               SetTextColor(ps.hdc,ctx->colortab[
-                  (mode == 2 ? WDL_CursesEditor::COLOR_TOPLINE : // variable
-                   mode == 1 ? WDL_CursesEditor::SYNTAX_FUNC2 : // user func
-                   mode == 3 ? WDL_CursesEditor::SYNTAX_REGVAR :
-                   WDL_CursesEditor::SYNTAX_KEYWORD)   // api func
+                  (mode == suggested_matchlist::MODE_VAR ? WDL_CursesEditor::COLOR_TOPLINE :
+                   mode == suggested_matchlist::MODE_USERFUNC ? WDL_CursesEditor::SYNTAX_FUNC2 :
+                   mode == suggested_matchlist::MODE_REGVAR ? WDL_CursesEditor::SYNTAX_REGVAR :
+                   WDL_CursesEditor::SYNTAX_KEYWORD)
                   | (sel ? A_BOLD:0)][0]);
               RECT tr = {4, ypos, r.right-4, ypos+fonth };
               DrawTextUTF8(ps.hdc,p,-1,&tr,DT_SINGLELINE|DT_NOPREFIX|DT_TOP|DT_LEFT);

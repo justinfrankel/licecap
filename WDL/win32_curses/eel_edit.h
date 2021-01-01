@@ -12,6 +12,8 @@ class suggested_matchlist {
     int m_list_valid;
   public:
 
+    enum { MODE_FUNC=0, MODE_USERFUNC, MODE_VAR, MODE_REGVAR };
+
     suggested_matchlist(int maxsz=80)
     {
       rec *list = m_list.ResizeOK(maxsz,false);
@@ -30,7 +32,7 @@ class suggested_matchlist {
     }
 
     void clear() { m_list_valid = 0; }
-    void add(const char *p, int score=0x7FFFFFFF, int mode=0)
+    void add(const char *p, int score=0x7FFFFFFF, int mode=MODE_FUNC)
     {
       rec *list = m_list.Get();
       int insert_after;
