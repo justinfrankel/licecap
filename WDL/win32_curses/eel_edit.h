@@ -17,6 +17,7 @@ class suggested_matchlist {
     suggested_matchlist(int maxsz=MAX_MATCHES) : m_size(0) { m_maxsz=wdl_min(maxsz,MAX_MATCHES); }
     ~suggested_matchlist() { }
 
+    void clear() { m_size=0; }
     int get_size() const { return m_size; }
     const char *get(int idx) const { return idx>=0&&idx<m_size ? m_buf+(idx*STR_SZ) : NULL; };
     int get_score(int idx) const { return idx>=0&&idx<m_size?m_scores[idx]:-1; }
@@ -104,7 +105,7 @@ public:
   WDL_FastString m_suggestion;
   int m_suggestion_x,m_suggestion_y;
   HWND m_suggestion_hwnd;
-  suggested_matchlist *m_suggestion_hwnd_list;
+  suggested_matchlist m_suggestion_list;
   int m_suggestion_hwnd_sel;
   int m_suggestion_tokpos, m_suggestion_toklen; // bytepos/len
 
