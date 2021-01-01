@@ -105,7 +105,6 @@ public:
   virtual void *peek_get_VM() { return NULL; } // returns NSEEL_VMCTX (if supported)
   virtual int peek_get_named_string_value(const char *name, char *sstr, size_t sstr_sz) { return -1; } // returns >=0 (index) if found
   virtual bool peek_get_numbered_string_value(double idx, char *sstr, size_t sstr_sz) { return false; }
-  virtual bool peek_get_variable_info(const char *name, char *sstr, size_t sstr_sz);
 
   virtual void peek_lock() { }
   virtual void peek_unlock() { }
