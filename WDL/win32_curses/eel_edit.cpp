@@ -1454,6 +1454,7 @@ static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
       if (editor) editor->m_suggestion_hwnd = NULL;
     break;
     case WM_LBUTTONDOWN:
+    case WM_MOUSEMOVE:
       editor = (EEL_Editor *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
       if (editor)
       {
@@ -1462,21 +1463,33 @@ static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         {
           RECT r;
           GetClientRect(hwnd,&r);
-          const int maxv = r.bottom / ctx->m_font_h - 1;
+          SetForegroundWindow(GetParent(hwnd));
+          SetFocus(GetParent(hwnd));
+
+          const int max_vis = r.bottom / ctx->m_font_h - 1, sel = editor->m_suggestion_hwnd_sel;
           int hit = GET_Y_LPARAM(lParam) / ctx->m_font_h;
-          if (hit >= 0 && hit < maxv)
+          if (hit >= max_vis) return 0;
+          if (sel >= max_vis) hit += 1 + sel - max_vis;
+
+          if (uMsg == WM_LBUTTONDOWN && !SHIFT_KEY_DOWN && !ALT_KEY_DOWN && !CTRL_KEY_DOWN)
           {
-            if (editor->m_suggestion_hwnd_sel >= maxv)
-              hit += 1 + editor->m_suggestion_hwnd_sel-maxv;
             editor->m_suggestion_hwnd_sel = hit;
-            SetForegroundWindow(GetParent(hwnd));
-            SetFocus(GetParent(hwnd));
-            if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN && !CTRL_KEY_DOWN)
+            editor->onChar('\t');
+          }
+          else if (sel != hit)
+          {
+            editor->m_suggestion_hwnd_sel = hit;
+            InvalidateRect(hwnd,NULL,FALSE);
+
+            char sug[512];
+            sug[0]=0;
+            const char *p = editor->m_suggestion_list.get(hit);
+            if (p && editor->peek_get_function_info(p,sug,sizeof(sug),~0,-1))
             {
-              editor->onChar('\t');
+              editor->m_suggestion.Set(sug);
+              editor->draw_top_line();
+              editor->setCursor();
             }
-            else
-              InvalidateRect(hwnd,NULL,FALSE);
           }
         }
       }
