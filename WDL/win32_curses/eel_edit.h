@@ -114,7 +114,6 @@ public:
 
   enum {
     KEYWORD_MASK_BUILTIN_FUNC=1,
-    KEYWORD_MASK_ADDED_FUNC=2,
     KEYWORD_MASK_USER_FUNC=4,
     KEYWORD_MASK_USER_VAR=8
   };
@@ -130,8 +129,6 @@ public:
   // static helpers
   static WDL_TypedBuf<char> s_draw_parentokenstack;
   static int parse_format_specifier(const char *fmt_in, int *var_offs, int *var_len);
-
-  WDL_StringKeyedArray<char *> *m_added_funclist; // caller can use this
 
   WDL_FastString m_suggestion;
   int m_suggestion_x,m_suggestion_y;

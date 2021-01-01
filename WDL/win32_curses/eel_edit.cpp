@@ -19,7 +19,6 @@
 
 EEL_Editor::EEL_Editor(void *cursesCtx) : WDL_CursesEditor(cursesCtx)
 {
-  m_added_funclist=NULL;
   m_suggestion_x=m_suggestion_y=-1;
   m_case_sensitive=false;
   m_comment_str="//"; // todo IsWithinComment() or something?
@@ -57,12 +56,6 @@ int EEL_Editor::namedTokenHighlight(const char *tokStart, int len, int state)
 
   char buf[512];
   lstrcpyn_safe(buf,tokStart,wdl_min(sizeof(buf),len+1));
-  if (m_added_funclist)
-  {
-    char **r=m_added_funclist->GetPtr(buf);
-    if (r) return *r ? SYNTAX_FUNC : SYNTAX_REGVAR;
-  }
-
   NSEEL_VMCTX vm = peek_want_VM_funcs() ? peek_get_VM() : NULL;
   if (nseel_getFunctionByName((compileContext*)vm,buf,NULL)) return SYNTAX_FUNC;
 
@@ -1088,19 +1081,6 @@ void EEL_Editor::get_suggested_function_names(const char *fname, int chkmask, su
     peek_unlock();
   }
 
-  if ((chkmask & KEYWORD_MASK_ADDED_FUNC) && m_added_funclist)
-  {
-    for (x = 0; x < m_added_funclist->GetSize(); x ++)
-    {
-      const char *ptr = NULL;
-      char *v = m_added_funclist->Enumerate(x,&ptr);
-      if (v && WDL_NORMALLY(ptr))
-      {
-        const int score = fuzzy_match(fname,ptr);
-        if (score>0) list->add(ptr,score);
-      }
-    }
-  }
   if (chkmask & KEYWORD_MASK_USER_FUNC)
   {
     ensure_code_func_cache_valid();
@@ -1133,16 +1113,6 @@ int EEL_Editor::peek_get_function_info(const char *name, char *sstr, size_t sstr
         snprintf(sstr,sstr_sz,"%s%s%s%s",nameptr,parms,*trail?" " :"",trail);
         return 4;
       }
-    }
-  }
-
-  if ((chkmask&KEYWORD_MASK_ADDED_FUNC) && m_added_funclist)
-  {
-    char **p=m_added_funclist->GetPtr(name);
-    if (p && *p)
-    {
-      lstrcpyn_safe(sstr,*p,sstr_sz);
-      return 2;
     }
   }
 
