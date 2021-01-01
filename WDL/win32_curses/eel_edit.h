@@ -7,7 +7,7 @@
 #include "../assocarray.h"
 
 class suggested_matchlist {
-    struct rec { char *val; int score, allocsz; };
+    struct rec { char *val; int score, allocsz, mode; };
     WDL_TypedBuf<rec> m_list;
     int m_list_valid;
   public:
@@ -23,10 +23,14 @@ class suggested_matchlist {
     }
 
     int get_size() const { return m_list_valid; }
-    const char *get(int idx) const { return idx >= 0 && idx < m_list_valid ? m_list.Get()[idx].val : NULL; }
+    const char *get(int idx, int *mode=NULL) const {
+      if (idx < 0 || idx >= m_list_valid) return NULL;
+      if (mode) *mode = m_list.Get()[idx].mode;
+      return m_list.Get()[idx].val;
+    }
 
     void clear() { m_list_valid = 0; }
-    void add(const char *p, int score=0x7FFFFFFF)
+    void add(const char *p, int score=0x7FFFFFFF, int mode=0)
     {
       rec *list = m_list.Get();
       int insert_after;
@@ -40,12 +44,13 @@ class suggested_matchlist {
 
       if (insert_after+1 >= maxsz) return;
 
-      for (int y=insert_after; y>=0 && list[y].score == score; y--) if (!strcmp(p,list[y].val)) return;
+      for (int y=insert_after; y>=0 && list[y].score == score; y--) if (list[y].mode == mode && !strcmp(p,list[y].val)) return;
 
       if (m_list_valid < maxsz) m_list_valid++;
       rec r = list[maxsz-1];
       WDL_ASSERT(r.val || (!r.allocsz && !r.score));
 
+      r.mode = mode;
       r.score = score;
       const size_t plen = strlen(p);
       if (!r.val || (plen+1) > r.allocsz)
@@ -107,7 +112,7 @@ public:
   virtual void on_help(const char *str, int curChar) { } // curChar is current character if str is NULL
 
   virtual bool line_has_openable_file(const char *line, int cursor_bytepos, char *fnout, size_t fnout_sz) { return false; }
-  virtual int peek_get_function_info(const char *name, char *sstr, size_t sstr_sz, int chkmask, int ignoreline); // mask: 1=builtin, 2=m_added_funclist, 4=user functions. ignoreline= line to ignore function defs on.
+  virtual int peek_get_function_info(const char *name, char *sstr, size_t sstr_sz, int chkmask, int ignoreline); // mask: 1=builtin, 2=m_added_funclist, 4=user functions,8=variables. ignoreline= line to ignore function defs on.
   virtual void get_suggested_function_names(const char *fname, int chkmask, suggested_matchlist *list); // return false to suppress
   virtual int fuzzy_match(const char *codestr, const char *refstr);
 

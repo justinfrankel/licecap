@@ -1057,19 +1057,33 @@ int EEL_Editor::fuzzy_match(const char *codestr, const char *refstr)
   return wdl_max(score1,score2);
 }
 
+static int eeledit_varenumfunc(const char *name, EEL_F *val, void *ctx)
+{
+  void **parms = (void **)ctx;
+  int score = ((EEL_Editor*)parms[2])->fuzzy_match((const char *)parms[1], name);
+  if (score > 0) ((suggested_matchlist*)parms[0])->add(name,score,2);
+  return 1;
+}
+
 void EEL_Editor::get_suggested_function_names(const char *fname, int chkmask, suggested_matchlist *list)
 {
   int x;
-  if (chkmask & 1)
+  if (chkmask & (1|8))
   {
     peek_lock();
-    NSEEL_VMCTX vm = peek_want_VM_funcs() ? peek_get_VM() : NULL;
-    for (x=0;;x++)
+    NSEEL_VMCTX vm = peek_get_VM();
+    compileContext *fvm = vm && peek_want_VM_funcs() ? (compileContext*)vm : NULL;
+    if (chkmask&1) for (x=0;;x++)
     {
-      functionType *p = nseel_enumFunctions((compileContext*)vm,x);
+      functionType *p = nseel_enumFunctions(fvm,x);
       if (!p) break;
       int score = fuzzy_match(fname,p->name);
       if (score>0) list->add(p->name,score);
+    }
+    if (vm && (chkmask&8))
+    {
+      const void *parms[3] = { list, fname, this };
+      NSEEL_VM_enumallvars(vm, eeledit_varenumfunc, parms);
     }
     peek_unlock();
   }
@@ -1096,7 +1110,7 @@ void EEL_Editor::get_suggested_function_names(const char *fname, int chkmask, su
       if (WDL_NORMALLY(k))
       {
         int score = fuzzy_match(fname,k);
-        if (score > 0) list->add(k,score);
+        if (score > 0) list->add(k,score,1);
       }
     }
   }
@@ -1132,18 +1146,23 @@ int EEL_Editor::peek_get_function_info(const char *name, char *sstr, size_t sstr
     }
   }
 
-  if (chkmask & 1)
+  if (chkmask & (1|8))
   {
+    int rv = 0;
     peek_lock();
     NSEEL_VMCTX vm = peek_want_VM_funcs() ? peek_get_VM() : NULL;
-    functionType *f = nseel_getFunctionByName((compileContext*)vm,name,NULL);
+    functionType *f = (chkmask&1) ? nseel_getFunctionByName((compileContext*)vm,name,NULL) : NULL;
     if (f)
     {
       snprintf(sstr,sstr_sz,"'%s' is a function that requires %d parameters", f->name,f->nParams&0xff);
-      peek_unlock();
-      return 1;
+      rv |= 1;
+    }
+    else if ((chkmask & 8) && peek_get_variable_info(name,sstr,sstr_sz))
+    {
+      rv |= 8;
     }
     peek_unlock();
+    if (rv) return rv;
   }
 
   return 0;
@@ -1403,8 +1422,6 @@ void EEL_Editor::doWatchInfo(int c)
         }
 
         int f = peek_get_function_info(n.Get(),sstr,sizeof(sstr),~0,-1);
-
-        if (!f) f = peek_get_variable_info(n.Get(),sstr,sizeof(sstr))?1:0;
         if (!f) snprintf(sstr,sizeof(sstr),"'%s' NOT FOUND",n.Get());
       }
     }
@@ -1521,11 +1538,16 @@ static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
 
           for (int x = (selpos >= maxv ? 1+selpos-maxv : 0); x < ml->get_size() && ypos <= r.bottom-fonth*2; x ++)
           {
-            const char *p = ml->get(x);
+            int mode;
+            const char *p = ml->get(x,&mode);
             if (WDL_NORMALLY(p))
             {
               const bool sel = x == selpos;
-              SetTextColor(ps.hdc,ctx->colortab[WDL_CursesEditor::COLOR_TOPLINE | (sel ? A_BOLD:0)][0]);
+              SetTextColor(ps.hdc,ctx->colortab[
+                  (mode == 2 ? WDL_CursesEditor::COLOR_TOPLINE : // variable
+                   mode == 1 ? WDL_CursesEditor::SYNTAX_FUNC2 : // user func
+                   WDL_CursesEditor::SYNTAX_KEYWORD)   // api func
+                  | (sel ? A_BOLD:0)][0]);
               RECT tr = {4, ypos, r.right-4, ypos+fonth };
               DrawTextUTF8(ps.hdc,p,-1,&tr,DT_SINGLELINE|DT_NOPREFIX|DT_TOP|DT_LEFT);
             }
