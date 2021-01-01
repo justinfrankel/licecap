@@ -1068,19 +1068,19 @@ static int eeledit_varenumfunc(const char *name, EEL_F *val, void *ctx)
 void EEL_Editor::get_suggested_function_names(const char *fname, int chkmask, suggested_matchlist *list)
 {
   int x;
-  if (chkmask & (1|8))
+  if (chkmask & (KEYWORD_MASK_BUILTIN_FUNC|KEYWORD_MASK_USER_VAR))
   {
     peek_lock();
     NSEEL_VMCTX vm = peek_get_VM();
     compileContext *fvm = vm && peek_want_VM_funcs() ? (compileContext*)vm : NULL;
-    if (chkmask&1) for (x=0;;x++)
+    if (chkmask&KEYWORD_MASK_BUILTIN_FUNC) for (x=0;;x++)
     {
       functionType *p = nseel_enumFunctions(fvm,x);
       if (!p) break;
       int score = fuzzy_match(fname,p->name);
       if (score>0) list->add(p->name,score);
     }
-    if (vm && (chkmask&8))
+    if (vm && (chkmask&KEYWORD_MASK_USER_VAR))
     {
       const void *parms[3] = { list, fname, this };
       NSEEL_VM_enumallvars(vm, eeledit_varenumfunc, parms);
@@ -1088,7 +1088,7 @@ void EEL_Editor::get_suggested_function_names(const char *fname, int chkmask, su
     peek_unlock();
   }
 
-  if ((chkmask & 2) && m_added_funclist)
+  if ((chkmask & KEYWORD_MASK_ADDED_FUNC) && m_added_funclist)
   {
     for (x = 0; x < m_added_funclist->GetSize(); x ++)
     {
@@ -1101,7 +1101,7 @@ void EEL_Editor::get_suggested_function_names(const char *fname, int chkmask, su
       }
     }
   }
-  if (chkmask & 4)
+  if (chkmask & KEYWORD_MASK_USER_FUNC)
   {
     ensure_code_func_cache_valid();
     for (int x=0;x< m_code_func_cache.GetSize();x++)
@@ -1118,7 +1118,7 @@ void EEL_Editor::get_suggested_function_names(const char *fname, int chkmask, su
 
 int EEL_Editor::peek_get_function_info(const char *name, char *sstr, size_t sstr_sz, int chkmask, int ignoreline)
 {
-  if (chkmask&4)
+  if (chkmask&KEYWORD_MASK_USER_FUNC)
   {
     ensure_code_func_cache_valid();
     for (int i = 0; i < m_code_func_cache.GetSize(); i ++)
@@ -1136,7 +1136,7 @@ int EEL_Editor::peek_get_function_info(const char *name, char *sstr, size_t sstr
     }
   }
 
-  if ((chkmask&2) && m_added_funclist)
+  if ((chkmask&KEYWORD_MASK_ADDED_FUNC) && m_added_funclist)
   {
     char **p=m_added_funclist->GetPtr(name);
     if (p && *p)
@@ -1146,31 +1146,31 @@ int EEL_Editor::peek_get_function_info(const char *name, char *sstr, size_t sstr
     }
   }
 
-  if (chkmask & (1|8))
+  if (chkmask & (KEYWORD_MASK_BUILTIN_FUNC|KEYWORD_MASK_USER_VAR))
   {
     int rv = 0;
     peek_lock();
     NSEEL_VMCTX vm = peek_want_VM_funcs() ? peek_get_VM() : NULL;
-    functionType *f = (chkmask&1) ? nseel_getFunctionByName((compileContext*)vm,name,NULL) : NULL;
+    functionType *f = (chkmask&KEYWORD_MASK_BUILTIN_FUNC) ? nseel_getFunctionByName((compileContext*)vm,name,NULL) : NULL;
     double v;
     if (f)
     {
       snprintf(sstr,sstr_sz,"'%s' is a function that requires %d parameters", f->name,f->nParams&0xff);
-      rv |= 1;
+      rv = KEYWORD_MASK_BUILTIN_FUNC;
     }
-    else if (chkmask & 8)
+    else if (chkmask & KEYWORD_MASK_USER_VAR)
     {
       if (!vm) vm = peek_get_VM();
       EEL_F *vptr=NSEEL_VM_getvar(vm,name);
       if (vptr)
       {
         v = *vptr;
-        rv |= 8;
+        rv = KEYWORD_MASK_USER_VAR;
       }
     }
     peek_unlock();
 
-    if (rv&8)
+    if (rv == KEYWORD_MASK_USER_VAR)
     {
       int good_len=-1;
       snprintf(sstr,sstr_sz,"%s=%.14f",name,v);

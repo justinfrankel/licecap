@@ -111,9 +111,19 @@ public:
   virtual void on_help(const char *str, int curChar) { } // curChar is current character if str is NULL
 
   virtual bool line_has_openable_file(const char *line, int cursor_bytepos, char *fnout, size_t fnout_sz) { return false; }
-  virtual int peek_get_function_info(const char *name, char *sstr, size_t sstr_sz, int chkmask, int ignoreline); // mask: 1=builtin, 2=m_added_funclist, 4=user functions,8=variables. ignoreline= line to ignore function defs on.
-  virtual void get_suggested_function_names(const char *fname, int chkmask, suggested_matchlist *list); // return false to suppress
-  virtual int fuzzy_match(const char *codestr, const char *refstr);
+
+  enum {
+    KEYWORD_MASK_BUILTIN_FUNC=1,
+    KEYWORD_MASK_ADDED_FUNC=2,
+    KEYWORD_MASK_USER_FUNC=4,
+    KEYWORD_MASK_USER_VAR=8
+  };
+
+  // chkmask: KEYWORD_MASK_* or ~0 for all
+  // ignoreline= line to ignore function defs on.
+  virtual int peek_get_function_info(const char *name, char *sstr, size_t sstr_sz, int chkmask, int ignoreline);
+  virtual void get_suggested_function_names(const char *fname, int chkmask, suggested_matchlist *list);
+  virtual int fuzzy_match(const char *codestr, const char *refstr); // returns score
 
   virtual void draw_top_line();
 
