@@ -1707,7 +1707,9 @@ run_suggest:
         if (t<0) break;
 
         if (token_list[t].tok[0] == ',') comma_cnt++;
-        if (token_list[t].toklen >= min_func_toklen)
+        if (token_list[t].toklen >= min_func_toklen &&
+            (cursor <= token_list[t].tok + token_list[t].toklen || (t < ntok-1 && token_list[t+1].tok[0] == '('))
+           )
         {
           char buf[512];
           lstrcpyn_safe(buf,token_list[t].tok,wdl_min(token_list[t].toklen+1, sizeof(buf)));
