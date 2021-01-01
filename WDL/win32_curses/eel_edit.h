@@ -90,7 +90,7 @@ public:
 
   virtual bool line_has_openable_file(const char *line, int cursor_bytepos, char *fnout, size_t fnout_sz) { return false; }
   virtual int peek_get_function_info(const char *name, char *sstr, size_t sstr_sz, int chkmask, int ignoreline); // mask: 1=builtin, 2=m_added_funclist, 4=user functions. ignoreline= line to ignore function defs on.
-  virtual bool get_suggested_function_names(const char *fname, suggested_matchlist *list); // return false to suppress
+  virtual void get_suggested_function_names(const char *fname, int chkmask, suggested_matchlist *list); // return false to suppress
   virtual int fuzzy_match(const char *codestr, const char *refstr);
 
   virtual void draw_top_line();

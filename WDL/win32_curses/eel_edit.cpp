@@ -1058,20 +1058,24 @@ int EEL_Editor::fuzzy_match(const char *codestr, const char *refstr)
   return wdl_max(score1,score2);
 }
 
-bool EEL_Editor::get_suggested_function_names(const char *fname, suggested_matchlist *list)
+void EEL_Editor::get_suggested_function_names(const char *fname, int chkmask, suggested_matchlist *list)
 {
   int x;
-  peek_lock();
-  NSEEL_VMCTX vm = peek_want_VM_funcs() ? peek_get_VM() : NULL;
-  for (x=0;;x++)
+  if (chkmask & 1)
   {
-    functionType *p = nseel_enumFunctions((compileContext*)vm,x);
-    if (!p) break;
-    int score = fuzzy_match(fname,p->name);
-    if (score>0) list->add(p->name,score);
+    peek_lock();
+    NSEEL_VMCTX vm = peek_want_VM_funcs() ? peek_get_VM() : NULL;
+    for (x=0;;x++)
+    {
+      functionType *p = nseel_enumFunctions((compileContext*)vm,x);
+      if (!p) break;
+      int score = fuzzy_match(fname,p->name);
+      if (score>0) list->add(p->name,score);
+    }
+    peek_unlock();
   }
-  peek_unlock();
-  if (m_added_funclist)
+
+  if ((chkmask & 2) && m_added_funclist)
   {
     for (x = 0; x < m_added_funclist->GetSize(); x ++)
     {
@@ -1084,7 +1088,19 @@ bool EEL_Editor::get_suggested_function_names(const char *fname, suggested_match
       }
     }
   }
-  return true;
+  if (chkmask & 4)
+  {
+    ensure_code_func_cache_valid();
+    for (int x=0;x< m_code_func_cache.GetSize();x++)
+    {
+      const char *k = m_code_func_cache.Get(x) + 4;
+      if (WDL_NORMALLY(k))
+      {
+        int score = fuzzy_match(fname,k);
+        if (score > 0) list->add(k,score);
+      }
+    }
+  }
 }
 
 int EEL_Editor::peek_get_function_info(const char *name, char *sstr, size_t sstr_sz, int chkmask, int ignoreline)
@@ -1804,19 +1820,7 @@ run_suggest:
           {
             suggested_matchlist ml;
 
-            if (get_suggested_function_names(buf,&ml))
-            {
-              ensure_code_func_cache_valid();
-              for (int x=0;x< m_code_func_cache.GetSize();x++)
-              {
-                const char *k = m_code_func_cache.Get(x) + 4;
-                if (WDL_NORMALLY(k))
-                {
-                  int score = fuzzy_match(buf,k);
-                  if (score > 0) ml.add(k,score);
-                }
-              }
-            }
+            get_suggested_function_names(buf,~0,&ml);
 
             if (ml.get_size()>0)
             {
