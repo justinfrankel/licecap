@@ -84,6 +84,15 @@ protected:
   void draw_message(const char *str);
   void draw_status_state();
 
+  virtual const char *sh_tokenize(const char **ptr, const char *endptr, int *lenOut, int *state) {
+    while (**ptr == ' ' || **ptr == '\t') (*ptr)++;
+    const char *ret = *ptr;
+    while (**ptr && (**ptr != ' ' && **ptr != '\t')) (*ptr)++;
+    *lenOut = (int) (*ptr - ret);
+    if (state) *state = 0;
+    return *ptr > ret ? ret : NULL;
+  }
+
 #ifdef WDL_IS_FAKE_CURSES
   virtual LRESULT onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
   static LRESULT _onMouseMessage(void *user_data, HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
