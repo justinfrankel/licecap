@@ -104,6 +104,7 @@ protected:
   
   virtual int search_line(const char *str, const WDL_FastString *line, int startpos, bool backwards); // returns offset of next match, or -1 if none
   void runSearch(bool backwards);
+  void do_search_prompt();
 
   void indentSelect(int amt);
   void removeSelect();
@@ -177,7 +178,10 @@ protected:
   int GetPaneDims(int* paney, int* paneh);
 
   static char s_search_string[256];
+public:
   static int s_overwrite;
+  static int s_search_mode;
+protected:
   static WDL_FastString s_fake_clipboard;
 
   class refcntString

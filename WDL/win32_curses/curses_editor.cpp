@@ -29,6 +29,15 @@
 WDL_FastString WDL_CursesEditor::s_fake_clipboard;
 int WDL_CursesEditor::s_overwrite=0;
 char WDL_CursesEditor::s_search_string[256];
+int WDL_CursesEditor::s_search_mode; // &1=case sensitive, &2=word
+
+static const char *searchmode_desc(int mode)
+{
+  return (mode&2) ?
+    ((mode&1) ? "WordMatch":"wordmatch") :
+    ((mode&1) ? "SubString":"substring");
+}
+
 
 #ifndef WM_MOUSEWHEEL
 #define WM_MOUSEWHEEL 0x20A
@@ -1257,7 +1266,12 @@ int WDL_CursesEditor::search_line(const char *str, const WDL_FastString *line, i
 
   const int dstartx = backwards?-1:1;
   for (; backwards ? (startx>=0) : (startx <= linelen-srchlen); startx+=dstartx)
-    if (!strnicmp(p+startx,str,srchlen)) return startx;
+    if ((s_search_mode&1) ? !strncmp(p+startx,str,srchlen) : !strnicmp(p+startx,str,srchlen))
+    {
+      if (!(s_search_mode&2)) return startx;
+      if ((startx==0 || p[startx-1]<0 || !isalnum(p[startx-1])) &&
+          (p[startx+srchlen]<=0 || !isalnum(p[startx+srchlen]))) return startx;
+    }
   return -1;
 }
 
@@ -1268,16 +1282,16 @@ void WDL_CursesEditor::runSearch(bool backwards)
   if (s_search_string[0]) 
   {
     const int numlines = m_text.GetSize();
-    for (int y = 0; y < numlines; y ++)
+    for (int y = 0; y <= numlines; y ++)
     {
       int line = m_curs_y + (backwards ? -y : y), wrapflag=0;
-      if (line >= numlines) { line -= numlines; wrapflag = 1; }
-      if (line < 0) { line += numlines; wrapflag = 1; }
+      while (line >= numlines) { line -= numlines; wrapflag = 1; }
+      while (line < 0) { line += numlines; wrapflag = 1; }
 
       WDL_FastString *tl = m_text.Get(line);
       if (WDL_NOT_NORMALLY(!tl)) continue;
 
-      const int startx = line == m_curs_y ? (backwards ? m_curs_x-1 : m_curs_x+1) : (backwards ? tl->GetLength()-1 : 0);
+      const int startx = y==0 ? (backwards ? m_curs_x-1 : m_curs_x+1) : (backwards ? tl->GetLength()-1 : 0);
       if (backwards && startx<0) continue;
 
       int bytepos = search_line(s_search_string,tl, startx > 0 ? WDL_utf8_charpos_to_bytepos(tl->Get(),startx) : 0, backwards);
@@ -1298,16 +1312,28 @@ void WDL_CursesEditor::runSearch(bool backwards)
         break;
       }
     }
+    if (!buf[0])
+      snprintf(buf,sizeof(buf),"%s '%s' not found",searchmode_desc(s_search_mode),s_search_string);
   }
 
   draw();
   setCursor();
-  if (!buf[0])
-  {
-    if (s_search_string[0]) snprintf(buf,sizeof(buf),"String '%s' not found",s_search_string);
-    else lstrcpyn_safe(buf,"No search string",sizeof(buf));
-  }
-  draw_message(buf);
+  if (buf[0])
+    draw_message(buf);
+}
+
+void WDL_CursesEditor::do_search_prompt()
+{
+  attrset(COLOR_MESSAGE);
+  bkgdset(COLOR_MESSAGE);
+  char tmp[100];
+  const char *help = COLS > 60 ? " (Up/Down:mode, ESC:cancel)" : COLS > 40 ? "(U/D:mode)" : "";
+  snprintf(tmp,sizeof(tmp),"Find %s%s: ",searchmode_desc(s_search_mode), help);
+  mvaddstr(LINES-1,0,tmp);
+  addstr(s_search_string);
+  clrtoeol();
+  attrset(0);
+  bkgdset(0);
 }
 
 static int categorizeCharForWordNess(int c)
@@ -1547,6 +1573,14 @@ int WDL_CursesEditor::onChar(int c)
            }
          }
        break;
+       case KEY_UP:
+         s_search_mode--;
+         s_search_mode&=3;
+       break;
+       case KEY_DOWN:
+         s_search_mode++;
+         s_search_mode&=3;
+       break;
        default: 
          if (VALIDATE_TEXT_CHAR(c)) 
          { 
@@ -1561,12 +1595,7 @@ int WDL_CursesEditor::onChar(int c)
      }
      if (m_ui_state == UI_STATE_SEARCH || m_ui_state == UI_STATE_SEARCH2)
      {
-       attrset(COLOR_MESSAGE);
-       bkgdset(COLOR_MESSAGE);
-       mvaddstr(LINES-1,29,s_search_string);
-       clrtoeol(); 
-       attrset(0);
-       bkgdset(0);
+       do_search_prompt();
      }
      return 0;
   }
@@ -2053,10 +2082,6 @@ int WDL_CursesEditor::onChar(int c)
   case 'F'-'A'+1:
     if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN)
     {
-      draw_message("");
-      attrset(COLOR_MESSAGE);
-      bkgdset(COLOR_MESSAGE);
-      mvaddstr(LINES-1,0,"Find string (ESC to cancel): ");
       if (m_selecting && m_select_y1==m_select_y2)
       {
         WDL_FastString* s=m_text.Get(m_select_y1);
@@ -2073,10 +2098,9 @@ int WDL_CursesEditor::onChar(int c)
           }
         }
       }
-      addstr(s_search_string);
-      clrtoeol();
-      attrset(0);
-      bkgdset(0);
+      draw_message("");
+      do_search_prompt();
+
       m_ui_state=UI_STATE_SEARCH; // find, initial
     }
   break;
@@ -2340,7 +2364,7 @@ int WDL_CursesEditor::onChar(int c)
       draw_message("");
       attrset(COLOR_MESSAGE);
       bkgdset(COLOR_MESSAGE);
-      mvaddstr(LINES-1,0,"Go to line (ESC to cancel): ");
+      mvaddstr(LINES-1,0,"Go to line (ESC:cancel): ");
       s_linenumberbuf[0]=0;
       clrtoeol();
       attrset(0);
