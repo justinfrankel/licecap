@@ -1294,7 +1294,7 @@ void WDL_CursesEditor::runSearch(bool backwards)
         setCursor();
 
         m_curs_x = m_select_x1;
-        snprintf(buf,sizeof(buf),"Found %s'%s'  " CONTROL_KEY_NAME "+G:next",wrapflag?"(wrapped) ":"",s_search_string);
+        snprintf(buf,sizeof(buf),"Found @ Line %d Col %d %s'%s' (Shift+)F3|" CONTROL_KEY_NAME "+G:(prev)next",m_curs_y+1,m_curs_x,wrapflag?"(wrapped) ":"",s_search_string);
         break;
       }
     }
