@@ -93,7 +93,8 @@ protected:
   }
 #endif
   
-  void runSearch();
+  virtual int search_line(const char *str, const WDL_FastString *line, int startpos, bool backwards); // returns offset of next match, or -1 if none
+  void runSearch(bool backwards);
 
   void indentSelect(int amt);
   void removeSelect();

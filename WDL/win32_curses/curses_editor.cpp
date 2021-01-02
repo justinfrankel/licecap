@@ -1249,91 +1249,65 @@ void WDL_CursesEditor::GoToLine(int line, bool dosel)
   setCursor(0,0.25);
 }
 
-void WDL_CursesEditor::runSearch()
+int WDL_CursesEditor::search_line(const char *str, const WDL_FastString *line, int startx, bool backwards) // returns offset of next match, or -1 if none
 {
-   if (s_search_string[0]) 
-   {
-     int wrapflag=0,found=0;
-     int line;
-     int numlines = m_text.GetSize();
-     int startx=m_curs_x+1;
+  const char *p = line->Get();
+  const int linelen = line->GetLength();
+  const int srchlen = (int) strlen(str);
 
-     const int srchlen=strlen(s_search_string);
-     for (line = m_curs_y; line < numlines && !found; line ++)
-     {
-       WDL_FastString *tl = m_text.Get(line);
-       if (startx && tl) startx = WDL_utf8_charpos_to_bytepos(tl->Get(),startx);
-       const char *p;
+  const int dstartx = backwards?-1:1;
+  for (; backwards ? (startx>=0) : (startx <= linelen-srchlen); startx+=dstartx)
+    if (!strnicmp(p+startx,str,srchlen)) return startx;
+  return -1;
+}
 
-       if (tl && (p=tl->Get()))
-       {
-         const int linelen = tl->GetLength();
-         for (; startx <= linelen-srchlen; startx++)
-           if (!strnicmp(p+startx,s_search_string,srchlen)) 
-           {
-             m_select_y1=m_select_y2=m_curs_y=line;
-             m_select_x1=m_curs_x=WDL_utf8_bytepos_to_charpos(p,startx);
-             m_select_x2=m_curs_x+WDL_utf8_get_charlen(s_search_string);
-             m_selecting=1;
-             found=1;
-             break;
-           }
-       }
-            
+void WDL_CursesEditor::runSearch(bool backwards)
+{
+  char buf[512];
+  buf[0]=0;
+  if (s_search_string[0]) 
+  {
+    const int numlines = m_text.GetSize();
+    for (int y = 0; y < numlines; y ++)
+    {
+      int line = m_curs_y + (backwards ? -y : y), wrapflag=0;
+      if (line >= numlines) { line -= numlines; wrapflag = 1; }
+      if (line < 0) { line += numlines; wrapflag = 1; }
 
-       startx=0;
-     }
-     if (!found && (m_curs_y>0 || m_curs_x > 0))
-     {
-       wrapflag=1;
-       numlines = wdl_min(m_curs_y+1,numlines);
-       for (line = 0; line < numlines && !found; line ++)
-       {
-         WDL_FastString *tl = m_text.Get(line);
-         if (startx && tl) startx = WDL_utf8_charpos_to_bytepos(tl->Get(),startx);
+      WDL_FastString *tl = m_text.Get(line);
+      if (WDL_NOT_NORMALLY(!tl)) continue;
 
-         const char *p;
+      const int startx = line == m_curs_y ? (backwards ? m_curs_x-1 : m_curs_x+1) : (backwards ? tl->GetLength()-1 : 0);
+      if (backwards && startx<0) continue;
 
-         if (tl && (p=tl->Get()))
-         {
-           const int linelen = tl->GetLength();
-           for (; startx <= linelen-srchlen; startx++)
-             if (!strnicmp(p+startx,s_search_string,srchlen)) 
-             {
-               m_select_y1=m_select_y2=m_curs_y=line;
-               m_select_x1=m_curs_x=WDL_utf8_bytepos_to_charpos(p,startx);
-               m_select_x2=m_curs_x+WDL_utf8_get_charlen(s_search_string);
-               m_selecting=1;
-               found=1;
-               break;
-             }
-         }           
-         startx=0;
-       }
-     }
-     if (found)
-     {
-       // make sure the end is on screen
-       m_offs_x = 0;
-       m_curs_x=wdl_max(m_select_x1,m_select_x2) + COLS/4;
-       setCursor();
+      int bytepos = search_line(s_search_string,tl, startx > 0 ? WDL_utf8_charpos_to_bytepos(tl->Get(),startx) : 0, backwards);
+      if (bytepos >= 0)
+      {
+        m_select_y1=m_select_y2=m_curs_y=line;
+        m_select_x1=m_curs_x=WDL_utf8_bytepos_to_charpos(tl->Get(),bytepos);
+        m_select_x2=m_curs_x+WDL_utf8_get_charlen(s_search_string);
+        m_selecting=1;
 
-       m_curs_x = m_select_x1;
-       draw();
-       setCursor();
-       char buf[512];
-       snprintf(buf,sizeof(buf),"Found %s'%s'  " CONTROL_KEY_NAME "+G:next",wrapflag?"(wrapped) ":"",s_search_string);
-       draw_message(buf);
-       return;
-     }
-   }
+        // make sure the end is on screen
+        m_offs_x = 0;
+        m_curs_x = wdl_max(m_select_x1,m_select_x2) + COLS/4;
+        setCursor();
 
-   draw();
-   setCursor();
-   char buf[512];
-   if (s_search_string[0]) snprintf(buf,sizeof(buf),"String '%s' not found",s_search_string);
-   else lstrcpyn_safe(buf,"No search string",sizeof(buf));
-   draw_message(buf);
+        m_curs_x = m_select_x1;
+        snprintf(buf,sizeof(buf),"Found %s'%s'  " CONTROL_KEY_NAME "+G:next",wrapflag?"(wrapped) ":"",s_search_string);
+        break;
+      }
+    }
+  }
+
+  draw();
+  setCursor();
+  if (!buf[0])
+  {
+    if (s_search_string[0]) snprintf(buf,sizeof(buf),"String '%s' not found",s_search_string);
+    else lstrcpyn_safe(buf,"No search string",sizeof(buf));
+  }
+  draw_message(buf);
 }
 
 static int categorizeCharForWordNess(int c)
@@ -1529,7 +1503,7 @@ int WDL_CursesEditor::onChar(int c)
     {
        case '\r': case '\n':
          m_ui_state=UI_STATE_NORMAL;
-         runSearch();
+         runSearch(false);
        break;
        case 27: 
          m_ui_state=UI_STATE_NORMAL; 
@@ -2070,9 +2044,9 @@ int WDL_CursesEditor::onChar(int c)
   break;
   case KEY_F3:
   case 'G'-'A'+1:
-    if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN && s_search_string[0])
+    if (!ALT_KEY_DOWN && s_search_string[0])
     {
-      runSearch();
+      runSearch(SHIFT_KEY_DOWN != 0);
       return 0;
     }
   // fall through
