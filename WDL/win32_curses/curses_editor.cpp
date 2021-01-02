@@ -29,10 +29,11 @@
 WDL_FastString WDL_CursesEditor::s_fake_clipboard;
 int WDL_CursesEditor::s_overwrite=0;
 char WDL_CursesEditor::s_search_string[256];
-int WDL_CursesEditor::s_search_mode; // &1=case sensitive, &2=word
+int WDL_CursesEditor::s_search_mode; // &1=case sensitive, &2=word. 5/6 = token matching
 
 static const char *searchmode_desc(int mode)
 {
+  if (mode == 4 || mode == 5) return (mode&1)  ? "TokenMatch":"tokenmatch";
   return (mode&2) ?
     ((mode&1) ? "WordMatch":"wordmatch") :
     ((mode&1) ? "SubString":"substring");
@@ -1258,11 +1259,98 @@ void WDL_CursesEditor::GoToLine(int line, bool dosel)
   setCursor(0,0.25);
 }
 
-int WDL_CursesEditor::search_line(const char *str, const WDL_FastString *line, int startx, bool backwards) // returns offset of next match, or -1 if none
+// tweak tokens to make them more useful in searching
+static void tweak_tok(const char *tok, const char **np, int *len)
+{
+  int l = *len;
+  if (WDL_NOT_NORMALLY(*np != tok+l)) return;
+  if (WDL_NOT_NORMALLY(l < 1)) return;
+
+  if (l == 1)
+  {
+    if ((tok[0] == '=' || tok[0] == '<' || tok[0] == '>') && tok[1] == '=')
+    {
+      l = tok[0] == '=' && tok[2] == '=' ? 3 : 2;
+      *np = tok + l;
+      *len = l;
+    }
+  }
+  else if (*tok == '.')
+  {
+    *len = 1;
+    *np = tok + 1;
+  }
+  else
+  {
+    const char *p = tok;
+    while (++p < tok+l)
+    {
+      if (*p == '.')
+      {
+        *len = (int) (p-tok);
+        *np = p;
+        break;
+      }
+    }
+  }
+}
+
+int WDL_CursesEditor::search_line(const char *str, const WDL_FastString *line, int startx, bool backwards, int *match_len) // returns offset of next match, or -1 if none
 {
   const char *p = line->Get();
   const int linelen = line->GetLength();
   const int srchlen = (int) strlen(str);
+
+  if (s_search_mode == 4 || s_search_mode == 5)
+  {
+    const char *lptr = p;
+    int best_match = -1, best_match_len = 0, lstate = 0;
+    for (;;)
+    {
+      int llen=0;
+      const char *ltok = sh_tokenize(&lptr, p + linelen, &llen,&lstate);
+      if (!ltok) break;
+      if (!lstate) tweak_tok(ltok,&lptr,&llen);
+      const int ltok_offs = (int) (ltok - p);
+      if (backwards && ltok_offs > startx) break;
+
+      // see if the sequence of tokens at ltok matches
+      const char *aptr = str, *bptr = ltok;
+      int astate=0, bstate=lstate;
+      int last_endtok_offs = ltok_offs;
+      for (;;)
+      {
+        int alen=0, blen=0;
+        const char *atok = sh_tokenize(&aptr, str+srchlen, &alen,&astate);
+
+        if (!atok) // end of search term
+        {
+          if (backwards || ltok_offs >= startx)
+          {
+            best_match = ltok_offs;
+            best_match_len = last_endtok_offs - ltok_offs;
+          }
+          break;
+        }
+
+        const char *btok = sh_tokenize(&bptr, p+linelen, &blen, &bstate);
+        if (!btok) break; // end of line without match
+
+        if (!astate) tweak_tok(atok,&aptr,&alen);
+        if (!bstate) tweak_tok(btok,&bptr,&blen);
+
+        if (alen != blen ||
+            ((s_search_mode&1) ? strncmp(atok,btok,alen) : strnicmp(atok,btok,alen)))
+          break;
+
+        last_endtok_offs = (int) (btok + blen - p);
+      }
+      if (!backwards && best_match>=0) break;
+    }
+    if (match_len) *match_len = best_match_len;
+    return best_match;
+  }
+  if (match_len) *match_len = srchlen;
 
   const int dstartx = backwards?-1:1;
   for (; backwards ? (startx>=0) : (startx <= linelen-srchlen); startx+=dstartx)
@@ -1294,12 +1382,13 @@ void WDL_CursesEditor::runSearch(bool backwards)
       const int startx = y==0 ? (backwards ? m_curs_x-1 : m_curs_x+1) : (backwards ? tl->GetLength()-1 : 0);
       if (backwards && startx<0) continue;
 
-      int bytepos = search_line(s_search_string,tl, startx > 0 ? WDL_utf8_charpos_to_bytepos(tl->Get(),startx) : 0, backwards);
+      int matchlen=0;
+      int bytepos = search_line(s_search_string,tl, startx > 0 ? WDL_utf8_charpos_to_bytepos(tl->Get(),startx) : 0, backwards, &matchlen);
       if (bytepos >= 0)
       {
         m_select_y1=m_select_y2=m_curs_y=line;
         m_select_x1=m_curs_x=WDL_utf8_bytepos_to_charpos(tl->Get(),bytepos);
-        m_select_x2=m_curs_x+WDL_utf8_get_charlen(s_search_string);
+        m_select_x2=WDL_utf8_bytepos_to_charpos(tl->Get(),bytepos+matchlen);
         m_selecting=1;
 
         // make sure the end is on screen
@@ -1574,12 +1663,10 @@ int WDL_CursesEditor::onChar(int c)
          }
        break;
        case KEY_UP:
-         s_search_mode--;
-         s_search_mode&=3;
+         if (--s_search_mode<0) s_search_mode=5;
        break;
        case KEY_DOWN:
-         s_search_mode++;
-         s_search_mode&=3;
+         if (++s_search_mode>5) s_search_mode=0;
        break;
        default: 
          if (VALIDATE_TEXT_CHAR(c)) 
