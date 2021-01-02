@@ -1096,7 +1096,7 @@ void EEL_Editor::get_suggested_function_names(const char *fname, int chkmask, su
   }
 }
 
-int EEL_Editor::peek_get_function_info(const char *name, char *sstr, size_t sstr_sz, int chkmask, int ignoreline)
+int EEL_Editor::peek_get_token_info(const char *name, char *sstr, size_t sstr_sz, int chkmask, int ignoreline)
 {
   if (chkmask&KEYWORD_MASK_USER_FUNC)
   {
@@ -1391,7 +1391,7 @@ void EEL_Editor::doWatchInfo(int c)
           return;
         }
 
-        int f = peek_get_function_info(n.Get(),sstr,sizeof(sstr),~0,-1);
+        int f = peek_get_token_info(n.Get(),sstr,sizeof(sstr),~0,-1);
         if (!f) snprintf(sstr,sizeof(sstr),"'%s' NOT FOUND",n.Get());
       }
     }
@@ -1471,7 +1471,7 @@ static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             char sug[512];
             sug[0]=0;
             const char *p = editor->m_suggestion_list.get(hit);
-            if (p && editor->peek_get_function_info(p,sug,sizeof(sug),~0,-1))
+            if (p && editor->peek_get_token_info(p,sug,sizeof(sug),~0,-1))
             {
               editor->m_suggestion.Set(sug);
               editor->draw_top_line();
@@ -1633,7 +1633,7 @@ int EEL_Editor::onChar(int c)
         InvalidateRect(m_suggestion_hwnd,NULL,FALSE);
 
         const char *p = m_suggestion_list.get(m_suggestion_hwnd_sel);
-        if (p) peek_get_function_info(p,sug,sizeof(sug),~0,m_curs_y);
+        if (p) peek_get_token_info(p,sug,sizeof(sug),~0,m_curs_y);
         goto finish_sug;
       }
     }
@@ -1706,7 +1706,7 @@ run_suggest:
         {
           char buf[512];
           lstrcpyn_safe(buf,token_list[t].tok,wdl_min(token_list[t].toklen+1, sizeof(buf)));
-          if (peek_get_function_info(buf,sug,sizeof(sug),~0,m_curs_y))
+          if (peek_get_token_info(buf,sug,sizeof(sug),~0,m_curs_y))
           {
             if (comma_cnt > 0)
             {
@@ -1818,7 +1818,7 @@ run_suggest:
               }
               did_fuzzy = true;
               const char *p = m_suggestion_list.get(wdl_max(m_suggestion_hwnd_sel,0));
-              if (p && peek_get_function_info(p,sug,sizeof(sug),~0,m_curs_y)) break;
+              if (p && peek_get_token_info(p,sug,sizeof(sug),~0,m_curs_y)) break;
             }
           }
         }
