@@ -940,59 +940,6 @@ static int word_len(const char *p)
   return l;
 }
 
-static bool search_str(const char *str, int reflen, const char *word, int wordlen)
-{
-  reflen -= wordlen;
-  for (int y = 0; y <= reflen; y ++)
-    if (!strnicmp(str+y,word,wordlen)) return true;
-  return false;
-}
-
-static int fuzzy_match1(const char *codestr, const char *refstr)
-{
-  // codestr is user-typed, refstr is the reference function name
-  const int reflen = (int)strlen(refstr), codelen = (int)strlen(codestr);
-  int lendiff = reflen - codelen;
-  if (lendiff < 0) lendiff = -lendiff;
-
-  const char *word = codestr;
-  bool had_track = false, had_media = false;
-  int score = 0;
-  for (;;)
-  {
-    while (*word == '_') word++;
-    const int wordlen = word_len(word);
-    if (!wordlen) break;
-
-    if (search_str(refstr,reflen,word,wordlen))
-    {
-      score += wordlen;
-    }
-    else
-    {
-      if (wordlen == 3 && !strnicmp(word,"Num",3) && search_str(refstr,reflen,"Count",5)) score += 3;
-      else if (wordlen == 5 && !strnicmp(word,"Count",5) && search_str(refstr,reflen,"Num",3))
-      {
-        score ++;
-        if (search_str(refstr,reflen,"Get",3)) score++;
-      }
-    }
-    if (wordlen == 5)
-    {
-      if (!strnicmp(word,"Media",5)) had_media=true;
-      else if (!strnicmp(word,"Track",5)) had_track=true;
-    }
-    word += wordlen;
-  }
-
-  if (!score) return 0;
-
-  if (had_track && !had_media && strstr(refstr,"MediaTrack"))
-    lendiff -= 5;
-
-  return score * 100 + 100 - wdl_clamp(lendiff,0,99);
-}
-
 static int search_str_partial(const char *str, int reflen, const char *word, int wordlen)
 {
   // find the longest leading segment of word in str
@@ -1042,14 +989,15 @@ static int fuzzy_match2(const char *codestr, const char *refstr)
 
   if (!score) return 0;
 
-  return score * 100 + 100 - wdl_clamp(lendiff,0,99);
+  return score * 1000 + 1000 - wdl_clamp(lendiff*2,0,200);
 }
 
 int EEL_Editor::fuzzy_match(const char *codestr, const char *refstr)
 {
-  int score1 = fuzzy_match1(codestr,refstr);
+  int score1 = fuzzy_match2(refstr,codestr);
   int score2 = fuzzy_match2(codestr,refstr);
-  return wdl_max(score1,score2);
+  if (score2 > score1) return score2 | 1;
+  return score1&~1;
 }
 
 static int eeledit_varenumfunc(const char *name, EEL_F *val, void *ctx)
