@@ -2459,7 +2459,7 @@ int WDL_CursesEditor::onChar(int c)
       m_ui_state=UI_STATE_GOTO_LINE;
     }
   break;
-  case 13: //KEY_ENTER:
+  case '\r': //KEY_ENTER:
     //insert newline
     preSaveUndoState();
 
@@ -2496,7 +2496,7 @@ int WDL_CursesEditor::onChar(int c)
       if (s)
       {
         int bytepos = WDL_utf8_charpos_to_bytepos(s->Get(),m_curs_x);
-        if (bytepos > s->GetLength()) bytepos = s->GetLength();
+        if (CTRL_KEY_DOWN || bytepos > s->GetLength()) bytepos = s->GetLength();
         WDL_FastString *nl = new WDL_FastString();
         int plen=0;
         const char *pb = s->Get();
