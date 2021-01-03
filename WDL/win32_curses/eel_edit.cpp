@@ -1024,15 +1024,17 @@ static int fuzzy_match2(const char *codestr, const char *refstr)
     while (*word == '_' || *word == '.') word++;
     const int wordlen = word_len(word);
     if (!wordlen) break;
+    char word_buf[128];
+    lstrcpyn_safe(word_buf,word,wordlen+1);
 
-    if (WDL_stristr(refstr,word)==word)
+    if (WDL_stristr(refstr,word_buf)==word)
     {
       int max_match_len = search_str_partial(codestr,codelen,word,wordlen);
       if (max_match_len < 2 && wordlen == 5 && !strnicmp(word,"Count",5))
       {
         max_match_len = search_str_partial(codestr,codelen,"Num",3);
       }
-      if (max_match_len>2)
+      if (max_match_len > (wordlen <= 2 ? 1 : 2))
         score += max_match_len;
     }
     word += wordlen;
