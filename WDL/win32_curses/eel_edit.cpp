@@ -1506,10 +1506,12 @@ static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           const int selpos = wdl_max(editor->m_suggestion_hwnd_sel,0);
           int ypos = 0;
 
+          const bool show_scores = (GetAsyncKeyState(VK_SHIFT)&0x8000) && (GetAsyncKeyState(VK_CONTROL)&0x8000) && (GetAsyncKeyState(VK_MENU)&0x8000);
+
           for (int x = (selpos >= maxv ? 1+selpos-maxv : 0); x < ml->get_size() && ypos <= r.bottom-fonth*2; x ++)
           {
-            int mode;
-            const char *p = ml->get(x,&mode);
+            int mode, score;
+            const char *p = ml->get(x,&mode,&score);
             if (WDL_NORMALLY(p))
             {
               const bool sel = x == selpos;
@@ -1521,6 +1523,12 @@ static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
                   | (sel ? A_BOLD:0)][0]);
               RECT tr = {4, ypos, r.right-4, ypos+fonth };
               DrawTextUTF8(ps.hdc,p,-1,&tr,DT_SINGLELINE|DT_NOPREFIX|DT_TOP|DT_LEFT);
+              if (show_scores)
+              {
+                char tmp[128];
+                snprintf(tmp,sizeof(tmp),"(%d)",score);
+                DrawTextUTF8(ps.hdc,tmp,-1,&tr,DT_SINGLELINE|DT_NOPREFIX|DT_TOP|DT_RIGHT);
+              }
             }
             ypos += fonth;
           }

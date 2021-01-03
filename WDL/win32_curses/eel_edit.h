@@ -25,9 +25,10 @@ class suggested_matchlist {
     }
 
     int get_size() const { return m_list_valid; }
-    const char *get(int idx, int *mode=NULL) const {
+    const char *get(int idx, int *mode=NULL, int *score=NULL) const {
       if (idx < 0 || idx >= m_list_valid) return NULL;
       if (mode) *mode = m_list.Get()[idx].mode;
+      if (score) *score=m_list.Get()[idx].score;
       return m_list.Get()[idx].val;
     }
 
