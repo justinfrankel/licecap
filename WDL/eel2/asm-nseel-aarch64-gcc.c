@@ -438,10 +438,10 @@ void nseel_asm_or(void)
   __asm__ __volatile__(
     FUNCTION_MARKER
     "ldr d1, [x1]\n"
-    "fcvtzs w0, d0\n"
-    "fcvtzs w1, d1\n"
-    "orr w0, w0, w1\n"
-    "scvtf d0, w0\n"
+    "fcvtzs x0, d0\n"
+    "fcvtzs x1, d1\n"
+    "orr x0, x0, x1\n"
+    "scvtf d0, x0\n"
     FUNCTION_MARKER
   );
 }
@@ -451,8 +451,8 @@ void nseel_asm_or0(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "fcvtzs w0, d0\n"
-    "scvtf d0, w0\n"
+    "fcvtzs x0, d0\n"
+    "scvtf d0, x0\n"
     FUNCTION_MARKER
   );
 }
@@ -463,10 +463,10 @@ void nseel_asm_or_op(void)
   __asm__ __volatile__(
     FUNCTION_MARKER
     "ldr d1, [x1]\n"
-    "fcvtzs w0, d0\n"
-    "fcvtzs w3, d1\n"
-    "orr w0, w0, w3\n"
-    "scvtf d0, w0\n"
+    "fcvtzs x0, d0\n"
+    "fcvtzs x3, d1\n"
+    "orr x0, x0, x3\n"
+    "scvtf d0, x0\n"
     "mov x0, x1\n"
     "str d0, [x1]\n"
     FUNCTION_MARKER
@@ -480,10 +480,10 @@ void nseel_asm_xor(void)
   __asm__ __volatile__(
     FUNCTION_MARKER
     "ldr d1, [x1]\n"
-    "fcvtzs w0, d0\n"
-    "fcvtzs w1, d1\n"
-    "eor w0, w0, w1\n"
-    "scvtf d0, w0\n"
+    "fcvtzs x0, d0\n"
+    "fcvtzs x1, d1\n"
+    "eor x0, x0, x1\n"
+    "scvtf d0, x0\n"
     FUNCTION_MARKER
   );
 }
@@ -494,10 +494,10 @@ void nseel_asm_xor_op(void)
   __asm__ __volatile__(
     FUNCTION_MARKER
     "ldr d1, [x1]\n"
-    "fcvtzs w0, d0\n"
-    "fcvtzs w3, d1\n"
-    "eor w0, w0, w3\n"
-    "scvtf d0, w0\n"
+    "fcvtzs x0, d0\n"
+    "fcvtzs x3, d1\n"
+    "eor x0, x0, x3\n"
+    "scvtf d0, x0\n"
     "mov x0, x1\n"
     "str d0, [x1]\n"
     FUNCTION_MARKER
@@ -511,10 +511,10 @@ void nseel_asm_and(void)
   __asm__ __volatile__(
     FUNCTION_MARKER
     "ldr d1, [x1]\n"
-    "fcvtzs w0, d0\n"
-    "fcvtzs w1, d1\n"
-    "and w0, w0, w1\n"
-    "scvtf d0, w0\n"
+    "fcvtzs x0, d0\n"
+    "fcvtzs x1, d1\n"
+    "and x0, x0, x1\n"
+    "scvtf d0, x0\n"
     FUNCTION_MARKER
   );}
 void nseel_asm_and_end(void) {}
@@ -524,10 +524,10 @@ void nseel_asm_and_op(void)
   __asm__ __volatile__(
     FUNCTION_MARKER
     "ldr d1, [x1]\n"
-    "fcvtzs w0, d0\n"
-    "fcvtzs w3, d1\n"
-    "and w0, w0, w3\n"
-    "scvtf d0, w0\n"
+    "fcvtzs x0, d0\n"
+    "fcvtzs x3, d1\n"
+    "and x0, x0, x3\n"
+    "scvtf d0, x0\n"
     "mov x0, x1\n"
     "str d0, [x1]\n"
     FUNCTION_MARKER
