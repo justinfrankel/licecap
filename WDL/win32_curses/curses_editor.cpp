@@ -1018,7 +1018,8 @@ void WDL_CursesEditor::draw(int lineidx)
         BOLD("O"); addstr("therpane ");
         addstr("no"); BOLD("P"); addstr("anes ");
       }
-      BOLD("F"); addstr("ind ");
+      BOLD("F"); addstr("ind/");
+      BOLD("R"); addstr("eplace ");
       draw_bottom_line();
       addstr(")");
     }
@@ -1365,11 +1366,62 @@ int WDL_CursesEditor::search_line(const char *str, const WDL_FastString *line, i
   return -1;
 }
 
-void WDL_CursesEditor::runSearch(bool backwards)
+void WDL_CursesEditor::runSearch(bool backwards, bool replaceAll)
 {
   char buf[512];
   buf[0]=0;
-  if (m_search_string.GetLength())
+  if (replaceAll && m_search_string.GetLength())
+  {
+    preSaveUndoState();
+    int cnt = 0, linecnt = 0;
+    const int numlines = m_text.GetSize();
+    for (int line = 0; line < numlines; line ++)
+    {
+      WDL_FastString *tl = m_text.Get(line);
+      if (WDL_NOT_NORMALLY(!tl)) continue;
+
+      bool repl = false;
+      int startx = 0;
+
+      while (startx < tl->GetLength())
+      {
+        int matchlen=0;
+        int bytepos = search_line(m_search_string.Get(),tl, startx, false, &matchlen);
+        if (bytepos < 0) break;
+
+        int tbp, cursx_bytepos = -1, selx1_bytepos=-1, selx2_bytepos=-1;
+#define PRECHK_PAIR(py, px, bpv) \
+        if ((py) == line && (tbp=WDL_utf8_charpos_to_bytepos(tl->Get(),(px))) >= bytepos) { \
+          if (tbp < bytepos + matchlen) (px) = WDL_utf8_bytepos_to_charpos(tl->Get(),bytepos); \
+          else (bpv) = tbp; \
+        }
+
+        PRECHK_PAIR(m_curs_y,m_curs_x,cursx_bytepos)
+        PRECHK_PAIR(m_select_y1,m_select_x1,selx1_bytepos)
+        PRECHK_PAIR(m_select_y2,m_select_x2,selx2_bytepos)
+
+        tl->DeleteSub(bytepos,matchlen);
+        tl->Insert(m_replace_string.Get(),bytepos);
+
+#define POSTCHK_PAIR(px, bpv) \
+        if ((bpv) >= 0) (px) = WDL_utf8_bytepos_to_charpos(tl->Get(),(bpv) - matchlen + m_replace_string.GetLength());
+        POSTCHK_PAIR(m_curs_x,cursx_bytepos)
+        POSTCHK_PAIR(m_select_x1,selx1_bytepos);
+        POSTCHK_PAIR(m_select_x2,selx2_bytepos);
+#undef PRECHK_PAIR
+#undef POSTCHK_PAIR
+
+        startx = bytepos + m_replace_string.GetLength();
+        repl = true;
+        cnt++;
+      }
+      if (repl) linecnt++;
+    }
+    if (cnt)
+      snprintf(buf,sizeof(buf),"Replaced %d instance%s on %d line%s",cnt, cnt==1?"":"s", linecnt, linecnt==1?"":"s");
+    saveUndoState();
+  }
+  else if (m_search_string.GetLength())
   {
     const int numlines = m_text.GetSize();
     for (int y = 0; y <= numlines; y ++)
@@ -1416,7 +1468,10 @@ void WDL_CursesEditor::runSearch(bool backwards)
 void WDL_CursesEditor::make_search_prompt(char *buf, int bufsz)
 {
   const char *help = COLS > 60 ? " (Up/Down:mode, ESC:cancel)" : COLS > 40 ? "(U/D:mode)" : "";
-  snprintf(buf,bufsz,"Find %s%s: ",searchmode_desc(s_search_mode), help);
+  if (m_ui_state == UI_STATE_REPLACE)
+    snprintf(buf,bufsz,"Replace all (%s) of '%s' %s with: ",searchmode_desc(s_search_mode),m_search_string.Get(), help);
+  else
+    snprintf(buf,bufsz,"Find %s%s: ",searchmode_desc(s_search_mode), help);
 }
 
 static int categorizeCharForWordNess(int c)
@@ -1673,14 +1728,15 @@ int WDL_CursesEditor::onChar(int c)
   }
   // end multitab
 
-  if (m_ui_state == UI_STATE_SEARCH)
+  if (m_ui_state == UI_STATE_SEARCH || m_ui_state == UI_STATE_REPLACE)
   {
     char buf[256];
+    const bool is_replace = m_ui_state == UI_STATE_REPLACE;
     if (c == KEY_UP && --s_search_mode<0) { s_search_mode=5; c = -1; }
     else if (c == KEY_DOWN && ++s_search_mode>5) { s_search_mode=0; c = -1; }
     make_search_prompt(buf,sizeof(buf));
-    run_line_editor(c,&m_search_string,buf);
-    if (c == '\r' || c == '\n') runSearch(false);
+    run_line_editor(c,is_replace ? &m_replace_string : &m_search_string, buf);
+    if (c == '\r' || c == '\n') runSearch(false, is_replace);
     return 0;
   }
   if (m_ui_state == UI_STATE_GOTO_LINE)
@@ -2115,10 +2171,11 @@ int WDL_CursesEditor::onChar(int c)
   case 'G'-'A'+1:
     if (!ALT_KEY_DOWN && m_search_string.GetLength())
     {
-      runSearch(SHIFT_KEY_DOWN != 0);
+      runSearch(SHIFT_KEY_DOWN != 0, false);
       return 0;
     }
   // fall through
+  case 'R'-'A'+1:
   case 'F'-'A'+1:
     if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN)
     {
@@ -2140,10 +2197,10 @@ int WDL_CursesEditor::onChar(int c)
       }
       draw_message("");
 
+      m_ui_state=c == 'R'-'A'+1 && m_search_string.GetLength() ? UI_STATE_REPLACE : UI_STATE_SEARCH;
       char buf[512];
       make_search_prompt(buf,sizeof(buf));
-      run_line_editor(0,&m_search_string,buf);
-      m_ui_state=UI_STATE_SEARCH;
+      run_line_editor(0,m_ui_state == UI_STATE_REPLACE ? &m_replace_string : &m_search_string,buf);
     }
   break;
   case KEY_DOWN:

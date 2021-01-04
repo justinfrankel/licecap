@@ -103,7 +103,7 @@ protected:
 #endif
   
   virtual int search_line(const char *str, const WDL_FastString *line, int startpos, bool backwards, int *match_len); // returns offset of next match, or -1 if none
-  void runSearch(bool backwards);
+  void runSearch(bool backwards, bool replaceAll);
   void make_search_prompt(char *buf, int bufsz);
 
   void indentSelect(int amt);
@@ -152,11 +152,14 @@ protected:
   int m_undoStack_pos;
   int m_clean_undopos;
   
-  enum uiState { UI_STATE_NORMAL=0,
+  enum uiState {
+    UI_STATE_NORMAL=0,
     UI_STATE_MESSAGE, 
     UI_STATE_SEARCH,
+    UI_STATE_REPLACE,
     UI_STATE_GOTO_LINE,
-    UI_STATE_SAVE_AS_NEW, UI_STATE_SAVE_ON_CLOSE 
+    UI_STATE_SAVE_AS_NEW,
+    UI_STATE_SAVE_ON_CLOSE
   };
   uiState m_ui_state; 
 
@@ -179,7 +182,7 @@ protected:
 
   int m_line_editor_edited;
   void run_line_editor(int c, WDL_FastString *fs, const char *prompt);
-  WDL_FastString m_search_string;
+  WDL_FastString m_search_string, m_replace_string;
 
 public:
   static int s_overwrite;
