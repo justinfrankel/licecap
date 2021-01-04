@@ -803,18 +803,18 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt)
         fp_rewind(1);
       break;
       case EEL_BC_AND:
-        fp_top2 = (EEL_F) (((int)fp_top) & (int)(fp_top2));
+        fp_top2 = (EEL_F) (((WDL_INT64)fp_top) & (WDL_INT64)(fp_top2));
         fp_rewind(1);
       break;
       case EEL_BC_OR:
-        fp_top2 = (EEL_F) (((int)fp_top) | (int)(fp_top2));
+        fp_top2 = (EEL_F) (((WDL_INT64)fp_top) | (WDL_INT64)(fp_top2));
         fp_rewind(1);
       break;
       case EEL_BC_OR0:
-        fp_top = (EEL_F) ((int)(fp_top));
+        fp_top = (EEL_F) ((WDL_INT64)(fp_top));
       break;
       case EEL_BC_XOR:
-        fp_top2 = (EEL_F) (((int)fp_top) ^ (int)(fp_top2));
+        fp_top2 = (EEL_F) (((WDL_INT64)fp_top) ^ (WDL_INT64)(fp_top2));
         fp_rewind(1);
       break;
 
@@ -844,15 +844,15 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt)
       break;
       case EEL_BC_AND_OP:
         p1 = p2;
-        *p2 = (EEL_F) (((int)*p2) & (int)fp_pop());
+        *p2 = (EEL_F) (((WDL_INT64)*p2) & (WDL_INT64)fp_pop());
       break;
       case EEL_BC_OR_OP:
         p1 = p2;
-        *p2 = (EEL_F) (((int)*p2) | (int)fp_pop());
+        *p2 = (EEL_F) (((WDL_INT64)*p2) | (WDL_INT64)fp_pop());
       break;
       case EEL_BC_XOR_OP:
         p1 = p2;
-        *p2 = (EEL_F) (((int)*p2) ^ (int)fp_pop());
+        *p2 = (EEL_F) (((WDL_INT64)*p2) ^ (WDL_INT64)fp_pop());
       break;
       case EEL_BC_UMINUS:
         fp_top = -fp_top;
