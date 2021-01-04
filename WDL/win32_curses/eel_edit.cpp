@@ -955,12 +955,11 @@ static int search_str_partial(const char *str, int reflen, const char *word, int
   return best_len;
 }
 
-static int fuzzy_match2(const char *codestr, const char *refstr)
+static int fuzzy_match2(const char *codestr, int codelen, const char *refstr, int reflen)
 {
   // codestr is user-typed, refstr is the reference function name
   // our APIs are gfx_blah_blah or TrackBlahBlah so breaking the API up by words
   // and searching the user-entered code should be effective
-  const int reflen = (int)strlen(refstr), codelen = (int)strlen(codestr);
   int lendiff = reflen - codelen;
   if (lendiff < 0) lendiff = -lendiff;
 
@@ -994,10 +993,10 @@ static int fuzzy_match2(const char *codestr, const char *refstr)
 
 int EEL_Editor::fuzzy_match(const char *codestr, const char *refstr)
 {
-  const int codestr_len = (int)strlen(codestr);
-  if (strlen(refstr) >= codestr_len && !strnicmp(codestr,refstr,codestr_len)) return 1000000000;
-  int score1 = fuzzy_match2(refstr,codestr);
-  int score2 = fuzzy_match2(codestr,refstr);
+  const int codestr_len = (int)strlen(codestr), refstr_len = (int)strlen(refstr);
+  if (refstr_len >= codestr_len && !strnicmp(codestr,refstr,codestr_len)) return 1000000000;
+  int score1 = fuzzy_match2(refstr,refstr_len,codestr,codestr_len);
+  int score2 = fuzzy_match2(codestr,codestr_len,refstr,refstr_len);
   if (score2 > score1) return score2 | 1;
   return score1&~1;
 }
