@@ -129,6 +129,8 @@ public:
 
   virtual void draw_top_line();
 
+  virtual void open_import_line();
+
   // static helpers
   static WDL_TypedBuf<char> s_draw_parentokenstack;
   static int parse_format_specifier(const char *fmt_in, int *var_offs, int *var_len);

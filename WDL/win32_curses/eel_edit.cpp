@@ -1501,10 +1501,21 @@ static LRESULT WINAPI suggestionProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
   return DefWindowProc(hwnd,uMsg,wParam,lParam);
 }
 
+void EEL_Editor::open_import_line()
+{
+  WDL_FastString *txtstr=m_text.Get(m_curs_y);
+  const char *txt=txtstr?txtstr->Get():NULL;
+  char fnp[2048];
+  if (txt && line_has_openable_file(txt,WDL_utf8_charpos_to_bytepos(txt,m_curs_x),fnp,sizeof(fnp)))
+  {
+    WDL_CursesEditor::OpenFileInTab(fnp);
+  }
+}
+
 int EEL_Editor::onChar(int c)
 {
   if ((m_ui_state == UI_STATE_NORMAL || m_ui_state == UI_STATE_MESSAGE) && 
-      (c == 'K'-'A'+1 || c == 'S'-'A'+1 || !SHIFT_KEY_DOWN) && !ALT_KEY_DOWN) switch (c)
+      (c == 'K'-'A'+1 || c == 'S'-'A'+1 || c == 'R'-'A'+1 || !SHIFT_KEY_DOWN) && !ALT_KEY_DOWN) switch (c)
   {
   case KEY_F1:
     if (CTRL_KEY_DOWN) break;
@@ -1524,16 +1535,12 @@ int EEL_Editor::onChar(int c)
    }
   return 0;
 
+  // case 'I': note stupidly we map Ctrl+I to VK_TAB, bleh
   case 'R'-'A'+1:
+    if (!SHIFT_KEY_DOWN) break;
     if (!m_selecting)
     {
-      WDL_FastString *txtstr=m_text.Get(m_curs_y);
-      const char *txt=txtstr?txtstr->Get():NULL;
-      char fnp[2048];
-      if (txt && line_has_openable_file(txt,WDL_utf8_charpos_to_bytepos(txt,m_curs_x),fnp,sizeof(fnp)))
-      {
-        WDL_CursesEditor::OpenFileInTab(fnp);
-      }
+      open_import_line();
     }
   return 0;
   case KEY_F4:
@@ -1978,7 +1985,7 @@ LRESULT EEL_Editor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
         {
           if (!strncmp(fs->Get(),"import",6) && isspace(fs->Get()[6]))
           {
-            onChar('R'-'A'+1); // open imported file
+            open_import_line();
             return 1;
           }
         }
