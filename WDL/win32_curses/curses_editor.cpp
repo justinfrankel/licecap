@@ -1746,6 +1746,13 @@ int WDL_CursesEditor::onChar(int c)
 
   if (m_ui_state == UI_STATE_SEARCH || m_ui_state == UI_STATE_REPLACE)
   {
+    uiState chgstate = c == 1+'R'-'A' ? UI_STATE_REPLACE : c == 1+'F'-'A' ? UI_STATE_SEARCH : UI_STATE_NORMAL;
+    if (chgstate != UI_STATE_NORMAL)
+    {
+      if (chgstate == UI_STATE_REPLACE && !m_search_string.GetLength()) chgstate = UI_STATE_SEARCH;
+      c = m_ui_state == chgstate ? 27 : 0;
+      m_ui_state = chgstate;
+    }
     const bool is_replace = m_ui_state == UI_STATE_REPLACE;
     run_line_editor(c,is_replace ? &m_replace_string : &m_search_string);
     if (c == '\r' || c == '\n') runSearch(false, is_replace);
@@ -1753,6 +1760,7 @@ int WDL_CursesEditor::onChar(int c)
   }
   if (m_ui_state == UI_STATE_GOTO_LINE)
   {
+    if (c == 1+'J'-'A') c=27;
     run_line_editor(c,&s_goto_line_buf);
     if (c == '\r' || c == '\n')
     {
@@ -2207,8 +2215,6 @@ int WDL_CursesEditor::onChar(int c)
           }
         }
       }
-      draw_message("");
-
       m_ui_state=c == 'R'-'A'+1 && m_search_string.GetLength() ? UI_STATE_REPLACE : UI_STATE_SEARCH;
       run_line_editor(0,m_ui_state == UI_STATE_REPLACE ? &m_replace_string : &m_search_string);
     }
@@ -2470,7 +2476,6 @@ int WDL_CursesEditor::onChar(int c)
   case 'J'-'A'+1:
     if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN)
     {
-      draw_message("");
       s_goto_line_buf.Set("");
       m_ui_state=UI_STATE_GOTO_LINE;
       run_line_editor(0,&s_goto_line_buf);
