@@ -1365,6 +1365,28 @@ int WDL_CursesEditor::search_line(const char *str, const WDL_FastString *line, i
   return -1;
 }
 
+static const char *ellipsify(const char *str, char *buf, int bufsz)
+{
+  int str_len = (int) strlen(str);
+  if (str_len < bufsz-8 || bufsz < 8) return str;
+  int l1 = 0;
+  while (l1 < bufsz/2)
+  {
+    if (WDL_NOT_NORMALLY(!str[l1])) return str;
+    int sz=wdl_utf8_parsechar(str+l1,NULL);
+    l1+=sz;
+  }
+  int l2 = l1;
+  while (l1 + (str_len - l2) > bufsz-4)
+  {
+    if (WDL_NOT_NORMALLY(!str[l2])) return str;
+    int sz=wdl_utf8_parsechar(str+l2,NULL);
+    l2+=sz;
+  }
+  snprintf(buf,bufsz,"%.*s...%s",l1,str,str+l2);
+  return buf;
+}
+
 void WDL_CursesEditor::runSearch(bool backwards, bool replaceAll)
 {
   char buf[512];
@@ -1422,6 +1444,7 @@ void WDL_CursesEditor::runSearch(bool backwards, bool replaceAll)
   }
   else if (m_search_string.GetLength())
   {
+    char elbuf[50];
     const int numlines = m_text.GetSize();
     for (int y = 0; y <= numlines; y ++)
     {
@@ -1450,12 +1473,12 @@ void WDL_CursesEditor::runSearch(bool backwards, bool replaceAll)
         setCursor();
 
         m_curs_x = m_select_x1;
-        snprintf(buf,sizeof(buf),"Found @ Line %d Col %d %s'%s' (Shift+)F3|" CONTROL_KEY_NAME "+G:(prev)next",m_curs_y+1,m_curs_x,wrapflag?"(wrapped) ":"",m_search_string.Get());
+        snprintf(buf,sizeof(buf),"Found @ Line %d Col %d %s'%s' (Shift+)F3|" CONTROL_KEY_NAME "+G:(prev)next",m_curs_y+1,m_curs_x,wrapflag?"(wrapped) ":"",ellipsify(m_search_string.Get(),elbuf,sizeof(elbuf)));
         break;
       }
     }
     if (!buf[0])
-      snprintf(buf,sizeof(buf),"%s '%s' not found",searchmode_desc(s_search_mode),m_search_string.Get());
+      snprintf(buf,sizeof(buf),"%s '%s' not found",searchmode_desc(s_search_mode),ellipsify(m_search_string.Get(),elbuf,sizeof(elbuf)));
   }
 
   draw();
@@ -1619,10 +1642,11 @@ void WDL_CursesEditor::run_line_editor(int c, WDL_FastString *fs)
   }
 
   const char *search_help = COLS > 60 ? " (Up/Down:mode, ESC:cancel)" : COLS > 40 ? "(U/D:mode)" : "";
+  char elbuf[50];
   switch (m_ui_state)
   {
     case UI_STATE_REPLACE:
-      snprintf(tmp,sizeof(tmp),"Replace all (%s) of '%s' %s with: ",searchmode_desc(s_search_mode),m_search_string.Get(), search_help);
+      snprintf(tmp,sizeof(tmp),"Replace all (%s) of '%s' %s with: ",searchmode_desc(s_search_mode),ellipsify(m_search_string.Get(),elbuf,sizeof(elbuf)), search_help);
     break;
     case UI_STATE_SEARCH:
       snprintf(tmp,sizeof(tmp),"Find %s%s: ",searchmode_desc(s_search_mode), search_help);
