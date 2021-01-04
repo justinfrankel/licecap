@@ -47,7 +47,12 @@ class suggested_matchlist {
 
       if (insert_after+1 >= maxsz) return;
 
-      for (int y=insert_after; y>=0 && list[y].score == score; y--) if (!strcmp(p,list[y].val)) return;
+      for (int y=insert_after; y>=0 && list[y].score == score; y--)
+      {
+        int d = strcmp(p,list[y].val);
+        if (!d) return;
+        if (d < 0) insert_after = y;
+      }
 
       if (m_list_valid < maxsz) m_list_valid++;
       rec r = list[maxsz-1];

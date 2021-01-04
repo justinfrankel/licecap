@@ -994,6 +994,8 @@ static int fuzzy_match2(const char *codestr, const char *refstr)
 
 int EEL_Editor::fuzzy_match(const char *codestr, const char *refstr)
 {
+  const int codestr_len = (int)strlen(codestr);
+  if (strlen(refstr) >= codestr_len && !strnicmp(codestr,refstr,codestr_len)) return 1000000000;
   int score1 = fuzzy_match2(refstr,codestr);
   int score2 = fuzzy_match2(codestr,refstr);
   if (score2 > score1) return score2 | 1;
