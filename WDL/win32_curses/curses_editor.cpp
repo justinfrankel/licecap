@@ -1577,7 +1577,10 @@ void WDL_CursesEditor::run_line_editor(int c, WDL_FastString *fs)
   switch (c)
   {
     case -1: break;
-    case 0: m_line_editor_edited=false; break;
+    case 0:
+      m_line_editor_edited=false;
+      draw_top_line();
+    break;
     case 27:
       draw();
       setCursor();

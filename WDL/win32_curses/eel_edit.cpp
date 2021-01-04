@@ -1793,7 +1793,7 @@ run_suggest:
   if (!did_fuzzy && m_suggestion_hwnd) DestroyWindow(m_suggestion_hwnd);
 
 finish_sug:
-  if (strcmp(sug,m_suggestion.Get()))
+  if (strcmp(sug,m_suggestion.Get()) && m_ui_state == UI_STATE_NORMAL)
   {
     m_suggestion.Set(sug);
     if (sug[0])
@@ -1804,7 +1804,7 @@ finish_sug:
       setCursor();
     }
   }
-  if (!sug[0] && m_suggestion_y>=0)
+  if (!sug[0] && m_suggestion_y>=0 && m_ui_state == UI_STATE_NORMAL)
   {
     m_suggestion_x=m_suggestion_y=-1;
     m_suggestion.Set("");
@@ -1818,7 +1818,7 @@ finish_sug:
 
 void EEL_Editor::draw_top_line()
 {
-  if (m_curs_x >= m_suggestion_x && m_curs_y == m_suggestion_y && m_suggestion.GetLength())
+  if (m_curs_x >= m_suggestion_x && m_curs_y == m_suggestion_y && m_suggestion.GetLength() && m_ui_state == UI_STATE_NORMAL)
   {
     const char *p=m_suggestion.Get();
     char str[512];
