@@ -1,0 +1,35 @@
+v1 = 2^50;
+v2 = 2^50;
+z=0;
+
+(floor(v1)/v2)               !== 1 ? printf("fail test floor\n");
+(floor(v1)/(2^50))           !== 1 ? printf("fail test floor/const\n");
+(floor(2^50)/v2)             !== 1 ? printf("fail test floor-const\n");
+(floor(2^50)/(2^50))         !== 1 ? printf("fail test floor-const/const\n");
+(floor(v1+1)/(v2+1))         !== 1 ? printf("fail test floor+1\n");
+(floor(v1+1)/(2^50+1))       !== 1 ? printf("fail test floor+1/const\n");
+(floor(2^50 + 1)/(v2+1))     !== 1 ? printf("fail test floor-const+1");
+(floor(2^50 + 1)/(2^50 + 1)) !== 1 ? printf("fail test floor-const+1/const\n");
+
+((v1|0)/v2)                  !== 1 ? printf("fail test |0\n");
+((v1|0)/(2^50))              !== 1 ? printf("fail test |0/const\n");
+(((2^50)|0)/v2)              !== 1 ? printf("fail test const|0\n");
+(((2^50)|0)/(2^50))          !== 1 ? printf("fail test const|0/const\n");
+((v1|1)/(v2+1))              !== 1 ? printf("fail test |1\n");
+((v1|1)/(2^50+1))            !== 1 ? printf("fail test |1/const\n");
+(((2^50)|1)/(v2 + 1))        !== 1 ? printf("fail test const|1\n");
+(((2^50)|1)/(2^50 + 1))      !== 1 ? printf("fail test const|1/const\n");
+
+((v1~1)/(v2+1))              !== 1 ? printf("fail test ~1\n");
+((v1~1)/(2^50+1))            !== 1 ? printf("fail test ~1/const\n");
+(((2^50)~1)/(v2 + 1))        !== 1 ? printf("fail test const~1\n");
+(((2^50)~1)/(2^50 + 1))      !== 1 ? printf("fail test const~1/const\n");
+
+c = v1; c |= v1;
+c !== v1 ? printf("fail test |= \n");
+c = v1; c |= 0;
+c !== v1 ? printf("fail test |= 0\n");
+c = v1; c &= v1;
+c !== v1 ? printf("fail test &=\n");
+c = v1; c ~= z;
+c !== v1 ? printf("fail test ~= \n");
