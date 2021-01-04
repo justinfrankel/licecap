@@ -1641,12 +1641,14 @@ void WDL_CursesEditor::run_line_editor(int c, WDL_FastString *fs)
     break;
   }
 
-  const char *search_help = COLS > 60 ? " (Up/Down:mode, ESC:cancel)" : COLS > 40 ? "(U/D:mode)" : "";
+  const char *search_help = COLS > 70 ? " (Up/Down:mode " CONTROL_KEY_NAME "+R:replace ESC:cancel)" :
+                            COLS > 40 ? "(U/D:mode " CONTROL_KEY_NAME "+R:repl)" :
+                            "";
   char elbuf[50];
   switch (m_ui_state)
   {
     case UI_STATE_REPLACE:
-      snprintf(tmp,sizeof(tmp),"Replace all (%s) of '%s' %s with: ",searchmode_desc(s_search_mode),ellipsify(m_search_string.Get(),elbuf,sizeof(elbuf)), search_help);
+      snprintf(tmp,sizeof(tmp),"Replace all (%s) '%s': ",searchmode_desc(s_search_mode),ellipsify(m_search_string.Get(),elbuf,sizeof(elbuf)));
     break;
     case UI_STATE_SEARCH:
       snprintf(tmp,sizeof(tmp),"Find %s%s: ",searchmode_desc(s_search_mode), search_help);
@@ -2236,8 +2238,15 @@ int WDL_CursesEditor::onChar(int c)
           }
         }
       }
-      m_ui_state=c == 'R'-'A'+1 && m_search_string.GetLength() ? UI_STATE_REPLACE : UI_STATE_SEARCH;
-      run_line_editor(0,m_ui_state == UI_STATE_REPLACE ? &m_replace_string : &m_search_string);
+      if (c == 'R'-'A'+1 && !m_search_string.GetLength())
+      {
+        draw_message("Use " CONTROL_KEY_NAME "+F first, or run " CONTROL_KEY_NAME "+R from Find prompt");
+      }
+      else
+      {
+        m_ui_state=c == 'R'-'A'+1 ? UI_STATE_REPLACE : UI_STATE_SEARCH;
+        run_line_editor(0,m_ui_state == UI_STATE_REPLACE ? &m_replace_string : &m_search_string);
+      }
     }
   break;
   case KEY_DOWN:
