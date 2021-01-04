@@ -104,7 +104,6 @@ protected:
   
   virtual int search_line(const char *str, const WDL_FastString *line, int startpos, bool backwards, int *match_len); // returns offset of next match, or -1 if none
   void runSearch(bool backwards, bool replaceAll);
-  void make_search_prompt(char *buf, int bufsz);
 
   void indentSelect(int amt);
   void removeSelect();
@@ -181,7 +180,7 @@ protected:
   int GetPaneDims(int* paney, int* paneh);
 
   int m_line_editor_edited;
-  void run_line_editor(int c, WDL_FastString *fs, const char *prompt);
+  void run_line_editor(int c, WDL_FastString *fs);
   WDL_FastString m_search_string, m_replace_string;
 
 public:

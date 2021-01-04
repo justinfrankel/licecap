@@ -31,7 +31,6 @@ int WDL_CursesEditor::s_overwrite=0;
 int WDL_CursesEditor::s_search_mode; // &1=case sensitive, &2=word. 5/6 = token matching
 
 static WDL_FastString s_goto_line_buf;
-const char *s_goto_line_prompt = "Go to line (ESC:cancel): ";
 
 static const char *searchmode_desc(int mode)
 {
@@ -1465,15 +1464,6 @@ void WDL_CursesEditor::runSearch(bool backwards, bool replaceAll)
     draw_message(buf);
 }
 
-void WDL_CursesEditor::make_search_prompt(char *buf, int bufsz)
-{
-  const char *help = COLS > 60 ? " (Up/Down:mode, ESC:cancel)" : COLS > 40 ? "(U/D:mode)" : "";
-  if (m_ui_state == UI_STATE_REPLACE)
-    snprintf(buf,bufsz,"Replace all (%s) of '%s' %s with: ",searchmode_desc(s_search_mode),m_search_string.Get(), help);
-  else
-    snprintf(buf,bufsz,"Find %s%s: ",searchmode_desc(s_search_mode), help);
-}
-
 static int categorizeCharForWordNess(int c)
 {
   if (c >= 0 && c < 256)
@@ -1558,8 +1548,9 @@ void WDL_CursesEditor::getLinesFromClipboard(WDL_FastString &buf, WDL_PtrList<co
   }
 }
 
-void WDL_CursesEditor::run_line_editor(int c, WDL_FastString *fs, const char *promptstr)
+void WDL_CursesEditor::run_line_editor(int c, WDL_FastString *fs)
 {
+  char tmp[512];
   switch (c)
   {
     case -1: break;
@@ -1605,22 +1596,47 @@ void WDL_CursesEditor::run_line_editor(int c, WDL_FastString *fs, const char *pr
         fs->Append(lines.Get(0));
       }
     break;
+    case KEY_UP:
+      if (m_ui_state == UI_STATE_REPLACE || m_ui_state == UI_STATE_SEARCH)
+      {
+        if (--s_search_mode<0) s_search_mode=5;
+      }
+    break;
+    case KEY_DOWN:
+      if (m_ui_state == UI_STATE_REPLACE || m_ui_state == UI_STATE_SEARCH)
+      {
+        if (++s_search_mode>5) s_search_mode=0;
+      }
+    break;
     default:
       if (!VALIDATE_TEXT_CHAR(c)) return;
 
-      {
-        if (!m_line_editor_edited) fs->Set("");
-        m_line_editor_edited=true;
-        char tmp[32];
-        WDL_MakeUTFChar(tmp,c,sizeof(tmp));
-        fs->Append(tmp);
-      }
+      if (!m_line_editor_edited) fs->Set("");
+      m_line_editor_edited=true;
+      WDL_MakeUTFChar(tmp,c,sizeof(tmp));
+      fs->Append(tmp);
     break;
+  }
+
+  const char *search_help = COLS > 60 ? " (Up/Down:mode, ESC:cancel)" : COLS > 40 ? "(U/D:mode)" : "";
+  switch (m_ui_state)
+  {
+    case UI_STATE_REPLACE:
+      snprintf(tmp,sizeof(tmp),"Replace all (%s) of '%s' %s with: ",searchmode_desc(s_search_mode),m_search_string.Get(), search_help);
+    break;
+    case UI_STATE_SEARCH:
+      snprintf(tmp,sizeof(tmp),"Find %s%s: ",searchmode_desc(s_search_mode), search_help);
+    break;
+    case UI_STATE_GOTO_LINE:
+      lstrcpyn_safe(tmp, "Go to line (ESC:cancel): ",sizeof(tmp));
+    break;
+    default:
+    return;
   }
 
   attrset(COLOR_MESSAGE);
   bkgdset(COLOR_MESSAGE);
-  mvaddstr(LINES-1,0,promptstr);
+  mvaddstr(LINES-1,0,tmp);
   addstr(fs->Get());
   clrtoeol();
   attrset(0);
@@ -1730,18 +1746,14 @@ int WDL_CursesEditor::onChar(int c)
 
   if (m_ui_state == UI_STATE_SEARCH || m_ui_state == UI_STATE_REPLACE)
   {
-    char buf[256];
     const bool is_replace = m_ui_state == UI_STATE_REPLACE;
-    if (c == KEY_UP && --s_search_mode<0) { s_search_mode=5; c = -1; }
-    else if (c == KEY_DOWN && ++s_search_mode>5) { s_search_mode=0; c = -1; }
-    make_search_prompt(buf,sizeof(buf));
-    run_line_editor(c,is_replace ? &m_replace_string : &m_search_string, buf);
+    run_line_editor(c,is_replace ? &m_replace_string : &m_search_string);
     if (c == '\r' || c == '\n') runSearch(false, is_replace);
     return 0;
   }
   if (m_ui_state == UI_STATE_GOTO_LINE)
   {
-    run_line_editor(c,&s_goto_line_buf, s_goto_line_prompt);
+    run_line_editor(c,&s_goto_line_buf);
     if (c == '\r' || c == '\n')
     {
       const char *p = s_goto_line_buf.Get();
@@ -2198,9 +2210,7 @@ int WDL_CursesEditor::onChar(int c)
       draw_message("");
 
       m_ui_state=c == 'R'-'A'+1 && m_search_string.GetLength() ? UI_STATE_REPLACE : UI_STATE_SEARCH;
-      char buf[512];
-      make_search_prompt(buf,sizeof(buf));
-      run_line_editor(0,m_ui_state == UI_STATE_REPLACE ? &m_replace_string : &m_search_string,buf);
+      run_line_editor(0,m_ui_state == UI_STATE_REPLACE ? &m_replace_string : &m_search_string);
     }
   break;
   case KEY_DOWN:
@@ -2462,9 +2472,8 @@ int WDL_CursesEditor::onChar(int c)
     {
       draw_message("");
       s_goto_line_buf.Set("");
-      run_line_editor(0,&s_goto_line_buf,s_goto_line_prompt);
-
       m_ui_state=UI_STATE_GOTO_LINE;
+      run_line_editor(0,&s_goto_line_buf);
     }
   break;
   case '\r': //KEY_ENTER:
