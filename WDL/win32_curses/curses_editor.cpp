@@ -1645,15 +1645,116 @@ void WDL_CursesEditor::run_line_editor(int c, WDL_FastString *fs)
 
 int WDL_CursesEditor::onChar(int c)
 {
-  // multitab
-  if (m_ui_state == UI_STATE_MESSAGE)
+  switch (m_ui_state)
   {
-    m_ui_state=UI_STATE_NORMAL;
-    draw();
-    setCursor();
+    case UI_STATE_MESSAGE:
+      m_ui_state=UI_STATE_NORMAL;
+      draw();
+      setCursor();
+    break;
+    case UI_STATE_SAVE_ON_CLOSE:
+      if (c>=0 && (isalnum(c) || isprint(c) || c==27))
+      {
+        if (c == 27)
+        {
+          m_ui_state=UI_STATE_NORMAL;
+          draw();
+          draw_message("Cancelled close of file.");
+          setCursor();
+          return 0;
+        }
+        if (toupper(c) == 'N' || toupper(c) == 'Y')
+        {
+          if (toupper(c) == 'Y')
+          {
+            if(updateFile())
+            {
+              m_ui_state=UI_STATE_NORMAL;
+              draw();
+              draw_message("Error writing file, changes not saved!");
+              setCursor();
+              return 0;
+            }
+          }
+          CloseCurrentTab();
+
+          delete this;
+          // this no longer valid, return 1 to avoid future calls in onChar()
+
+          return 1;
+        }
+      }
+    return 0;
+    case UI_STATE_SAVE_AS_NEW:
+      if (c>=0 && (isalnum(c) || isprint(c) || c==27 || c == '\r' || c=='\n'))
+      {
+        m_ui_state=UI_STATE_NORMAL;
+        if (toupper(c) == 'N' || c == 27)
+        {
+          draw();
+          draw_message("Cancelled create new file.");
+          setCursor();
+          return 0;
+        }
+
+        AddTab(m_newfn.Get());
+      }
+    return 0;
+    case UI_STATE_SEARCH:
+    case UI_STATE_REPLACE:
+      {
+        uiState chgstate = c == 1+'R'-'A' ? UI_STATE_REPLACE : c == 1+'F'-'A' ? UI_STATE_SEARCH : UI_STATE_NORMAL;
+        if (chgstate != UI_STATE_NORMAL)
+        {
+          if (chgstate == UI_STATE_REPLACE && !m_search_string.GetLength()) chgstate = UI_STATE_SEARCH;
+          c = m_ui_state == chgstate ? 27 : 0;
+          m_ui_state = chgstate;
+        }
+        const bool is_replace = m_ui_state == UI_STATE_REPLACE;
+        run_line_editor(c,is_replace ? &m_replace_string : &m_search_string);
+        if (c == '\r' || c == '\n') runSearch(false, is_replace);
+      }
+    return 0;
+    case UI_STATE_GOTO_LINE:
+      if (c == 1+'J'-'A') c=27;
+      run_line_editor(c,&s_goto_line_buf);
+      if (c == '\r' || c == '\n')
+      {
+        const char *p = s_goto_line_buf.Get();
+        while (*p == ' ' || *p == '\t') p++;
+        int rel = 0;
+        if (*p == '+') rel=1;
+        else if (*p == '-') rel=-1;
+        if (rel) p++;
+        while (*p == ' ' || *p == '\t') p++;
+        int a = atoi(p);
+        if (a > 0)
+        {
+          if (rel) a = m_curs_y + a*rel;
+          else a--;
+
+          m_curs_y = wdl_clamp(a,0,m_text.GetSize());
+          WDL_FastString *fs = m_text.Get(m_curs_y);
+          m_curs_x = fs ? WDL_utf8_get_charlen(fs->Get()) : 0;
+          m_selecting=0;
+          draw();
+          setCursor(0,-1.0);
+        }
+        else
+        {
+          draw();
+          setCursor();
+        }
+      }
+    return 0;
+    case UI_STATE_NORMAL:
+    break;
   }
 
-  if (m_ui_state == UI_STATE_NORMAL && !SHIFT_KEY_DOWN && !ALT_KEY_DOWN && c =='W'-'A'+1)
+  // UI_STATE_NORMAL
+  WDL_ASSERT(m_ui_state == UI_STATE_NORMAL /* unhandled state? */);
+
+  if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN && c =='W'-'A'+1)
   {
     if (GetTab(0) == this) return 0; // first in list = do nothing
 
@@ -1677,60 +1778,6 @@ int WDL_CursesEditor::onChar(int c)
     }
     return 0;
   }
-
-  if (m_ui_state == UI_STATE_SAVE_ON_CLOSE)
-  {
-    if (c>=0 && (isalnum(c) || isprint(c) || c==27))
-    {
-      if (c == 27)
-      {
-        m_ui_state=UI_STATE_NORMAL;
-        draw();
-        draw_message("Cancelled close of file.");
-        setCursor();
-        return 0;
-      }
-      if (toupper(c) == 'N' || toupper(c) == 'Y')
-      {
-        if (toupper(c) == 'Y') 
-        {
-          if(updateFile())
-          {
-            m_ui_state=UI_STATE_NORMAL;
-            draw();
-            draw_message("Error writing file, changes not saved!");
-            setCursor();
-            return 0;
-          }
-        }
-        CloseCurrentTab();
-
-        delete this;
-        // this no longer valid, return 1 to avoid future calls in onChar()
-
-        return 1;
-      }
-    }
-    return 0;
-  }
-  else if (m_ui_state == UI_STATE_SAVE_AS_NEW)
-  {
-    if (c>=0 && (isalnum(c) || isprint(c) || c==27 || c == '\r' || c=='\n'))
-    {
-      m_ui_state=UI_STATE_NORMAL;
-      if (toupper(c) == 'N' || c == 27) 
-      {
-        draw();
-        draw_message("Cancelled create new file.");
-        setCursor();
-        return 0;
-      }
-
-      AddTab(m_newfn.Get());
-    }
-    return 0;
-  }
-
   if ((c==27 || c==29 || (c >= KEY_F1 && c<=KEY_F10)) && CTRL_KEY_DOWN)
   {
     int idx=c-KEY_F1;
@@ -1739,62 +1786,12 @@ int WDL_CursesEditor::onChar(int c)
     else if (c==29) idx=1;
     else rel=false;
     SwitchTab(idx,rel);
-
     return 1;
   }
-  // end multitab
 
-  if (m_ui_state == UI_STATE_SEARCH || m_ui_state == UI_STATE_REPLACE)
-  {
-    uiState chgstate = c == 1+'R'-'A' ? UI_STATE_REPLACE : c == 1+'F'-'A' ? UI_STATE_SEARCH : UI_STATE_NORMAL;
-    if (chgstate != UI_STATE_NORMAL)
-    {
-      if (chgstate == UI_STATE_REPLACE && !m_search_string.GetLength()) chgstate = UI_STATE_SEARCH;
-      c = m_ui_state == chgstate ? 27 : 0;
-      m_ui_state = chgstate;
-    }
-    const bool is_replace = m_ui_state == UI_STATE_REPLACE;
-    run_line_editor(c,is_replace ? &m_replace_string : &m_search_string);
-    if (c == '\r' || c == '\n') runSearch(false, is_replace);
-    return 0;
-  }
-  if (m_ui_state == UI_STATE_GOTO_LINE)
-  {
-    if (c == 1+'J'-'A') c=27;
-    run_line_editor(c,&s_goto_line_buf);
-    if (c == '\r' || c == '\n')
-    {
-      const char *p = s_goto_line_buf.Get();
-      while (*p == ' ' || *p == '\t') p++;
-      int rel = 0;
-      if (*p == '+') rel=1;
-      else if (*p == '-') rel=-1;
-      if (rel) p++;
-      while (*p == ' ' || *p == '\t') p++;
-      int a = atoi(p);
-      if (a > 0)
-      {
-        if (rel) a = m_curs_y + a*rel;
-        else a--;
-
-        m_curs_y = wdl_clamp(a,0,m_text.GetSize());
-        WDL_FastString *fs = m_text.Get(m_curs_y);
-        m_curs_x = fs ? WDL_utf8_get_charlen(fs->Get()) : 0;
-        m_selecting=0;
-        draw();
-        setCursor(0,-1.0);
-      }
-      else
-      {
-        draw();
-        setCursor();
-      }
-    }
-    return 0;
-  }
   if (c==KEY_DOWN || c==KEY_UP || c==KEY_PPAGE||c==KEY_NPAGE || c==KEY_RIGHT||c==KEY_LEFT||c==KEY_HOME||c==KEY_END)
   {
-    if (SHIFT_KEY_DOWN)      
+    if (SHIFT_KEY_DOWN)
     {
       if (!m_selecting)
       {
