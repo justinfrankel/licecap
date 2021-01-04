@@ -1270,9 +1270,9 @@ static void tweak_tok(const char *tok, const char **np, int *len)
 
   if (l == 1)
   {
-    if ((tok[0] == '=' || tok[0] == '<' || tok[0] == '>') && tok[1] == '=')
+    if ((tok[0] == '=' || tok[0] == '!' || tok[0] == '<' || tok[0] == '>') && tok[1] == '=')
     {
-      l = tok[0] == '=' && tok[2] == '=' ? 3 : 2;
+      l = (tok[0] == '=' || tok[0] == '!') && tok[2] == '=' ? 3 : 2;
       *np = tok + l;
       *len = l;
     }
