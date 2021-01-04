@@ -104,7 +104,7 @@ protected:
   
   virtual int search_line(const char *str, const WDL_FastString *line, int startpos, bool backwards, int *match_len); // returns offset of next match, or -1 if none
   void runSearch(bool backwards);
-  void do_search_prompt();
+  void make_search_prompt(char *buf, int bufsz);
 
   void indentSelect(int amt);
   void removeSelect();
@@ -154,7 +154,7 @@ protected:
   
   enum uiState { UI_STATE_NORMAL=0,
     UI_STATE_MESSAGE, 
-    UI_STATE_SEARCH, UI_STATE_SEARCH2, 
+    UI_STATE_SEARCH,
     UI_STATE_GOTO_LINE,
     UI_STATE_SAVE_AS_NEW, UI_STATE_SAVE_ON_CLOSE 
   };
@@ -177,7 +177,10 @@ protected:
 
   int GetPaneDims(int* paney, int* paneh);
 
-  static char s_search_string[256];
+  int m_line_editor_edited;
+  void run_line_editor(int c, WDL_FastString *fs, const char *prompt);
+  WDL_FastString m_search_string;
+
 public:
   static int s_overwrite;
   static int s_search_mode;
