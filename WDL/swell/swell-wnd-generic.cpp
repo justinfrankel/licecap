@@ -7698,7 +7698,7 @@ void TreeView_DeleteItem(HWND hwnd, HTREEITEM item)
   int idx=0;
   if (!tvs->findItem(item,&par,&idx)) return;
 
-  if (tvs->m_sel && (item == tvs->m_sel || item->FindItem(tvs->m_sel,NULL,NULL))) tvs->m_sel=NULL;
+  if (tvs->m_sel && (item == tvs->m_sel || item->FindItem(tvs->m_sel,NULL,NULL))) tvs->m_sel=par;
 
   (par ? par : &tvs->m_root)->m_children.Delete(idx,true);
   InvalidateRect(hwnd,NULL,FALSE);

@@ -6144,7 +6144,10 @@ void TreeView_DeleteItem(HWND hwnd, HTREEITEM item)
 
     if (par)
     {
+      HTREEITEM sel = TreeView_GetSelection(hwnd);
+      bool is_sel = sel && (sel == item || item->FindItem(sel,NULL,NULL));
       par->m_children.Delete(idx,true);
+      if (is_sel) TreeView_SelectItem(hwnd, par);
     }
     else if (tv->m_items)
     {
