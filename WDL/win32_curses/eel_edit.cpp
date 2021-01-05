@@ -1702,7 +1702,9 @@ run_suggest:
             break;
           }
 
-          if (t == ntok-1 && cursor <= token_list[t].tok + token_list[t].toklen && do_sug != 2)
+          if (t == ntok-1 && cursor <= token_list[t].tok + token_list[t].toklen && do_sug != 2 &&
+                (isalpha(token_list[t].tok[0] ) || token_list[t].tok[0] == '_')
+              )
           {
             m_suggestion_list.clear();
             get_suggested_token_names(buf,~0,&m_suggestion_list);
