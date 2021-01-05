@@ -3143,6 +3143,12 @@ static LRESULT CALLBACK CoolSBWndProc(HWND hwnd, UINT message, WPARAM wParam, LP
 {
   WNDPROC oldproc;
   SCROLLWND *swnd = GetScrollWndFromHwnd(hwnd);
+  if (WDL_NOT_NORMALLY(!swnd))
+  {
+    return DefWindowProc(hwnd,message,wParam,lParam);
+  }
+
+  oldproc = swnd->oldproc;
 
   switch(message)
   {
@@ -3153,7 +3159,6 @@ static LRESULT CALLBACK CoolSBWndProc(HWND hwnd, UINT message, WPARAM wParam, LP
     //However, if the user tries to call Uninitialize()..
     //after this window is destroyed, this window's entry in the lookup
     //table will not be there, and the call will fail
-    oldproc = swnd->oldproc;
     UninitializeCoolSB(hwnd);
 
     //we must call the original window procedure, otherwise it
@@ -3229,7 +3234,7 @@ static LRESULT CALLBACK CoolSBWndProc(HWND hwnd, UINT message, WPARAM wParam, LP
 
   case /*WM_MOUSEHWHEEL:*/ 0x20E:
    {
-     const LRESULT rv = CallWindowProc(swnd->oldproc,hwnd,message,wParam,lParam);
+     const LRESULT rv = CallWindowProc(oldproc,hwnd,message,wParam,lParam);
      return rv  ? rv : 1; // always return nonzero from WM_MOUSEHWHEEL for Logitech drivers (which will otherwise convert it to a scroll)
    }
 
@@ -3254,7 +3259,7 @@ static LRESULT CALLBACK CoolSBWndProc(HWND hwnd, UINT message, WPARAM wParam, LP
   }
 
 
-  return CallWindowProc(swnd->oldproc, hwnd, message, wParam, lParam);
+  return CallWindowProc(oldproc, hwnd, message, wParam, lParam);
 }
 
 void CoolSB_OnColorThemeChange()
