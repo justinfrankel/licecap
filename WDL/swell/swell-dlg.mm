@@ -581,6 +581,24 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
 
 
 
+static void SendTreeViewExpandNotification(SWELL_hwndChild *par, NSNotification *notification, int action)
+{
+  NSOutlineView *sender=[notification object];
+  NMTREEVIEW nmhdr={{(HWND)sender,(UINT_PTR)[sender tag],TVN_ITEMEXPANDING},0,};
+  SWELL_DataHold *t=[[notification userInfo] valueForKey:@"NSObject"];
+  HTREEITEM hi = t ? (HTREEITEM)[t getValue] : NULL;
+  if (hi)
+  {
+    nmhdr.action=action;
+    nmhdr.itemNew.hItem=hi;
+    nmhdr.itemNew.lParam=hi->m_param;
+  }
+  if (par->m_wndproc && !par->m_hashaddestroy)
+  {
+    par->m_wndproc((HWND)par, WM_NOTIFY, (int)[sender tag], (LPARAM)&nmhdr);
+  }
+}
+
 
 @implementation SWELL_hwndChild : NSView 
 
@@ -855,26 +873,16 @@ static int DelegateMouseMove(NSView *view, NSEvent *theEvent)
     m_wndproc((HWND)self,WM_NOTIFY,[(NSControl*)sender tag],(LPARAM)&nm);
   }
 }
+
 - (void)outlineViewItemWillExpand:(NSNotification*)notification
 {
-  NSOutlineView *sender=[notification object];
-  NMTREEVIEW nmhdr={{(HWND)sender,(UINT_PTR)[sender tag],TVN_ITEMEXPANDING},0,};  // todo: better treeview notifications
-  SWELL_DataHold *t=[[notification userInfo] valueForKey:@"NSObject"];
-  HTREEITEM hi = t ? (HTREEITEM)[t getValue] : NULL;
-  if (hi)
-  {
-    nmhdr.itemNew.hItem=hi;
-    nmhdr.itemNew.lParam=hi->m_param;
-  }
-  if (m_wndproc && !m_hashaddestroy)
-  {
-    m_wndproc((HWND)self, WM_NOTIFY, (int)[sender tag], (LPARAM)&nmhdr);
-  }
+  SendTreeViewExpandNotification(self, notification, TVE_EXPAND);
 }
 - (void)outlineViewItemWillCollapse:(NSNotification*)notification
 {
-  return [self outlineViewItemWillExpand:notification]; // yes it's the same notification
+  SendTreeViewExpandNotification(self, notification, TVE_COLLAPSE);
 }
+
 - (void)outlineViewSelectionDidChange:(NSNotification *)notification
 {
   NSOutlineView *sender=[notification object];
