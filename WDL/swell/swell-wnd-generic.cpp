@@ -5179,7 +5179,7 @@ struct treeViewState
     return true;
   }
 
-  int navigateSel(int key, int pagesize) // returns 2 force invalidate, 1 if ate key 
+  int navigateSel(HWND hwnd, int key, int pagesize) // returns 2 force invalidate, 1 if ate key
   {
     HTREEITEM par=NULL;
     int idx=0,tmp=1;
@@ -5191,8 +5191,19 @@ struct treeViewState
         {
           if (m_sel->m_haschildren && (m_sel->m_state & TVIS_EXPANDED))
           {
-            m_sel->m_state &= ~TVIS_EXPANDED;
-            return 2;
+            NMTREEVIEW nmhdr={{hwnd,(UINT_PTR)hwnd->m_id,TVN_ITEMEXPANDING},};
+            nmhdr.action = TVE_COLLAPSE;
+            nmhdr.itemNew.hItem=m_sel;
+            nmhdr.itemNew.lParam=m_sel->m_param;
+            if (!SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nmhdr))
+            {
+              m_sel->m_state &= ~TVIS_EXPANDED;
+              return 2;
+            }
+            else
+            {
+              return 1;
+            }
           }
           if (par) m_sel=par;
         }
@@ -5212,8 +5223,19 @@ struct treeViewState
         {
           if (!(m_sel->m_state&TVIS_EXPANDED))
           {
-            m_sel->m_state |= TVIS_EXPANDED;
-            return 2;
+            NMTREEVIEW nmhdr={{hwnd,(UINT_PTR)hwnd->m_id,TVN_ITEMEXPANDING},};
+            nmhdr.action = TVE_EXPAND;
+            nmhdr.itemNew.hItem=m_sel;
+            nmhdr.itemNew.lParam=m_sel->m_param;
+            if (!SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nmhdr))
+            {
+              m_sel->m_state |= TVIS_EXPANDED;
+              return 2;
+            }
+            else
+            {
+              return 1;
+            }
           }
           par = m_sel->m_children.Get(0);
           if (par) m_sel=par;
@@ -5451,7 +5473,7 @@ static LRESULT treeViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         HTREEITEM oldSel = tvs->m_sel;
         RECT r;
         GetClientRect(hwnd,&r);
-        int flag = tvs->navigateSel((int)wParam,tvs->m_last_row_height ? r.bottom / tvs->m_last_row_height : 4); 
+        int flag = tvs->navigateSel(hwnd,(int)wParam,tvs->m_last_row_height ? r.bottom / tvs->m_last_row_height : 4);
         if (oldSel != tvs->m_sel)
         {
           if (tvs->m_sel) tvs->ensureItemVisible(hwnd,tvs->m_sel);
@@ -5505,7 +5527,8 @@ static LRESULT treeViewWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
             {
               if (GET_X_LPARAM(lParam) < xo + (tvs->m_last_row_height/4)*2+3)
               {
-                NMTREEVIEW nmhdr={{hwnd,(UINT_PTR)hwnd->m_id,TVN_ITEMEXPANDING},};  // todo: better treeview notifications
+                NMTREEVIEW nmhdr={{hwnd,(UINT_PTR)hwnd->m_id,TVN_ITEMEXPANDING},};
+                nmhdr.action = (hit->m_state&TVIS_EXPANDED)!=TVIS_EXPANDED ? TVE_EXPAND : TVE_COLLAPSE;
                 nmhdr.itemNew.hItem=hit;
                 nmhdr.itemNew.lParam=hit->m_param;
                 if (!SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nmhdr))
@@ -7672,13 +7695,21 @@ BOOL TreeView_Expand(HWND hwnd, HTREEITEM item, UINT flag)
 {
   treeViewState *tvs = hwnd ? (treeViewState *)hwnd->m_private_data : NULL;
   if (WDL_NOT_NORMALLY(!tvs || !tvs->findItem(item,NULL,NULL))) return FALSE;
+
+  if (flag == TVE_EXPAND && (item->m_state & TVIS_EXPANDED)) return TRUE;
+  if (flag == TVE_COLLAPSE && !(item->m_state & TVIS_EXPANDED)) return TRUE;
  
-  const int os = item->m_state;
+  NMTREEVIEW nmhdr={{hwnd,(UINT_PTR)hwnd->m_id,TVN_ITEMEXPANDING},};
+  nmhdr.action = flag;
+  nmhdr.itemNew.hItem=item;
+  nmhdr.itemNew.lParam=item->m_param;
+  if (SendMessage(GetParent(hwnd),WM_NOTIFY,hwnd->m_id,(LPARAM)&nmhdr)) return TRUE;
+
   if (flag == TVE_EXPAND) item->m_state |= TVIS_EXPANDED;
   else if (flag == TVE_COLLAPSE) item->m_state &= ~TVIS_EXPANDED;
   else if (flag == TVE_TOGGLE) item->m_state ^= TVIS_EXPANDED;
   
-  if (item->m_state != os) InvalidateRect(hwnd,NULL,FALSE);
+  InvalidateRect(hwnd,NULL,FALSE);
   return TRUE;
 }
 
