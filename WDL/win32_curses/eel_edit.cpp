@@ -1643,7 +1643,6 @@ run_suggest:
         }
       }
 
-      const int min_func_toklen = 3;
       int t = ntok;
       int comma_cnt = 0;
       while (--t >= 0)
@@ -1670,8 +1669,9 @@ run_suggest:
         if (t<0) break;
 
         if (tok[0] == ',') comma_cnt++;
-        if (toklen >= min_func_toklen &&
-            (cursor <= tok + toklen || (t < ntok-1 && token_list[t+1].tok[0] == '('))
+        else if (
+            ((tok[0] >= 'A' && tok[0] <= 'Z') || (tok[0] >= 'a' && tok[0] <= 'z') || tok[0] == '_') && // valid peekable token (starts with a-z-A-Z_
+            (cursor <= tok + toklen || (t < ntok-1 && token_list[t+1].tok[0] == '(')) // if cursor is within or at end of token, or is a function (followed by open-paren)
            )
         {
           char buf[512];
@@ -1706,9 +1706,7 @@ run_suggest:
             break;
           }
 
-          if (t == ntok-1 && cursor <= tok + toklen && do_sug != 2 &&
-                (isalpha(tok[0] ) || tok[0] == '_')
-              )
+          if (do_sug != 2 && t == ntok-1 && toklen >= 3 && cursor <= tok + toklen)
           {
             m_suggestion_list.clear();
             get_suggested_token_names(buf,~0,&m_suggestion_list);
