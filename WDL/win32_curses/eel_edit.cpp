@@ -1625,9 +1625,10 @@ run_suggest:
       int ntok = 0;
       {
         const char *p = l->Get(), *endp = p + l->GetLength();
-        int state = 0, toklen = 0;
+        int state = 0, toklen = 0, bcnt = 0, pcnt = 0;
         const char *tok;
-        while ((tok=sh_tokenize(&p,endp,&toklen,&state)) && cursor > tok)
+        while ((tok=sh_tokenize(&p,endp,&toklen,&state)) &&
+               cursor > ((pcnt||bcnt) ? tok : (tok-1))) // if no parens/brackets are open, use a token that starts at cursor
         {
           if (!state)
           {
@@ -1635,6 +1636,13 @@ run_suggest:
             {
               memmove(token_list,token_list+1,sizeof(token_list) - sizeof(token_list[0]));
               ntok--;
+            }
+            switch (*tok)
+            {
+              case '[': bcnt++; break;
+              case ']': bcnt--; break;
+              case '(': pcnt++; break;
+              case ')': pcnt--; break;
             }
             token_list[ntok].tok = tok;
             token_list[ntok].toklen = toklen;
