@@ -1009,7 +1009,7 @@ static int eeledit_varenumfunc(const char *name, EEL_F *val, void *ctx)
   return 1;
 }
 
-void EEL_Editor::get_suggested_function_names(const char *fname, int chkmask, suggested_matchlist *list)
+void EEL_Editor::get_suggested_token_names(const char *fname, int chkmask, suggested_matchlist *list)
 {
   int x;
   if (chkmask & (KEYWORD_MASK_BUILTIN_FUNC|KEYWORD_MASK_USER_VAR))
@@ -1705,7 +1705,7 @@ run_suggest:
           if (t == ntok-1 && cursor <= token_list[t].tok + token_list[t].toklen && do_sug != 2)
           {
             m_suggestion_list.clear();
-            get_suggested_function_names(buf,~0,&m_suggestion_list);
+            get_suggested_token_names(buf,~0,&m_suggestion_list);
 
             win32CursesCtx *ctx = (win32CursesCtx *)m_cursesCtx;
             if (m_suggestion_list.get_size()>0 &&
