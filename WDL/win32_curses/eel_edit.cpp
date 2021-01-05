@@ -1648,7 +1648,9 @@ run_suggest:
       int comma_cnt = 0;
       while (--t >= 0)
       {
-        const int lc = token_list[t].tok[0], ac = lc==')' ? '(' : lc==']' ? '[' : 0;
+        const char *tok = token_list[t].tok;
+        int toklen = token_list[t].toklen;
+        const int lc = tok[0], ac = lc==')' ? '(' : lc==']' ? '[' : 0;
         if (ac)
         {
           int cnt=1;
@@ -1667,13 +1669,13 @@ run_suggest:
         }
         if (t<0) break;
 
-        if (token_list[t].tok[0] == ',') comma_cnt++;
-        if (token_list[t].toklen >= min_func_toklen &&
-            (cursor <= token_list[t].tok + token_list[t].toklen || (t < ntok-1 && token_list[t+1].tok[0] == '('))
+        if (tok[0] == ',') comma_cnt++;
+        if (toklen >= min_func_toklen &&
+            (cursor <= tok + toklen || (t < ntok-1 && token_list[t+1].tok[0] == '('))
            )
         {
           char buf[512];
-          lstrcpyn_safe(buf,token_list[t].tok,wdl_min(token_list[t].toklen+1, sizeof(buf)));
+          lstrcpyn_safe(buf,tok,wdl_min(toklen+1, sizeof(buf)));
           if (peek_get_token_info(buf,sug,sizeof(sug),~0,m_curs_y))
           {
             if (comma_cnt > 0)
@@ -1704,8 +1706,8 @@ run_suggest:
             break;
           }
 
-          if (t == ntok-1 && cursor <= token_list[t].tok + token_list[t].toklen && do_sug != 2 &&
-                (isalpha(token_list[t].tok[0] ) || token_list[t].tok[0] == '_')
+          if (t == ntok-1 && cursor <= tok + toklen && do_sug != 2 &&
+                (isalpha(tok[0] ) || tok[0] == '_')
               )
           {
             m_suggestion_list.clear();
@@ -1715,8 +1717,8 @@ run_suggest:
             if (m_suggestion_list.get_size()>0 &&
                 WDL_NORMALLY(ctx->m_hwnd) && WDL_NORMALLY(ctx->m_font_w) && WDL_NORMALLY(ctx->m_font_h))
             {
-              m_suggestion_toklen = token_list[t].toklen;
-              m_suggestion_tokpos = (int)(token_list[t].tok-l->Get());
+              m_suggestion_toklen = toklen;
+              m_suggestion_tokpos = (int)(tok-l->Get());
               m_suggestion_hwnd_sel = -1;
               if (!m_suggestion_hwnd)
               {
