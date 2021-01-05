@@ -1700,7 +1700,7 @@ run_suggest:
               {
                 *pstart=0;
                 lstrcpyn_safe(buf,p,sizeof(buf));
-                snprintf_append(sug,sizeof(sug), "... , %s",buf);
+                snprintf_append(sug,sizeof(sug), "... %s",buf);
               }
             }
             break;
