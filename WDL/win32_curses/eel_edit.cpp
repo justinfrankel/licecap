@@ -1615,29 +1615,31 @@ run_suggest:
     WDL_FastString *l=m_text.Get(m_curs_y);
     if (l)
     {
-      const char *p = l->Get(), *endp = p + l->GetLength(), *cursor = p + WDL_utf8_charpos_to_bytepos(p,m_curs_x);
-      int state = 0, toklen = 0;
-
       const int MAX_TOK=512;
       struct {
         const char *tok;
         int toklen;
       } token_list[MAX_TOK];
 
+      const char *cursor = l->Get() + WDL_utf8_charpos_to_bytepos(l->Get(),m_curs_x);
       int ntok = 0;
-      const char *tok;
-      while ((tok=sh_tokenize(&p,endp,&toklen,&state)) && cursor > tok)
       {
-        if (!state)
+        const char *p = l->Get(), *endp = p + l->GetLength();
+        int state = 0, toklen = 0;
+        const char *tok;
+        while ((tok=sh_tokenize(&p,endp,&toklen,&state)) && cursor > tok)
         {
-          if (WDL_NOT_NORMALLY(ntok >= MAX_TOK))
+          if (!state)
           {
-            memmove(token_list,token_list+1,sizeof(token_list) - sizeof(token_list[0]));
-            ntok--;
+            if (WDL_NOT_NORMALLY(ntok >= MAX_TOK))
+            {
+              memmove(token_list,token_list+1,sizeof(token_list) - sizeof(token_list[0]));
+              ntok--;
+            }
+            token_list[ntok].tok = tok;
+            token_list[ntok].toklen = toklen;
+            ntok++;
           }
-          token_list[ntok].tok = tok;
-          token_list[ntok].toklen = toklen;
-          ntok++;
         }
       }
 
