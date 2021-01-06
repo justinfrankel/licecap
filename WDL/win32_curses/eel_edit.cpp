@@ -1627,8 +1627,8 @@ run_suggest:
         const char *p = l->Get(), *endp = p + l->GetLength();
         int state = 0, toklen = 0, bcnt = 0, pcnt = 0;
         const char *tok;
-        while ((tok=sh_tokenize(&p,endp,&toklen,&state)) &&
-               cursor > ((pcnt||bcnt) ? tok : (tok-1))) // if no parens/brackets are open, use a token that starts at cursor
+                                       // if no parens/brackets are open, use a peekable token that starts at cursor
+        while ((tok=sh_tokenize(&p,endp,&toklen,&state)) && cursor > tok-(!pcnt && !bcnt && (tok[0] < 0 || tok[0] == '_' || isalpha(tok[0]))))
         {
           if (!state)
           {
@@ -1677,11 +1677,9 @@ run_suggest:
         if (t<0) break;
 
         if (tok[0] == ',') comma_cnt++;
-        else if (
-            ((tok[0] >= 'A' && tok[0] <= 'Z') || (tok[0] >= 'a' && tok[0] <= 'z') || tok[0] == '_') && // valid peekable token (starts with a-z-A-Z_
-            (cursor <= tok + toklen || (t < ntok-1 && token_list[t+1].tok[0] == '(')) // if cursor is within or at end of token, or is a function (followed by open-paren)
-           )
+        else if ((tok[0] < 0 || tok[0] == '_' || isalpha(tok[0])) && (cursor <= tok + toklen || (t < ntok-1 && token_list[t+1].tok[0] == '(')))
         {
+          // if cursor is within or at end of token, or is a function (followed by open-paren)
           char buf[512];
           lstrcpyn_safe(buf,tok,wdl_min(toklen+1, sizeof(buf)));
           if (peek_get_token_info(buf,sug,sizeof(sug),~0,m_curs_y))
