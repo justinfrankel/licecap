@@ -4878,13 +4878,19 @@ BOOL ListView_SetColumnOrderArray(HWND h, int cnt, int* arr)
   if (WDL_NOT_NORMALLY(!h || ![(id)h isKindOfClass:[SWELL_ListView class]])) return FALSE;
   SWELL_ListView* lv=(SWELL_ListView*)h;
   if (!lv->m_cols || lv->m_cols->GetSize() != cnt) return FALSE;
-  
-  int i;
+
+  int i, j;
   for (i=0; i < cnt; ++i)
   {
-    int pos=[lv getColumnPos:i];
-    int dest=arr[i];
-    if (dest>=0 && dest<cnt) [lv moveColumn:pos toColumn:dest];
+    for (j=0; j < cnt; ++j)
+    {
+      if (arr[j] == i) break;
+    }
+    if (j < cnt)
+    {
+      int pos=[lv getColumnPos:j];
+      [lv moveColumn:pos toColumn:i];
+    }
   }
 
   return TRUE;
