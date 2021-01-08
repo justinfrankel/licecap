@@ -787,76 +787,76 @@ const char *EnumMetadataKeyFromMexKey(const char *mexkey, int idx)
   // general priority order here:
   // BWF
   // INFO
-  // IXML
-  // XMP
   // ID3
   // APE
   // VORBIS
   // CART
+  // IXML
+  // XMP
   // IFF
   // REX
 
   static const char *TITLE_KEYS[]=
   {
     "INFO:INAM",
-    "IXML:PROJECT",
-    "XMP:dc/title",
     "ID3:TIT2",
     "APE:Title",
     "VORBIS:TITLE",
     "CART:Title",
+    "IXML:PROJECT",
+    "XMP:dc/title",
     "IFF:NAME",
     "REX:Name",
   };
   static const char *ARTIST_KEYS[]=
   {
     "INFO:IART",
-    "XMP:dm/artist",
     "ID3:TPE1",
     "APE:Artist",
     "VORBIS:ARTIST",
     "CART:Artist",
+    "XMP:dm/artist",
     "IFF:AUTH",
   };
   static const char *ALBUM_KEYS[]=
   {
     "INFO:IALB",
     "INFO:IPRD",
-    "XMP:dm/album",
     "ID3:TALB",
     "APE:Album",
     "VORBIS:ALBUM",
+    "XMP:dm/album",
   };
   static const char *YEAR_KEYS[]= // really DATE
   {
     "BWF:OriginationDate",
     "INFO:ICRD",
-    "XMP:dc/date",
     "ID3:TYER",
     "ID3:TDRC",
     "APE:Year",
     "APE:Record Date",
     "VORBIS:DATE",
     "CART:StartDate",
+    "XMP:dc/date",
   };
   static const char *GENRE_KEYS[]=
   {
     "INFO:IGNR",
-    "XMP:dm/genre",
     "ID3:TCON",
     "APE:Genre",
     "VORBIS:GENRE",
     "CART:Category",
+    "XMP:dm/genre",
   };
   static const char *COMMENT_KEYS[]=
   {
     "INFO:ICMT",
-    "IXML:NOTE",
-    "XMP:dm/logComment",
     "ID3:COMM",
     "APE:Comment",
     "VORBIS:COMMENT",
     "CART:TagText",
+    "IXML:NOTE",
+    "XMP:dm/logComment",
     "REX:FreeText",
   };
   static const char *DESC_KEYS[]=
@@ -864,42 +864,42 @@ const char *EnumMetadataKeyFromMexKey(const char *mexkey, int idx)
     "BWF:Description",
     "INFO:ISBJ",
     "INFO:IKEY",
-    "XMP:dc/description",
     "ID3:TIT3",
     "APE:Subtitle",
     "VORBIS:DESCRIPTION",
+    "XMP:dc/description",
     "IFF:ANNO",
   };
   static const char *BPM_KEYS[]=
   {
-    "XMP:dm/tempo",
     "ID3:TBPM",
     "APE:BPM",
     "VORBIS:BPM",
+    "XMP:dm/tempo",
   };
   static const char *KEY_KEYS[]=
   {
-    "XMP:dm/key",
     "ID3:TKEY",
     "APE:Key",
     "VORBIS:KEY",
+    "XMP:dm/key",
   };
   static const char *DB_CUSTOM_KEYS[]=
   {
-    "IXML:USER:REAPER",
     "ID3:TXXX:REAPER",
     "APE:REAPER",
     "VORBIS:REAPER",
+    "IXML:USER:REAPER",
   };
   static const char *TRACKNUMBER_KEYS[]=
   {
     "INFO:TRCK",
-    // "IXML:TRACK",
-    "XMP:dm/trackNumber",
     "ID3:TRCK",
     "APE:Track",
     "VORBIS:TRACKNUMBER",
     "CART:CutID",
+    // "IXML:TRACK",
+    "XMP:dm/trackNumber",
   };
 
 #define DO_MEXKEY_MAP(K) if (!strcmp(mexkey, #K)) \
