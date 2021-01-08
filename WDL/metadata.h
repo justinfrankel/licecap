@@ -773,7 +773,7 @@ const char *EnumMetadataKeyFromMexKey(const char *mexkey, int idx)
   if (!mexkey || !mexkey[0] || idx < 0) return NULL;
 
   // TO_DO_IF_METADATA_UPDATE
-  // "TITLE", "ARTIST", "ALBUM", "YEAR", "GENRE", "COMMENT", "DESC", "BPM", "KEY", "DB_CUSTOM"
+  // "TITLE", "ARTIST", "ALBUM", "YEAR", "GENRE", "COMMENT", "DESC", "BPM", "KEY", "DB_CUSTOM", "TRACKNUMBER"
 
   if (!strcmp(mexkey, "DATE")) mexkey="YEAR";
   else if (!strcmp(mexkey, "REAPER")) mexkey="DB_CUSTOM";
@@ -891,6 +891,16 @@ const char *EnumMetadataKeyFromMexKey(const char *mexkey, int idx)
     "APE:REAPER",
     "VORBIS:REAPER",
   };
+  static const char *TRACKNUMBER_KEYS[]=
+  {
+    "INFO:TRCK",
+    // "IXML:TRACK",
+    "XMP:dm/trackNumber",
+    "ID3:TRCK",
+    "APE:Track",
+    "VORBIS:TRACKNUMBER",
+    "CART:CutID",
+  };
 
 #define DO_MEXKEY_MAP(K) if (!strcmp(mexkey, #K)) \
   return idx < sizeof(K##_KEYS)/sizeof(K##_KEYS[0]) ? K##_KEYS[idx] : NULL;
@@ -898,6 +908,7 @@ const char *EnumMetadataKeyFromMexKey(const char *mexkey, int idx)
   DO_MEXKEY_MAP(TITLE);
   DO_MEXKEY_MAP(ARTIST);
   DO_MEXKEY_MAP(ALBUM);
+  DO_MEXKEY_MAP(TRACKNUMBER);
   DO_MEXKEY_MAP(YEAR);
   DO_MEXKEY_MAP(GENRE);
   DO_MEXKEY_MAP(COMMENT);
@@ -1001,10 +1012,11 @@ void DumpMetadata(WDL_FastString *str, WDL_StringKeyedArray<char*> *metadata)
   scheme[0]=0;
 
   // TO_DO_IF_METADATA_UPDATE
+  // note these are for display, so not necessarily in the same order as elsewhere
   static const char *mexkey[]=
-    {"TITLE", "ARTIST", "ALBUM", "YEAR", "GENRE", "COMMENT", "DESC", "BPM", "KEY", "DB_CUSTOM"};
+    {"TITLE", "ARTIST", "ALBUM", "TRACKNUMBER", "YEAR", "GENRE", "COMMENT", "DESC", "BPM", "KEY", "DB_CUSTOM"};
   static const char *dispkey[]=
-    {"Title", "Artist", "Album", "Date", "Genre", "Comment", "Description", "BPM", "Key", "Media Explorer Tags"};
+    {"Title", "Artist", "Album", "Track", "Date", "Genre", "Comment", "Description", "BPM", "Key", "Media Explorer Tags"};
   char buf[2048];
   for (int j=0; j < sizeof(mexkey)/sizeof(mexkey[0]); ++j)
   {
@@ -1267,6 +1279,7 @@ void AddMexID3Raw(WDL_StringKeyedArray<char*> *metadata,
     "ID3:TIT2",
     "ID3:TPE1",
     "ID3:TALB",
+    "ID3:TRCK",
     "ID3:TYER",
     "ID3:TDRC",
     "ID3:TCON",
