@@ -3971,6 +3971,14 @@ struct listViewState
   bool m_is_multisel, m_is_listbox;
   WDL_PtrList<HGDIOBJ__> *m_status_imagelist;
   int m_status_imagelist_type;
+
+  static int compareRows(const SWELL_ListView_Row **_a, const SWELL_ListView_Row **_b)
+  {
+    const char *a, *b;
+    if (!_a || !(a=(*_a)->m_vals.Get(0))) a="";
+    if (!_b || !(b=(*_b)->m_vals.Get(0))) b="";
+    return strcmp(a,b);
+  }
 };
 
 // returns non-NULL if a searching string occurred
@@ -4970,25 +4978,24 @@ forceMouseMove:
       delete lvs;
     break;
     case LB_ADDSTRING:
-      if (lvs && !lvs->IsOwnerData())
-      {
-         // todo: optional sort
-        int rv=lvs->m_data.GetSize();
-        SWELL_ListView_Row *row=new SWELL_ListView_Row;
-        row->m_vals.Add(strdup((const char *)lParam));
-        lvs->m_data.Add(row); 
-        InvalidateRect(hwnd,NULL,FALSE);
-        return rv;
-      }
-    return LB_ERR;
-     
     case LB_INSERTSTRING:
       if (lvs && !lvs->IsOwnerData())
       {
-        int idx =  (int) wParam;
-        if (idx<0 || idx>lvs->m_data.GetSize()) idx=lvs->m_data.GetSize();
         SWELL_ListView_Row *row=new SWELL_ListView_Row;
         row->m_vals.Add(strdup((const char *)lParam));
+        int idx;
+        if (msg == LB_ADDSTRING && hwnd->m_style & LBS_SORT)
+        {
+          bool isMatch;
+          idx=lvs->m_data.LowerBound(row,&isMatch,listViewState::compareRows);
+        }
+        else if (msg == LB_INSERTSTRING)
+        {
+          idx=(int)wParam;
+          if (idx<0 || idx>lvs->m_data.GetSize()) idx=lvs->m_data.GetSize();
+        }
+        else
+          idx=lvs->m_data.GetSize();
         lvs->m_data.Insert(idx,row); 
         InvalidateRect(hwnd,NULL,FALSE);
         return idx;
