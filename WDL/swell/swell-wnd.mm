@@ -256,20 +256,12 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL("msctls_progress32")
 {
   if (status)
   {
-//    [controlView lockFocus];
     int w=wdl_min(cellFrame.size.width, cellFrame.size.height);
     [status drawInRect:NSMakeRect(cellFrame.origin.x,cellFrame.origin.y,w,cellFrame.size.height) fromRect:NSZeroRect operation:NSCompositeSourceOver fraction:1.0];
- //   [controlView unlockFocus];
   }
   cellFrame.origin.x += cellFrame.size.height + 2.0;
   cellFrame.size.width -= cellFrame.size.height + 2.0;
   [super drawWithFrame:cellFrame inView:controlView];
-}
-
--(NSColor *)highlightColorWithFrame:(NSRect)cellFrame inView:(NSView *)controlView 
-{
-  if ([controlView isKindOfClass:[SWELL_ListView class]] && ((SWELL_ListView *)controlView)->m_selColors) return nil;
-  return [super highlightColorWithFrame:cellFrame inView:controlView];
 }
 
 @end

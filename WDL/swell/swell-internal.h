@@ -171,12 +171,16 @@ typedef struct WindowPropRec
 @interface SWELL_ListViewCell : NSTextFieldCell
 {
 }
+-(NSColor *)highlightColorWithFrame:(NSRect)cellFrame inView:(NSView *)controlView;
 @end
 
-@interface SWELL_StatusCell : NSTextFieldCell
+@interface SWELL_StatusCell : SWELL_ListViewCell
 {
   NSImage *status;
 }
+-(id)initNewCell;
+-(void)setStatusImage:(NSImage *)img;
+- (void)drawWithFrame:(NSRect)cellFrame inView:(NSView *)controlView;
 @end
 
 @interface SWELL_TreeView : NSOutlineView
