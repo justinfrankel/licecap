@@ -3752,6 +3752,9 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   else if (!stricmp(classname, "SysListView32")||!stricmp(classname, "SysListView32_LB"))
   {
     SWELL_ListView *obj = [[SWELL_ListView alloc] init];
+#ifdef MAC_OS_VERSION_11_0
+    if (@available(macOS 11.0, *)) [obj setStyle:4]; // plain
+#endif
     [obj setColumnAutoresizingStyle:NSTableViewNoColumnAutoresizing];
     [obj setFocusRingType:NSFocusRingTypeNone];
     [obj setDataSource:(id)obj];
@@ -3825,6 +3828,9 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   else if (!stricmp(classname, "SysTreeView32"))
   {
     SWELL_TreeView *obj = [[SWELL_TreeView alloc] init];
+#ifdef MAC_OS_VERSION_11_0
+    if (@available(macOS 11.0, *)) [obj setStyle:4]; // plain
+#endif
     [obj setFocusRingType:NSFocusRingTypeNone];
     [obj setDataSource:(id)obj];
     obj->style=style;
