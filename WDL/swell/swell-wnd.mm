@@ -4997,13 +4997,14 @@ int ListView_HitTest(HWND h, LVHITTESTINFO *pinf)
     pinf->iItem=(int)[(NSTableView *)h rowAtPoint:pt];
     if (pinf->iItem >= 0)
     {
-      if (tv->m_status_imagelist && pt.x <= [tv rowHeight])
+      pinf->flags=LVHT_ONITEMLABEL;
+      if (tv->m_status_imagelist)
       {
-        pinf->flags=LVHT_ONITEMSTATEICON;
-      }
-      else 
-      {
-        pinf->flags=LVHT_ONITEMLABEL;
+        NSRect c0r = [tv frameOfCellAtColumn:[tv getColumnPos:0] row:pinf->iItem];
+        if (pt.x >= c0r.origin.x && pt.x <= c0r.origin.x + [tv rowHeight])
+        {
+          pinf->flags=LVHT_ONITEMSTATEICON;
+        }
       }
     }
     else 
@@ -5020,6 +5021,7 @@ int ListView_SubItemHitTest(HWND h, LVHITTESTINFO *pinf)
   int row = ListView_HitTest(h, pinf);
 
   NSPoint pt=NSMakePoint(pinf->pt.x,pinf->pt.y);
+
   if (row < 0 && pt.y < 0)
   { // Fake the point in the client area of the listview to get the column # (like win32)
     pt.y = 0;
