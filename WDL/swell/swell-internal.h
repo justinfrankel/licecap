@@ -172,6 +172,7 @@ typedef struct WindowPropRec
 {
 }
 -(NSColor *)highlightColorWithFrame:(NSRect)cellFrame inView:(NSView *)controlView;
+- (NSRect)drawingRectForBounds:(NSRect)rect;
 @end
 
 @interface SWELL_StatusCell : SWELL_ListViewCell

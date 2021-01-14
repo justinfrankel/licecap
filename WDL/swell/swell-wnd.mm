@@ -237,6 +237,18 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL("msctls_progress32")
 
   return [super highlightColorWithFrame:cellFrame inView:controlView];
 }
+- (NSRect)drawingRectForBounds:(NSRect)rect
+{
+  const NSSize sz = [self cellSizeForBounds:rect];
+  rect = [super drawingRectForBounds:rect];
+  const int offs = (int) floor((rect.size.height - sz.height) * .5);
+  if (offs>0)
+  {
+    rect.origin.y += offs;
+    rect.size.height -= offs*2;
+  }
+  return rect;
+}
 @end
 
 @implementation SWELL_StatusCell
