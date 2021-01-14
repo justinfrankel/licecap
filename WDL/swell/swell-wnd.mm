@@ -268,8 +268,24 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL("msctls_progress32")
 {
   if (status)
   {
-    int w=wdl_min(cellFrame.size.width, cellFrame.size.height);
-    [status drawInRect:NSMakeRect(cellFrame.origin.x,cellFrame.origin.y,w,cellFrame.size.height) fromRect:NSZeroRect operation:NSCompositeSourceOver fraction:1.0];
+    const double fr_h = cellFrame.size.height;
+    const NSSize image_sz = [status size];
+    const double use_h = wdl_min(image_sz.height, fr_h);
+    const double yo = (fr_h-use_h)*.5;
+    double use_w,xo;
+    if (use_h > cellFrame.size.width)
+    {
+      use_w = cellFrame.size.width;
+      xo = 0.0;
+    }
+    else
+    {
+      use_w = use_h;
+      xo = yo;
+    }
+
+    [status drawInRect:NSMakeRect(cellFrame.origin.x + xo,cellFrame.origin.y + yo,use_w,use_h)
+      fromRect:NSZeroRect operation:NSCompositeSourceOver fraction:1.0];
   }
   cellFrame.origin.x += cellFrame.size.height + 2.0;
   cellFrame.size.width -= cellFrame.size.height + 2.0;
