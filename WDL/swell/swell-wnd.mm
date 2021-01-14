@@ -226,8 +226,15 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL("msctls_progress32")
 @implementation SWELL_ListViewCell
 -(NSColor *)highlightColorWithFrame:(NSRect)cellFrame inView:(NSView *)controlView 
 {
-  if ([controlView isKindOfClass:[SWELL_ListView class]] && ((SWELL_ListView *)controlView)->m_selColors) return nil;
-  if ([controlView isKindOfClass:[SWELL_TreeView class]] && ((SWELL_TreeView *)controlView)->m_selColors) return nil;
+  if ([controlView isKindOfClass:[SWELL_ListView class]])
+  {
+    if (((SWELL_ListView *)controlView)->m_selColors) return nil;
+  }
+  else if ([controlView isKindOfClass:[SWELL_TreeView class]])
+  {
+    if (((SWELL_TreeView *)controlView)->m_selColors) return nil;
+  }
+
   return [super highlightColorWithFrame:cellFrame inView:controlView];
 }
 @end
