@@ -1716,6 +1716,13 @@ run_suggest:
             break;
           }
 
+          // only use token up to cursor for suggestions
+          if (cursor >= tok && cursor <= tok+toklen)
+          {
+            toklen = (int) (cursor-tok);
+            lstrcpyn_safe(buf,tok,wdl_min(toklen+1, sizeof(buf)));
+          }
+
           if (c == '\b' && cursor == tok)
           {
           }
