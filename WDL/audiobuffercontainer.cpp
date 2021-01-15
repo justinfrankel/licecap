@@ -119,7 +119,7 @@ bool ChannelPinMapper::LoadState(const char* buf, int len)
   int* pNCh = WDL_Queue__GetTFromLE(&chunk, (int*) 0);
   int* pNPins = WDL_Queue__GetTFromLE(&chunk, (int*) 0);
   if (!pNCh || !pNPins) return false;
-  SetNPins(*pNCh);
+  SetNPins(*pNPins);
   SetNChannels(*pNCh);
   int maplen = *pNPins*sizeof(WDL_UINT64);
   if (chunk.Available() < maplen) return false;
