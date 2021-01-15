@@ -1604,7 +1604,11 @@ int EEL_Editor::onChar(int c)
       }
     }
 
-    if (c==27 || c=='L'-'A'+1 || (c>=KEY_DOWN && c<= KEY_F12 && c!=KEY_DC)) do_sug = 2; // no fuzzy window
+    if (c==27 ||
+        c=='L'-'A'+1 ||
+        c=='\r' ||
+        c=='\t' ||
+        (c>=KEY_DOWN && c<= KEY_F12 && c!=KEY_DC)) do_sug = 2; // no fuzzy window
   }
 
   rv = WDL_CursesEditor::onChar(c);
@@ -1712,7 +1716,10 @@ run_suggest:
             break;
           }
 
-          if (do_sug != 2 && t == ntok-1 && toklen >= 3 && cursor <= tok + toklen)
+          if (c == '\b' && cursor == tok)
+          {
+          }
+          else if (do_sug != 2 && t == ntok-1 && toklen >= 3 && cursor <= tok + toklen)
           {
             m_suggestion_list.clear();
             get_suggested_token_names(buf,~0,&m_suggestion_list);
