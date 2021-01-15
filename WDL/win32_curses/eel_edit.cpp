@@ -16,6 +16,7 @@
 #include "../wdlcstring.h"
 #include "../eel2/ns-eel-int.h"
 
+int g_eel_editor_max_vis_suggestions = 50;
 
 EEL_Editor::EEL_Editor(void *cursesCtx) : WDL_CursesEditor(cursesCtx)
 {
@@ -1551,8 +1552,12 @@ int EEL_Editor::onChar(int c)
   }
 
 
-  int do_sug = (m_ui_state == UI_STATE_NORMAL && !m_selecting && m_top_margin > 0 && (c == 'L'-'A'+1 || (!CTRL_KEY_DOWN && !ALT_KEY_DOWN))) ? 1 : 0, did_fuzzy = false;
   int rv = 0;
+  int do_sug = (g_eel_editor_max_vis_suggestions > 0 &&
+                m_ui_state == UI_STATE_NORMAL &&
+                !m_selecting && m_top_margin > 0 &&
+                (c == 'L'-'A'+1 || (!CTRL_KEY_DOWN && !ALT_KEY_DOWN))) ? 1 : 0;
+  bool did_fuzzy = false;
   char sug[1024];
   sug[0]=0;
 
@@ -1774,7 +1779,8 @@ run_suggest:
                 RECT par_cr;
                 GetClientRect(ctx->m_hwnd,&par_cr);
 
-                int use_w = (int)strlen(suggestion_help_text), use_h = (m_suggestion_list.get_size() + 1)*fonth;
+                int use_w = (int)strlen(suggestion_help_text);
+                int use_h = (wdl_min(g_eel_editor_max_vis_suggestions,m_suggestion_list.get_size()) + 1)*fonth;
                 for (int x = 0; x < m_suggestion_list.get_size(); x ++)
                 {
                   const char *p = m_suggestion_list.get(x);
