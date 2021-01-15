@@ -1565,8 +1565,10 @@ int EEL_Editor::onChar(int c)
           (c == '\r' && (m_suggestion_hwnd_sel>=0 || SHIFT_KEY_DOWN)))
       {
         char buf[512];
-        const char *ptr = m_suggestion_list.get(wdl_max(m_suggestion_hwnd_sel,0));
+        int sug_mode;
+        const char *ptr = m_suggestion_list.get(wdl_max(m_suggestion_hwnd_sel,0), &sug_mode);
         lstrcpyn_safe(buf,ptr?ptr:"",sizeof(buf));
+
         DestroyWindow(m_suggestion_hwnd);
 
         WDL_FastString *l=m_text.Get(m_curs_y);
@@ -1578,7 +1580,13 @@ int EEL_Editor::onChar(int c)
           preSaveUndoState();
           l->DeleteSub(m_suggestion_tokpos,m_suggestion_toklen);
           l->Insert(buf,m_suggestion_tokpos);
-          m_curs_x = WDL_utf8_bytepos_to_charpos(l->Get(),m_suggestion_tokpos+strlen(buf));
+          int pos = m_suggestion_tokpos + strlen(buf);
+          if (sug_mode == suggested_matchlist::MODE_FUNC || sug_mode == suggested_matchlist::MODE_USERFUNC)
+          {
+            if (pos >= l->GetLength() || l->Get()[pos] != '(')
+              l->Insert("(",pos++);
+          }
+          m_curs_x = WDL_utf8_bytepos_to_charpos(l->Get(),pos);
           draw();
           saveUndoState();
           setCursor();
