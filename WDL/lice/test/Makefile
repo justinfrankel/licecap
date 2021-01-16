@@ -20,8 +20,8 @@ else
     LFLAGS += $(shell pkg-config --libs gdk-3.0) -lX11 -lXi
   endif
   ifndef NOFREETYPE
-    CFLAGS += -DSWELL_FREETYPE $(shell freetype-config --cflags)
-    LFLAGS += $(shell freetype-config --libs)
+    CFLAGS += -DSWELL_FREETYPE $(shell pkg-config --cflags freetype2)
+    LFLAGS += $(shell pkg-config --libs freetype2)
   endif
 
   SWELL_OBJS = swell-wnd-generic.o swell-gdi-lice.o swell.o swell-misc-generic.o \
