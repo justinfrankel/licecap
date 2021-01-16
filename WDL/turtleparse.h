@@ -163,17 +163,23 @@ protected:
 
   static int is_number_tok(const char *p, const char *str_end)
   {
-    int i = 0, f=0;
+    int i = 0, f = 0; // 1=has number before e  2=has . 4=has e/E, 8=has number after e
     while (p+i < str_end)
     {
-      if (p[i] >= '0' && p[i] <= '9') f|=(f&4) ? 32 : 1;
-      else if (p[i] == '.') { if (f&(2|4|8)) return 0; f|=2; }
-      else if (p[i] == 'e' || p[i] == 'E') { if (f&4) return 0; f|=4; }
-      else if (p[i] == '+' || p[i] == '-') { int m = i?8:16; if (f&m) return 0; f|=m; }
+      if (p[i] >= '0' && p[i] <= '9') f |= f>3 ? 8 : 1;
+      else if (p[i] == '.') { if (f>1) return 0; f|=2; }
+      else if (p[i] == 'e' || p[i] == 'E')
+      {
+        if ((f&4) || !(f&1) || p+i+1 >= str_end) return 0;
+        if (p[i+1] == '+' || p[i+1] == '-') i++;
+        f|=4;
+      }
+      else if (p[i] == '+' || p[i] == '-') { if (i) return 0; }
       else break;
       i++;
     }
-    return (f&1) && (f&(4|32)) != 4 ? i : 0;
+    if (!(f&1) || (f&(4|8)) == 4) return 0;
+    return i;
   }
 
   const char *next_tok(const char **str, const char *str_end, int *toklen)
@@ -225,9 +231,9 @@ protected:
     }
     const char *p = tok_start;
     int nlen;
-    if (is_single_char_tok(*p)) p++;
-    else if ((nlen = is_number_tok(p,str_end))) p+=nlen;
-    else while (p < str_end && !is_ws(*p) && !is_single_char_tok(*p)) p++;
+    if ((nlen = is_number_tok(p,str_end))) p+=nlen;
+    else if (is_single_char_tok(*p)) p++;
+    else while (p < str_end && !is_ws(*p) && !is_single_char_tok(*p) && *p != '<') p++;
     *toklen = (int)((*str = p) - tok_start);
     return tok_start;
   }
@@ -346,7 +352,7 @@ protected:
         on_err("premature list terminator",tok);
         return false;
       }
-      if (tok[0] == '.' || tok[0] == ']' || tok[0] == ')') { on_err("invalid character in list context",tok); return false; }
+      if ((tok_l==1 && tok[0] == '.') || tok[0] == ']' || tok[0] == ')') { on_err("invalid character in list context",tok); return false; }
 
       switch (state)
       {
