@@ -55,8 +55,9 @@ void pl_Cam::SetTarget(pl_Float x, pl_Float y, pl_Float z) {
     dz /= cos((Pan-180.0f)*(PL_PI/180.0));
     Pitch = (pl_Float) (-atan(dy/dz)*(180.0/PL_PI));
   } else {
-    Pan = 0.0f;
-    Pitch = -90.0f;
+    Pan = 90.0f;
+    Pitch = (pl_Float) (atan2(dy,-dx) * (180.0 / PL_PI));
+    Roll = -90.0f;
   }
 }
 
