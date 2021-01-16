@@ -59,6 +59,7 @@ void pl_Cam::SetTarget(pl_Float x, pl_Float y, pl_Float z) {
     Pitch = (pl_Float) (atan2(dy,-dx) * (180.0 / PL_PI));
     Roll = -90.0f;
   }
+  GenMatrix = true;
 }
 
 void pl_Cam::RecalcFrustum() 
@@ -209,8 +210,30 @@ pl_uInt pl_Cam::_ClipToPlane(pl_uInt numVerts, pl_Float  *plane)
   return outvert;
 }
 
+bool pl_Cam::ProjectCoordinate(pl_Float x, pl_Float y, pl_Float z, pl_Float *screen_x, pl_Float *screen_y, pl_Float *dist)
+{
+  x -= X;
+  y -= Y;
+  z -= Z;
+  plMatrixApply(CamMatrix,x,y,z,&x,&y,&z);
 
+  if (dist) *dist = sqrt(x*x + y*y + z*z);
 
+  if (!m_lastFBWidth || !m_lastFBHeight || z < 0.0000000001) return false;
+
+  const double iz = 1.0/z;
+  double ytmp = m_fovfactor * iz;
+  double xtmp = ytmp*x;
+  ytmp *= y*m_adj_asp;
+
+  xtmp += CenterX + m_lastFBWidth/2;
+  ytmp += CenterY + m_lastFBHeight/2;
+
+  if (screen_x) *screen_x = xtmp;
+  if (screen_y) *screen_y = ytmp;
+
+  return xtmp >= 0 && xtmp < m_lastFBWidth && ytmp >= 0 && ytmp < m_lastFBHeight;
+}
 
 
 void pl_Cam::ClipRenderFace(pl_Face *face, pl_Obj *obj) {
@@ -374,11 +397,14 @@ void pl_Cam::Begin(LICE_IBitmap *fb, bool want_zbclear, pl_ZBuffer zbclear) {
   _numlights = 0;
   _numfaces = _numfaces_sorted = 0;
   frameBuffer = fb;
-  plMatrixRotate(_cMatrix,2,-Pan);
-  plMatrixRotate(tempMatrix,1,-Pitch);
-  plMatrixMultiply(_cMatrix,tempMatrix);
-  plMatrixRotate(tempMatrix,3,-Roll);
-  plMatrixMultiply(_cMatrix,tempMatrix);
+  if (GenMatrix)
+  {
+    plMatrixRotate(CamMatrix,2,-Pan);
+    plMatrixRotate(tempMatrix,1,-Pitch);
+    plMatrixMultiply(CamMatrix,tempMatrix);
+    plMatrixRotate(tempMatrix,3,-Roll);
+    plMatrixMultiply(CamMatrix,tempMatrix);
+  }
   
   RecalcFrustum();
 
@@ -398,17 +424,17 @@ void pl_Cam::RenderLight(pl_Light *light) {
     xp = light->Xp;
     yp = light->Yp;
     zp = light->Zp;
-    MACRO_plMatrixApply(_cMatrix,xp,yp,zp,pl[0],pl[1],pl[2]);
+    MACRO_plMatrixApply(CamMatrix,xp,yp,zp,pl[0],pl[1],pl[2]);
   } else if (light->Type & PL_LIGHT_POINT) {
     xp = light->Xp-X;
     yp = light->Yp-Y;
     zp = light->Zp-Z;
-    MACRO_plMatrixApply(_cMatrix,xp,yp,zp,pl[0],pl[1],pl[2]);
+    MACRO_plMatrixApply(CamMatrix,xp,yp,zp,pl[0],pl[1],pl[2]);
   }
   _lights.Get()[_numlights++].light = light;
 }
 
-void pl_Cam::RenderObject(pl_Obj *obj, pl_Float *bmatrix, pl_Float *bnmatrix) {
+void pl_Cam::RenderObject(pl_Obj *obj, const pl_Float *bmatrix, const pl_Float *bnmatrix) {
   if (!obj||!frameBuffer) return;
 
   pl_Float oMatrix[16], nMatrix[16], tempMatrix[16];
@@ -419,15 +445,18 @@ void pl_Cam::RenderObject(pl_Obj *obj, pl_Float *bmatrix, pl_Float *bnmatrix) {
     plMatrixMultiply(nMatrix,tempMatrix);
     plMatrixRotate(tempMatrix,3,obj->Za);
     plMatrixMultiply(nMatrix,tempMatrix);
+    memcpy(obj->RotMatrix,nMatrix,sizeof(pl_Float)*16);
+
     memcpy(oMatrix,nMatrix,sizeof(pl_Float)*16);
-  } else memcpy(nMatrix,obj->RotMatrix,sizeof(pl_Float)*16);
-
-  if (bnmatrix) plMatrixMultiply(nMatrix,bnmatrix);
-
-  if (obj->GenMatrix) {
     plMatrixTranslate(tempMatrix, obj->Xp, obj->Yp, obj->Zp);
     plMatrixMultiply(oMatrix,tempMatrix);
-  } else memcpy(oMatrix,obj->Matrix,sizeof(pl_Float)*16);
+    memcpy(obj->Matrix,oMatrix,sizeof(pl_Float)*16);
+  } else {
+    memcpy(oMatrix,obj->Matrix,sizeof(pl_Float)*16);
+    memcpy(nMatrix,obj->RotMatrix,sizeof(pl_Float)*16);
+  }
+
+  if (bnmatrix) plMatrixMultiply(nMatrix,bnmatrix);
   if (bmatrix) plMatrixMultiply(oMatrix,bmatrix);
 
   {
@@ -439,8 +468,8 @@ void pl_Cam::RenderObject(pl_Obj *obj, pl_Float *bmatrix, pl_Float *bnmatrix) {
 
   plMatrixTranslate(tempMatrix, -X, -Y, -Z);
   plMatrixMultiply(oMatrix,tempMatrix);
-  plMatrixMultiply(oMatrix,_cMatrix);
-  plMatrixMultiply(nMatrix,_cMatrix);
+  plMatrixMultiply(oMatrix,CamMatrix);
+  plMatrixMultiply(nMatrix,CamMatrix);
   
   {
     pl_Vertex *vertex = obj->Vertices.Get();
@@ -714,7 +743,10 @@ void pl_Cam::End() {
     }
     f++;
   }
-  frameBuffer=0;
+
+  m_lastFBWidth=frameBuffer->getWidth();
+  m_lastFBHeight=frameBuffer->getHeight();
+  frameBuffer=NULL;
   _numfaces=0;
   _numlights = 0;
 }
