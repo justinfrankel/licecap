@@ -155,11 +155,7 @@ private:
 } WDL_FIXALIGN;
 
 
-class pl_Vertex {
-public:
-  pl_Vertex() { }
-  ~pl_Vertex () { }
-
+struct pl_Vertex {
   pl_Float x, y, z;              /* Vertex coordinate (objectspace) */
   pl_Float nx, ny, nz;           /* Unit vertex normal (objectspace) */
   
@@ -167,15 +163,7 @@ public:
   pl_Float xformednx, xformedny, xformednz;  /* Transformed unit vertex normal  (cameraspace) */
 };
 
-class pl_Face {
-public:
-  pl_Face()
-  {    
-  }
-  ~pl_Face()
-  {
-  }
-
+struct pl_Face {
   pl_Mat *Material;            /* Material of triangle */
   int VertexIndices[3];      /* Vertices of triangle */
 
