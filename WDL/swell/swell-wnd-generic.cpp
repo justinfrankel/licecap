@@ -6443,7 +6443,8 @@ void ListView_SetColumnWidth(HWND h, int pos, int wid)
   listViewState *lvs = h ? (listViewState *)h->m_private_data : NULL;
   if (WDL_NOT_NORMALLY(!lvs)) return;
   SWELL_ListView_Col *col = lvs->GetColumnByIndex(pos);
-  if (WDL_NORMALLY(col)) 
+  WDL_ASSERT(col || !pos);
+  if (col)
   {
     col->xwid = wid;
     InvalidateRect(h,NULL,FALSE);
