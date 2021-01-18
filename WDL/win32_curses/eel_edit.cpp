@@ -1622,6 +1622,7 @@ int EEL_Editor::onChar(int c)
         c=='\r' ||
         c=='\t' ||
         (c>=KEY_DOWN && c<= KEY_F12 && c!=KEY_DC)) do_sug = 2; // no fuzzy window
+    else if (c=='\b' && !m_suggestion_hwnd) do_sug=2; // backspace will update but won't show suggestions
   }
 
   rv = WDL_CursesEditor::onChar(c);
