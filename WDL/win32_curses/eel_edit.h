@@ -83,7 +83,7 @@ public:
   EEL_Editor(void *cursesCtx);
   virtual ~EEL_Editor();
 
-  virtual void draw_line_highlight(int y, const char *p, int *c_comment_state);
+  virtual void draw_line_highlight(int y, const char *p, int *c_comment_state, int line_n);
   virtual int do_draw_line(const char *p, int *c_comment_state, int last_attr);
   virtual int GetCommentStateForLineStart(int line); 
   virtual bool LineCanAffectOtherLines(const char *txt, int spos, int slen); // if multiline comment etc

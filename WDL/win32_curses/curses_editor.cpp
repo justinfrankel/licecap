@@ -839,7 +839,7 @@ void WDL_CursesEditor::draw_message(const char *str)
 }
 
 
-void WDL_CursesEditor::draw_line_highlight(int y, const char *p, int *c_comment_state)
+void WDL_CursesEditor::draw_line_highlight(int y, const char *p, int *c_comment_state, int line_n)
 {
   attrset(A_NORMAL);
   mvaddstr(y,0,p + WDL_utf8_charpos_to_bytepos(p,m_offs_x));
@@ -868,7 +868,7 @@ void WDL_CursesEditor::getselectregion(int &minx, int &miny, int &maxx, int &max
 
 void WDL_CursesEditor::doDrawString(int y, int line_n, const char *p, int *c_comment_state)
 {
-  draw_line_highlight(y,p,c_comment_state);
+  draw_line_highlight(y,p,c_comment_state, line_n);
 
   if (m_selecting)
   {

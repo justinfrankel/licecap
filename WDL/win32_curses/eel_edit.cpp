@@ -294,7 +294,7 @@ bool EEL_Editor::sh_draw_parentokenstack_update(const char *tok, int toklen)
 }
 
 
-void EEL_Editor::draw_line_highlight(int y, const char *p, int *c_comment_state)
+void EEL_Editor::draw_line_highlight(int y, const char *p, int *c_comment_state, int line_n)
 {
   int last_attr = A_NORMAL;
   attrset(last_attr);

@@ -118,7 +118,7 @@ protected:
 
   virtual int GetCommentStateForLineStart(int line); // pass current line, returns flags (which will be passed as c_comment_state)
 
-  virtual void draw_line_highlight(int y, const char *p, int *c_comment_state);
+  virtual void draw_line_highlight(int y, const char *p, int *c_comment_state, int line_n);
   virtual void draw_top_line();
   virtual void draw_bottom_line();
   virtual bool LineCanAffectOtherLines(const char *txt, int spos, int slen) // if multiline comment etc
