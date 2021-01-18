@@ -20,6 +20,7 @@ int g_eel_editor_max_vis_suggestions = 50;
 
 EEL_Editor::EEL_Editor(void *cursesCtx) : WDL_CursesEditor(cursesCtx)
 {
+  m_suggestion_curline_comment_state=0;
   m_suggestion_x=m_suggestion_y=-1;
   m_case_sensitive=false;
   m_comment_str="//"; // todo IsWithinComment() or something?
@@ -296,6 +297,8 @@ bool EEL_Editor::sh_draw_parentokenstack_update(const char *tok, int toklen)
 
 void EEL_Editor::draw_line_highlight(int y, const char *p, int *c_comment_state, int line_n)
 {
+  if (line_n == m_curs_y)
+    m_suggestion_curline_comment_state = *c_comment_state;
   int last_attr = A_NORMAL;
   attrset(last_attr);
   move(y, 0);
@@ -1643,7 +1646,7 @@ run_suggest:
       int ntok = 0;
       {
         const char *p = l->Get(), *endp = p + l->GetLength();
-        int state = 0, toklen = 0, bcnt = 0, pcnt = 0;
+        int state = m_suggestion_curline_comment_state, toklen = 0, bcnt = 0, pcnt = 0;
         const char *tok;
                                        // if no parens/brackets are open, use a peekable token that starts at cursor
         while ((tok=sh_tokenize(&p,endp,&toklen,&state)) && cursor > tok-(!pcnt && !bcnt && (tok[0] < 0 || tok[0] == '_' || isalpha(tok[0]))))

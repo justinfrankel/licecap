@@ -148,6 +148,7 @@ public:
   suggested_matchlist m_suggestion_list;
   int m_suggestion_hwnd_sel;
   int m_suggestion_tokpos, m_suggestion_toklen; // bytepos/len
+  int m_suggestion_curline_comment_state;
 
   void ensure_code_func_cache_valid();
 
