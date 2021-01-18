@@ -1,5 +1,5 @@
 //{{NO_DEPENDENCIES}}
-// Microsoft Developer Studio generated include file.
+// Microsoft Visual C++ generated include file.
 // Used by licecap.rc
 //
 #define IDD_DIALOG1                     101
@@ -30,18 +30,21 @@
 #define IDC_STOPAFTER_SEC               1015
 #define IDC_INSERT                      1016
 #define IDC_EDIT2                       1016
+#define IDC_DASHCAM_TIME_SEC            1016
 #define IDC_EDIT                        1017
 #define IDC_ALPHA                       1018
 #define IDC_BUTTON1                     1020
 #define IDC_CHECK1                      1022
 #define IDC_CHECK2                      1023
 #define IDC_STOPAFTER_SEC_LBL           1024
+#define IDC_DASHCAM_CHECK               1025
+#define IDC_DASHCAM_TIME_SEC_LBL        1026
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        107
+#define _APS_NEXT_RESOURCE_VALUE        108
 #define _APS_NEXT_COMMAND_VALUE         40001
 #define _APS_NEXT_CONTROL_VALUE         1025
 #define _APS_NEXT_SYMED_VALUE           101
