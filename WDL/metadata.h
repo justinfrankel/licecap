@@ -1,6 +1,7 @@
 #ifndef _WDL_METADATA_H_
 #define _WDL_METADATA_H_
 
+#include <math.h>
 #include "wdlstring.h"
 #include "xmlparse.h"
 #include "fileread.h"
@@ -171,7 +172,7 @@ void UnpackXMPDescription(const char *curkey, wdl_xml_element *elem,
     if (tval >= 0.0)
     {
       char buf[512];
-      snprintf(buf, sizeof(buf), "%lld", (WDL_INT64)(tval*1000.0));
+      snprintf(buf, sizeof(buf), "%.0f", floor(tval*1000.0));
       metadata->Insert("XMP:dm/relativeTimestamp", strdup(buf));
     }
     return;
@@ -962,13 +963,13 @@ void WriteMetadataPrefPos(double prefpos, int srate,
     char buf[128];
     if (srate > 0.0)
     {
-      snprintf(buf, sizeof(buf), "%lld", (WDL_INT64)(prefpos*(double)srate));
+      snprintf(buf, sizeof(buf), "%.0f", floor(prefpos*(double)srate));
       metadata->Insert("BWF:TimeReference", strdup(buf));
       // BWF:TimeReference causes IXML:BEXT element to be written as well
       metadata->Insert("ID3:TXXX:TIME_REFERENCE", strdup(buf));
       metadata->Insert("VORBIS:TIME_REFERENCE", strdup(buf));
     }
-    snprintf(buf, sizeof(buf), "%lld", (WDL_INT64)(prefpos*1000.0));
+    snprintf(buf, sizeof(buf), "%.0f", floor(prefpos*1000.0));
     metadata->Insert("XMP:dm/relativeTimestamp", strdup(buf));
   }
 }
