@@ -987,7 +987,7 @@ void AddMexMetadata(WDL_StringKeyedArray<char*> *mex_metadata,
 
     if (!strcmp(mexkey, "PREFPOS"))
     {
-      int ms = val && val[0] ? ParseInt64(val) : 0;
+      WDL_INT64 ms = val && val[0] ? ParseInt64(val) : 0;
       WriteMetadataPrefPos((double)ms/1000.0, srate, metadata);
       // caller may still have to do stuff if prefpos is represented
       // in some other way outside the metadata we handle, like wavpack
