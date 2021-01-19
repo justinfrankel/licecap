@@ -21,6 +21,13 @@ typedef unsigned long long WDL_UINT64;
   #define WDL_INT64_CONST(x) (x##LL)
 #endif
 
+#ifdef _WIN32
+  #define WDL_PRI_UINT64 "I64u"
+  #define WDL_PRI_INT64 "I64d"
+#else
+  #define WDL_PRI_UINT64 "llu"
+  #define WDL_PRI_INT64 "lld"
+#endif
 
 #if !defined(_MSC_VER) ||  _MSC_VER > 1200
 #define WDL_DLGRET INT_PTR CALLBACK
