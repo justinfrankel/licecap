@@ -22,9 +22,9 @@ char *tag_strndup(const char *src, int len)
   return dest;
 }
 
-WDL_INT64 ParseInt64(const char *val)
+WDL_UINT64 ParseUInt64(const char *val)
 {
-  WDL_INT64 i=0;
+  WDL_UINT64 i=0;
   if (val)
   {
     const char *p=val;
@@ -987,7 +987,7 @@ void AddMexMetadata(WDL_StringKeyedArray<char*> *mex_metadata,
 
     if (!strcmp(mexkey, "PREFPOS"))
     {
-      WDL_INT64 ms = val && val[0] ? ParseInt64(val) : 0;
+      WDL_UINT64 ms = val && val[0] ? ParseUInt64(val) : 0;
       WriteMetadataPrefPos((double)ms/1000.0, srate, metadata);
       // caller may still have to do stuff if prefpos is represented
       // in some other way outside the metadata we handle, like wavpack
@@ -1760,7 +1760,7 @@ double ReadMetadataPrefPos(WDL_StringKeyedArray<char*> *metadata, double srate)
   if (!v || !v[0]) v=metadata->Get("VORBIS:TIME_REFERENCE");
   if (v && v[0] && srate > 0.0)
   {
-    WDL_UINT64 i=ParseInt64(v);
+    WDL_UINT64 i=ParseUInt64(v);
     return (double)i/srate;
   }
 
@@ -1776,7 +1776,7 @@ double ReadMetadataPrefPos(WDL_StringKeyedArray<char*> *metadata, double srate)
   v=metadata->Get("XMP:dm/relativeTimestamp");
   if (v && v[0])
   {
-    WDL_UINT64 i=ParseInt64(v);
+    WDL_UINT64 i=ParseUInt64(v);
     return (double)i/1000.0;
   }
 
