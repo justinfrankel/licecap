@@ -618,20 +618,24 @@ template<class Comb> class PLSolidPutFace
 
 void pl_Cam::PutFace(pl_Face *TriFace)
 {
-  LICE_pixel *gmem = frameBuffer->getBits();
+  LICE_pixel *gmem = m_fBuffer.m_buf;
+  if (WDL_NOT_NORMALLY(!gmem)) return;
   
   int zfb_width = 0;
   pl_ZBuffer *zb = NULL;
-  if (zBuffer.GetSize()&&TriFace->Material->zBufferable)
+  if (TriFace->Material->zBufferable &&
+      zBuffer.GetSize() &&
+      WDL_NORMALLY(zBuffer.GetSize() >= m_fBuffer.m_w*m_fBuffer.m_h)
+      )
   {
-    zfb_width = frameBuffer->getWidth();
+    zfb_width = m_fBuffer.m_w;
     zb = zBuffer.Get();
   }
   
-  int swidth = frameBuffer->getRowSpan();
-  if (frameBuffer->isFlipped())
+  int swidth = m_fBuffer.m_span;
+  if (m_fBuffer.m_flipped)
   {
-    gmem += swidth*(frameBuffer->getHeight()-1);
+    gmem += swidth*(m_fBuffer.m_h-1);
     swidth=-swidth;
   }
 

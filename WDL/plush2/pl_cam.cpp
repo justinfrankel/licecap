@@ -62,15 +62,15 @@ void pl_Cam::SetTarget(pl_Float x, pl_Float y, pl_Float z) {
   GenMatrix = true;
 }
 
-void pl_Cam::RecalcFrustum() 
+void pl_Cam::RecalcFrustum(int fbw, int fbh)
 {
-  int fbw=frameBuffer->getWidth();
-  int fbh=frameBuffer->getHeight();
-  int cx = CenterX + fbw/2;
-  int cy = CenterY + fbh/2;
+  const int cx = (CenterX*m_lastFBScaling)/256 + fbw/2;
+  const int cy = (CenterY*m_lastFBScaling)/256 + fbh/2;
+  m_lastCX = cx;
+  m_lastCY = cy;
 
   m_adj_asp = 1.0 / AspectRatio;
-  m_fovfactor = fbw/tan(plMin(plMax(Fov,1.0),179.0)*(PL_PI/360.0));
+  m_fovfactor = CalcFOVFactor(fbw);
   memset(m_clipPlanes,0,sizeof(m_clipPlanes));
 
   /* Back */
@@ -222,7 +222,7 @@ bool pl_Cam::ProjectCoordinate(pl_Float x, pl_Float y, pl_Float z, pl_Float *scr
   if (!m_lastFBWidth || !m_lastFBHeight || z < 0.0000000001) return false;
 
   const double iz = 1.0/z;
-  double ytmp = m_fovfactor * iz;
+  double ytmp = CalcFOVFactor(m_lastFBWidth) * iz;
   double xtmp = ytmp*x;
   ytmp *= y*m_adj_asp;
 
@@ -237,8 +237,7 @@ bool pl_Cam::ProjectCoordinate(pl_Float x, pl_Float y, pl_Float z, pl_Float *scr
 
 
 void pl_Cam::ClipRenderFace(pl_Face *face, pl_Obj *obj) {
-  int cx = CenterX + (frameBuffer->getWidth())/2;
-  int cy = CenterY + (frameBuffer->getHeight())/2;
+  const int cx = m_lastCX, cy = m_lastCY;
 
   {
     pl_Vertex *vlist=obj->Vertices.Get();
@@ -302,43 +301,16 @@ void pl_Cam::ClipRenderFace(pl_Face *face, pl_Obj *obj) {
         (newface.Scrx[2] - newface.Scrx[0]) * 
         (newface.Scry[1] - newface.Scry[0]) );
 
-      if (frameBuffer->Extended(LICE_EXT_SUPPORTS_ID,(void*)(INT_PTR)LICE_EXT_DRAWTRIANGLE_ACCEL))
-      {
-        LICE_Ext_DrawTriangle_acceldata ac;
-        ac.mat = newface.Material;
-        int x,y;
-        for(x=0;x<3;x++) for(y=0;y<3;y++) ac.VertexShades[x][y]=newface.Shades[x][y];
-        for(x=0;x<3;x++) 
-        {
-          ac.scrx[x]=newface.Scrx[x];
-          ac.scry[x]=newface.Scry[x];
-          ac.scrz[x]=newface.Scrz[x];
-        }
-        for(x=0;x<2;x++)
-        {
-          int tidx=x?newface.Material->TexMapIdx : newface.Material->Tex2MapIdx;
-          if (tidx<0 || tidx>=PLUSH_MAX_MAPCOORDS)tidx=PLUSH_MAX_MAPCOORDS-1;
-          for(y=0;y<3;y++)
-          {
-            ac.mapping_coords[x][y][0]=newface.MappingU[tidx][y];
-            ac.mapping_coords[x][y][1]=newface.MappingV[tidx][y];
-          }
-        }
-          
-        frameBuffer->Extended(LICE_EXT_DRAWTRIANGLE_ACCEL,&ac);
-      }
-      else PutFace(&newface);
+      PutFace(&newface);
     }
   }
 }
 
 pl_sInt pl_Cam::ClipNeeded(pl_Face *face, pl_Obj *obj) {
+  const int fbw=m_fBuffer.m_w, fbh=m_fBuffer.m_h;
+  const int cx = m_lastCX, cy = m_lastCY;
   double dr,dl,db,dt; 
   double f;
-  int fbw=(frameBuffer->getWidth());
-  int fbh=(frameBuffer->getHeight());
-  int cx = CenterX + fbw/2;
-  int cy = CenterY + fbh/2;
   dr = (fbw-cx);
   dl = (-cx);
   db = (fbh-cy);
@@ -376,13 +348,25 @@ pl_sInt pl_Cam::ClipNeeded(pl_Face *face, pl_Obj *obj) {
 
 
 void pl_Cam::Begin(LICE_IBitmap *fb, bool want_zbclear, pl_ZBuffer zbclear) {
-  if (frameBuffer||!fb) return;
+  if (WDL_NOT_NORMALLY(m_fBuffer.m_buf) || WDL_NOT_NORMALLY(!fb)) return;
+
+  m_lastFBWidth=fb->getWidth();
+  m_lastFBHeight=fb->getHeight();
+  m_lastFBScaling = (int)fb->Extended(LICE_EXT_GET_SCALING,NULL);
+  if (m_lastFBScaling==0 || WDL_NOT_NORMALLY(m_lastFBScaling > 1024)) m_lastFBScaling=256;
+
+  m_fBuffer.m_buf = fb->getBits();
+  m_fBuffer.m_span = fb->getRowSpan();
+  m_fBuffer.m_w = fb->getWidth() * m_lastFBScaling / 256;
+  m_fBuffer.m_h = fb->getHeight() * m_lastFBScaling / 256;
+  m_fBuffer.m_flipped = fb->isFlipped();
 
   if (WantZBuffer)
   {
-    int zbsz=fb->getWidth()*fb->getHeight();
-    pl_ZBuffer *zb=zBuffer.Resize(zbsz);
-    if (want_zbclear)
+    int zbsz=m_fBuffer.m_w*m_fBuffer.m_h;
+    pl_ZBuffer *zb=zBuffer.ResizeOK(zbsz);
+    if (!zb) zBuffer.Resize(0);
+    else if (want_zbclear)
     {
       if (!zbclear) memset(zb,0,zbsz*sizeof(pl_ZBuffer));
       else
@@ -396,7 +380,6 @@ void pl_Cam::Begin(LICE_IBitmap *fb, bool want_zbclear, pl_ZBuffer zbclear) {
   pl_Float tempMatrix[16];
   _numlights = 0;
   _numfaces = _numfaces_sorted = 0;
-  frameBuffer = fb;
   if (GenMatrix)
   {
     plMatrixRotate(CamMatrix,2,-Pan);
@@ -406,7 +389,7 @@ void pl_Cam::Begin(LICE_IBitmap *fb, bool want_zbclear, pl_ZBuffer zbclear) {
     plMatrixMultiply(CamMatrix,tempMatrix);
   }
   
-  RecalcFrustum();
+  RecalcFrustum(m_fBuffer.m_w, m_fBuffer.m_h);
 
   RenderTrisIn=RenderTrisCulled=RenderTrisOut=0;
   RenderPixelsOut=0.0;
@@ -414,7 +397,7 @@ void pl_Cam::Begin(LICE_IBitmap *fb, bool want_zbclear, pl_ZBuffer zbclear) {
 }
 
 void pl_Cam::RenderLight(pl_Light *light) {
-  if (!light||!frameBuffer) return;
+  if (!light||WDL_NOT_NORMALLY(!m_fBuffer.m_buf)) return;
 
   pl_Float *pl, xp, yp, zp;
   if (light->Type == PL_LIGHT_NONE) return;
@@ -435,7 +418,7 @@ void pl_Cam::RenderLight(pl_Light *light) {
 }
 
 void pl_Cam::RenderObject(pl_Obj *obj, const pl_Float *bmatrix, const pl_Float *bnmatrix) {
-  if (!obj||!frameBuffer) return;
+  if (!obj||WDL_NOT_NORMALLY(!m_fBuffer.m_buf)) return;
 
   pl_Float oMatrix[16], nMatrix[16], tempMatrix[16];
   
@@ -729,7 +712,7 @@ int pl_Cam::sortFwdFunc(const void *a, const void *b)
 }
 
 void pl_Cam::End() {
-  if (!frameBuffer) return;
+  if (WDL_NOT_NORMALLY(!m_fBuffer.m_buf)) return;
 
   SortToCurrent();
 
@@ -744,9 +727,7 @@ void pl_Cam::End() {
     f++;
   }
 
-  m_lastFBWidth=frameBuffer->getWidth();
-  m_lastFBHeight=frameBuffer->getHeight();
-  frameBuffer=NULL;
+  m_fBuffer.m_buf = NULL;
   _numfaces=0;
   _numlights = 0;
 }

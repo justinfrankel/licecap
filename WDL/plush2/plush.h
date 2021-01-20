@@ -265,9 +265,9 @@ public:
 
 class pl_Cam {
 public:
-  pl_Cam() 
+  pl_Cam() : m_fBuffer(NULL,0,0,0,false)
   {
-    frameBuffer=0;
+    m_lastFBScaling=256;
     m_lastFBWidth=m_lastFBHeight=0;
     Fov=90.0;
     AspectRatio=1.0;
@@ -309,7 +309,7 @@ public:
   // returns true if onscreen x/y/z are world coordinates
   bool ProjectCoordinate(pl_Float x, pl_Float y, pl_Float z, pl_Float *screen_x, pl_Float *screen_y, pl_Float *dist); // outputs can be NULL if not needed
 
-  LICE_IBitmap *GetFrameBuffer() { return frameBuffer; }
+  LICE_IBitmap *GetFrameBuffer() { return m_fBuffer.m_buf ? &m_fBuffer : NULL; }
   WDL_TypedBuf<pl_ZBuffer> zBuffer;           /* Z Buffer (validate size before using)*/
 
   void End();
@@ -323,13 +323,19 @@ public:
   void PutFace(pl_Face *TriFace);
 
 protected:
-  LICE_IBitmap *frameBuffer;         /* Framebuffer  - note this is owned by the camera if you set it */
-  pl_uInt m_lastFBWidth, m_lastFBHeight;
+  LICE_WrapperBitmap m_fBuffer;
+  pl_uInt m_lastFBWidth, m_lastFBHeight; // unscaled sizes when compared to m_fBuffer
+  pl_uInt m_lastFBScaling;
+  pl_sInt m_lastCX, m_lastCY; // calculated as w/2+CenterX/2 etc
 
     // internal use
   void ClipRenderFace(pl_Face *face, pl_Obj *obj);
   int ClipNeeded(pl_Face *face, pl_Obj *obj); // 0=no draw, 1=drawing (possibly splitting) necessary
-  void RecalcFrustum(); 
+  void RecalcFrustum(int fbw, int fbh);
+  double CalcFOVFactor(double fbw) const
+  {
+    return fbw/tan(plMin(plMax(Fov,1.0),179.0)*(PL_PI/360.0));
+  }
 
 
   #define PL_NUM_CLIP_PLANES 5
