@@ -322,7 +322,7 @@ public:
 
   void PutFace(pl_Face *TriFace);
 
-private:
+protected:
   LICE_IBitmap *frameBuffer;         /* Framebuffer  - note this is owned by the camera if you set it */
   pl_uInt m_lastFBWidth, m_lastFBHeight;
 
