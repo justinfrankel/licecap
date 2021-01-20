@@ -100,7 +100,7 @@ public:
 
     FadeDist=0.0;
     Smoothing=Lightable=true;
-    zBufferable=true;
+    zBufferable=1;
     PerspectiveCorrect=16;
     BackfaceCull=true;
     BackfaceIllumination=0.0;
@@ -118,7 +118,7 @@ public:
 
   pl_Bool Smoothing; // smoothing of lighting
   pl_Bool Lightable; // affected by lights
-  pl_Bool zBufferable;         /* Can this material be zbuffered? */
+  pl_uChar zBufferable;         /* Can this material be Z-buffered? 2=yes, but does not update Z buffer */
   pl_uChar PerspectiveCorrect; /* Correct texture perspective every n pixels */
 
   pl_Float FadeDist WDL_FIXALIGN;            /* For distance fading, distance at which intensity is 0. set to 0.0 for no distance shading */
