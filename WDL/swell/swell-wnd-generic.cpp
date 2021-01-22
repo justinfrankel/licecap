@@ -7617,6 +7617,7 @@ int GetSystemMetrics(int p)
     case SM_CYHSCROLL:
     case SM_CXVSCROLL:
     case SM_CYVSCROLL: return g_swell_ctheme.smscrollbar_width;
+    case SM_CYMENU: return g_swell_ctheme.menubar_height;
   }
   return 0;
 }

@@ -5955,6 +5955,7 @@ case SM_CXHSCROLL: return 16;
 case SM_CYHSCROLL: return 16;
 case SM_CXVSCROLL: return 16;
 case SM_CYVSCROLL: return 16;
+  case SM_CYMENU: return (int)([[NSApp mainMenu] menuBarHeight] + 0.5);
 }
 return 0;
 }

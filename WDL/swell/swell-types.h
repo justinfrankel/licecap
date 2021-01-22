@@ -1358,6 +1358,7 @@ extern struct SWELL_MenuResourceIndex *SWELL_curmodule_menuresource_head;
 #define SM_CYSCREEN             1
 #define SM_CXVSCROLL            2
 #define SM_CYHSCROLL            3
+#define SM_CYMENU               15
 #define SM_CYVSCROLL            20
 #define SM_CXHSCROLL            21
 
@@ -1375,7 +1376,6 @@ extern struct SWELL_MenuResourceIndex *SWELL_curmodule_menuresource_head;
 #define SM_CYICON               12
 #define SM_CXCURSOR             13
 #define SM_CYCURSOR             14
-#define SM_CYMENU               15
 #define SM_CXFULLSCREEN         16
 #define SM_CYFULLSCREEN         17
 #define SM_CYKANJIWINDOW        18
