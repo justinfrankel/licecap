@@ -1996,6 +1996,36 @@ static LRESULT xbridgeProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
       }
     break;
     case WM_TIMER:
+
+      if (wParam == 1010)
+      {
+        // callers can SetTimer(hwnd_container,1010,X,NULL) and have the child X window resized to fit the parent
+        // they are only resized once, but it is deferred by timer until the window is actually there.
+        // (if the window was created by another connection to the X server than ours, the window might not yet
+        // be valid on the X server).
+        bridgeState *bs = (bridgeState*)hwnd->m_private_data;
+
+        RECT r;
+        GetClientRect(hwnd,&r);
+        if (r.right>0 && r.bottom>0 && bs)
+        {
+          Window root, par, *list=NULL;
+          unsigned int nlist=0;
+          // if a plug-in created a window on a separate X11 connection, it might not be valid yet.
+          if (XQueryTree(bs->native_disp,bs->native_w,&root,&par,&list, &nlist))
+          {
+            if (!list || !nlist)
+            {
+              if (list) XFree(list);
+              return 0;
+            }
+            XResizeWindow(bs->native_disp,list[0],r.right,r.bottom);
+            XFree(list);
+          }
+        }
+        KillTimer(hwnd,wParam);
+      }
+
       if (wParam != 1) break;
     case WM_MOVE:
     case WM_SIZE:
