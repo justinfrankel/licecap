@@ -962,7 +962,7 @@ SWELL_API_DEFINE(void, SetAllowNoMiddleManRendering, (HWND h, bool allow)) // de
 #ifdef SWELL_TARGET_OSX
 SWELL_API_DEFINE(int, SWELL_IsRetinaDC, (HDC hdc)) // returns 1 if DC is a retina DC (2x res possible)
 SWELL_API_DEFINE(int, SWELL_IsRetinaHWND, (HWND h)) // returns 1 if HWND is a retina HWND
-SWELL_API_DEFINE(void, SWELL_SetViewGL, (HWND h, bool wantGL))
+SWELL_API_DEFINE(void, SWELL_SetViewGL, (HWND h, char wantGL)) // wantGL=2 to enable wantsBestResolutionOpenGLSurface
 SWELL_API_DEFINE(bool, SWELL_GetViewGL, (HWND h))
 SWELL_API_DEFINE(bool, SWELL_SetGLContextToView, (HWND h)) // sets GL context to that view, returns TRUE if successs (use NULL to clear GL context)
 #endif

@@ -3594,15 +3594,17 @@ bool SWELL_SetGLContextToView(HWND h)
   return false;
 }
 
-void SWELL_SetViewGL(HWND h, bool wantGL)
+void SWELL_SetViewGL(HWND h, char wantGL)
 {
   if (WDL_NORMALLY(h && [(id)h isKindOfClass:[SWELL_hwndChild class]]))
   {
     SWELL_hwndChild *hc = (SWELL_hwndChild*)h;
-    if (wantGL != !!hc->m_glctx)
+    if (!!wantGL != !!hc->m_glctx)
     {
       if (wantGL) 
       {
+        if (wantGL == 2 && SWELL_GetOSXVersion()>=0x1070) [(NSView *)h setWantsBestResolutionOpenGLSurface:YES];
+
         NSOpenGLPixelFormatAttribute atr[] = { 
             (NSOpenGLPixelFormatAttribute)96/*NSOpenGLPFAAllowOfflineRenderers*/, // allows use of NSSupportsAutomaticGraphicsSwitching and no gpu-forcing
             (NSOpenGLPixelFormatAttribute)0
