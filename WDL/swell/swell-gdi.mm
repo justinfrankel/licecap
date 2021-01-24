@@ -1427,6 +1427,10 @@ int GetSysColor(int idx)
   {
     case COLOR_WINDOW: return ColorFromNSColor([NSColor controlColor],RGB(192,192,192));
     case COLOR_3DFACE: 
+      if (SWELL_osx_is_dark_mode(1))
+        return ColorFromNSColor_Actual([NSColor windowBackgroundColor],RGB(64,64,64));
+      // fall through
+
     case COLOR_BTNFACE: return ColorFromNSColor([NSColor controlColor],RGB(192,192,192));
     case COLOR_SCROLLBAR: return ColorFromNSColor([NSColor controlColor],RGB(32,32,32));
     case COLOR_3DSHADOW: return ColorFromNSColor([NSColor selectedTextBackgroundColor],RGB(96,96,96));
