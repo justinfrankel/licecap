@@ -232,9 +232,17 @@ protected:
     }
     const char *p = tok_start;
     int nlen;
+    bool had_colon = false;
     if ((nlen = is_number_tok(p,str_end))) p+=nlen;
     else if (is_single_char_tok(*p)) p++;
-    else while (p < str_end && !is_ws(*p) && !is_single_char_tok(*p) && *p != '<') p++;
+    else while (p < str_end && !is_ws(*p))
+    {
+      if (*p == '<') break;
+      else if (*p == ':') had_colon = true;
+      else if (had_colon && *p == '.' && (p+1) < str_end && !is_ws(p[1]) && !is_single_char_tok(p[1])) { }
+      else if (is_single_char_tok(*p)) break;
+      p++;
+    }
     *toklen = (int)((*str = p) - tok_start);
     return tok_start;
   }
