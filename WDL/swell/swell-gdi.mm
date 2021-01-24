@@ -1404,24 +1404,21 @@ void *GetNSImageFromHICON(HICON ico)
   return i->bitmapptr;
 }
 
-#if 0
-static int ColorFromNSColor(NSColor *color, int valifnul)
+static int ColorFromNSColor_Actual(NSColor *color, int valifnul)
 {
   if (!color) return valifnul;
-  float r,g,b;
+  CGFloat r,g,b;
   NSColor *color2=[color colorUsingColorSpaceName:NSCalibratedRGBColorSpace];
-  if (!color2) 
-  {
-    NSLog(@"error converting colorspace from: %@\n",[color colorSpaceName]);
-    return valifnul;
-  }
-  
+  if (!color2) return valifnul;
   [color2 getRed:&r green:&g blue:&b alpha:NULL];
+  if (r<0) r=0; else if (r>1) r=1;
+  if (g<0) g=0; else if (g>1) g=1;
+  if (b<0) b=0; else if (b>1) b=1;
   return RGB((int)(r*255.0),(int)(g*255.0),(int)(b*255.0));
 }
-#else
+
 #define ColorFromNSColor(a,b) (b)
-#endif
+
 int GetSysColor(int idx)
 {
  // NSColors that seem to be valid: textBackgroundColor, selectedTextBackgroundColor, textColor, selectedTextColor
