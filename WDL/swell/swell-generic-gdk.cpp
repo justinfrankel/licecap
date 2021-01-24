@@ -2019,6 +2019,25 @@ static LRESULT xbridgeProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
               if (list) XFree(list);
               return 0;
             }
+            XSizeHints *hints = XAllocSizeHints();
+            if (hints)
+            {
+              long hints_ret=0;
+              XGetWMNormalHints(bs->native_disp,list[0],hints,&hints_ret);
+
+              if (hints->flags&PMinSize)
+              {
+                if (r.right < hints->min_width) r.right = hints->min_width;
+                if (r.bottom < hints->min_height) r.bottom = hints->min_height;
+              }
+              if (hints->flags&PMaxSize)
+              {
+                if (hints->max_width > 0 && r.right > hints->max_width) r.right = hints->max_width;
+                if (hints->max_height > 0 && r.bottom > hints->max_height) r.bottom = hints->max_height;
+              }
+              XFree(hints);
+            }
+
             XResizeWindow(bs->native_disp,list[0],r.right,r.bottom);
             XFree(list);
           }
