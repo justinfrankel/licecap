@@ -148,19 +148,6 @@ public:
     }
   }
 
-protected:
-  WDL_FastString m_base; // @base
-  WDL_StringKeyedArray<char *> m_prefixes; // @prefix
-
-  static bool is_single_char_tok(int c) { return c == '.' || c == ',' || c == ';' || c == '(' || c == ')' || c == '[' || c == ']'; }
-  static bool is_ws(int c) { return c == '\t' || c == '\r' || c == '\n' || c == ' '; }
-
-  void on_err(const char *msg, const char *rdptr)
-  {
-    if (!m_error_msg && msg) m_error_msg = msg;
-    if (!m_error_ptr && rdptr) m_error_ptr = rdptr;
-  }
-
   static int is_number_tok(const char *p, const char *str_end)
   {
     int i = 0, f = 0; // 1=has number before e  2=has . 4=has e/E, 8=has number after e
@@ -180,6 +167,20 @@ protected:
     }
     if (!(f&1) || (f&(4|8)) == 4) return 0;
     return i;
+  }
+
+
+protected:
+  WDL_FastString m_base; // @base
+  WDL_StringKeyedArray<char *> m_prefixes; // @prefix
+
+  static bool is_single_char_tok(int c) { return c == '.' || c == ',' || c == ';' || c == '(' || c == ')' || c == '[' || c == ']'; }
+  static bool is_ws(int c) { return c == '\t' || c == '\r' || c == '\n' || c == ' '; }
+
+  void on_err(const char *msg, const char *rdptr)
+  {
+    if (!m_error_msg && msg) m_error_msg = msg;
+    if (!m_error_ptr && rdptr) m_error_ptr = rdptr;
   }
 
   const char *next_tok(const char **str, const char *str_end, int *toklen)
