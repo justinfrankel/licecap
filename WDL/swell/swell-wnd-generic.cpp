@@ -792,7 +792,6 @@ typedef struct TimerInfoRec
 
 static TimerInfoRec *m_timer_list;
 static WDL_Mutex m_timermutex;
-static pthread_t m_pmq_mainthread;
 
 static TimerInfoRec *spare_timers;
 static void free_timer(TimerInfoRec *rec)
@@ -7447,7 +7446,7 @@ typedef struct PMQ_rec
   struct PMQ_rec *next;
 } PMQ_rec;
 
-static WDL_Mutex *m_pmq_mutex;
+static WDL_Mutex m_pmq_mutex;
 static PMQ_rec *m_pmq, *m_pmq_empty, *m_pmq_tail;
 static int m_pmq_size;
 
@@ -7456,17 +7455,11 @@ static int m_pmq_size;
 
 void SWELL_Internal_PostMessage_Init()
 {
-  if (m_pmq_mutex) return;
-  
-  m_pmq_mainthread=pthread_self();
-  m_pmq_mutex = new WDL_Mutex;
 }
 
 void SWELL_MessageQueue_Flush()
 {
-  if (WDL_NOT_NORMALLY(!m_pmq_mutex)) return;
-  
-  m_pmq_mutex->Enter();
+  m_pmq_mutex.Enter();
   int max_amt = m_pmq_size;
   PMQ_rec *p=m_pmq;
   if (p)
@@ -7475,14 +7468,14 @@ void SWELL_MessageQueue_Flush()
     if (m_pmq_tail == p) m_pmq_tail=NULL;
     m_pmq_size--;
   }
-  m_pmq_mutex->Leave();
+  m_pmq_mutex.Leave();
   
   // process out up to max_amt of queue
   while (p)
   {
     SendMessage(p->hwnd,p->msg,p->wParam,p->lParam); 
 
-    m_pmq_mutex->Enter();
+    m_pmq_mutex.Enter();
     // move this message to empty list
     p->next=m_pmq_empty;
     m_pmq_empty = p;
@@ -7495,15 +7488,13 @@ void SWELL_MessageQueue_Flush()
       if (m_pmq_tail == p) m_pmq_tail=NULL;
       m_pmq_size--;
     }
-    m_pmq_mutex->Leave();
+    m_pmq_mutex.Leave();
   }
 }
 
 void SWELL_Internal_PMQ_ClearAllMessages(HWND hwnd)
 {
-  if (WDL_NOT_NORMALLY(!m_pmq_mutex)) return;
-  
-  m_pmq_mutex->Enter();
+  m_pmq_mutex.Enter();
   PMQ_rec *p=m_pmq;
   PMQ_rec *lastrec=NULL;
   while (p)
@@ -7524,17 +7515,15 @@ void SWELL_Internal_PMQ_ClearAllMessages(HWND hwnd)
       else p = m_pmq = next;
     }
   }
-  m_pmq_mutex->Leave();
+  m_pmq_mutex.Leave();
 }
 
 BOOL SWELL_Internal_PostMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-  if (WDL_NOT_NORMALLY(!hwnd) ||
-      hwnd->m_hashaddestroy ||
-      WDL_NOT_NORMALLY(!m_pmq_mutex)) return FALSE;
+  if (WDL_NOT_NORMALLY(!hwnd) || hwnd->m_hashaddestroy) return FALSE;
 
   BOOL ret=FALSE;
-  m_pmq_mutex->Enter();
+  m_pmq_mutex.Enter();
 
   if (m_pmq_empty||m_pmq_size<MAX_POSTMESSAGE_SIZE)
   {
@@ -7561,7 +7550,7 @@ BOOL SWELL_Internal_PostMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     ret=TRUE;
   }
 
-  m_pmq_mutex->Leave();
+  m_pmq_mutex.Leave();
 
   return ret;
 }
