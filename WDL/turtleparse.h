@@ -143,7 +143,7 @@ public:
           list = new wdl_turtle_pair(NULL,NULL,NULL,NULL,1);
           objects.Insert(fs1.Get(),list);
         }
-        if (!parse_list(&str,str_end,list,'.')) return;
+        if (!parse_list(&str,str_end,list->get_list(),'.')) return;
       }
     }
   }
@@ -339,9 +339,9 @@ protected:
     return rv;
   }
 
-  bool parse_list(const char **str, const char *str_end, wdl_turtle_pair *listOut, int endchar)
+  bool parse_list(const char **str, const char *str_end, WDL_PtrList<wdl_turtle_pair> *listOut, int endchar)
   {
-    WDL_ASSERT(listOut->get_list());
+    if (WDL_NOT_NORMALLY(listOut == NULL)) return false;
     WDL_FastString verb_str, s, langtype;
     const char *has_verb = NULL;
     int state = 0, tok_l;
@@ -375,14 +375,14 @@ protected:
           if (tok[0] == '[')
           {
             wdl_turtle_pair *list = new wdl_turtle_pair(has_verb, NULL,NULL,NULL,1);
-            listOut->get_list()->Add(list);
-            if (!parse_list(str,str_end,list,']')) return false;
+            listOut->Add(list);
+            if (!parse_list(str,str_end,list->get_list(),']')) return false;
           }
           else if (tok[0] == '(')
           {
             wdl_turtle_pair *list = new wdl_turtle_pair(has_verb, NULL,NULL,NULL,2);
-            listOut->get_list()->Add(list);
-            if (!parse_list(str,str_end,list,')')) return false;
+            listOut->Add(list);
+            if (!parse_list(str,str_end,list->get_collection(),')')) return false;
           }
           else
           {
@@ -410,7 +410,7 @@ protected:
                 }
               }
             }
-            listOut->get_list()->Add(new wdl_turtle_pair(has_verb, t == '<' ? s.Get() : NULL, t == '<' ? NULL : s.Get(), has_langtype ? langtype.Get() : NULL, 0));
+            listOut->Add(new wdl_turtle_pair(has_verb, t == '<' ? s.Get() : NULL, t == '<' ? NULL : s.Get(), has_langtype ? langtype.Get() : NULL, 0));
           }
           state++;
         break;
