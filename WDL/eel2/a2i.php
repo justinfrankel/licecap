@@ -37,8 +37,6 @@ while (($line = fgets($in)))
   {
     if (!$inblock)
     {
-      if (substr(trim($line),0,5)== "void ")
-        $line = "__declspec(naked) " . trim($line);
       if (strstr($line,"__asm__("))
       {
         $line=str_replace("__asm__(", "__asm {", $line);

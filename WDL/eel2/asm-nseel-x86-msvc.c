@@ -12,7 +12,7 @@
 #define X64_EXTRA_STACK_SPACE 32 // win32 requires allocating space for 4 parameters at 8 bytes each, even though we pass via register
 #endif
 
-__declspec(naked) void nseel_asm_1pdd(void)
+void nseel_asm_1pdd(void)
 {
   __asm {
 
@@ -66,9 +66,9 @@ _emit 0x90;
 
   }
 }
-__declspec(naked) void nseel_asm_1pdd_end(void){}
+void nseel_asm_1pdd_end(void){}
 
-__declspec(naked) void nseel_asm_2pdd(void)
+void nseel_asm_2pdd(void)
 {
   __asm {
 _emit 0x89;
@@ -123,9 +123,9 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_2pdd_end(void){}
+void nseel_asm_2pdd_end(void){}
 
-__declspec(naked) void nseel_asm_2pdds(void)
+void nseel_asm_2pdds(void)
 {
   __asm {
 _emit 0x89;
@@ -203,7 +203,7 @@ _emit 0x90;
 
   }
 }
-__declspec(naked) void nseel_asm_2pdds_end(void){}
+void nseel_asm_2pdds_end(void){}
 
 
 
@@ -211,7 +211,7 @@ __declspec(naked) void nseel_asm_2pdds_end(void){}
 
 
 // do nothing, eh
-__declspec(naked) void nseel_asm_exec2(void)
+void nseel_asm_exec2(void)
 {
    __asm {
 _emit 0x89;
@@ -241,11 +241,11 @@ _emit 0x90;
 _emit 0x90;
     }
 }
-__declspec(naked) void nseel_asm_exec2_end(void) { }
+void nseel_asm_exec2_end(void) { }
 
 
 
-__declspec(naked) void nseel_asm_invsqrt(void)
+void nseel_asm_invsqrt(void)
 {
   __asm {
 _emit 0x89;
@@ -325,10 +325,10 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_invsqrt_end(void) {}
+void nseel_asm_invsqrt_end(void) {}
 
 
-__declspec(naked) void nseel_asm_dbg_getstackptr(void)
+void nseel_asm_dbg_getstackptr(void)
 {
   __asm {
 _emit 0x89;
@@ -365,10 +365,10 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_dbg_getstackptr_end(void) {}
+void nseel_asm_dbg_getstackptr_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_sin(void)
+void nseel_asm_sin(void)
 {
   __asm {
 _emit 0x89;
@@ -398,10 +398,10 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_sin_end(void) {}
+void nseel_asm_sin_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_cos(void)
+void nseel_asm_cos(void)
 {
   __asm {
 _emit 0x89;
@@ -431,10 +431,10 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_cos_end(void) {}
+void nseel_asm_cos_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_tan(void)
+void nseel_asm_tan(void)
 {
   __asm {
 _emit 0x89;
@@ -465,10 +465,10 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_tan_end(void) {}
+void nseel_asm_tan_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_sqr(void)
+void nseel_asm_sqr(void)
 {
   __asm {
 _emit 0x89;
@@ -498,10 +498,10 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_sqr_end(void) {}
+void nseel_asm_sqr_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_sqrt(void)
+void nseel_asm_sqrt(void)
 {
   __asm {
 _emit 0x89;
@@ -532,11 +532,11 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_sqrt_end(void) {}
+void nseel_asm_sqrt_end(void) {}
 
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_log(void)
+void nseel_asm_log(void)
 {
   __asm {
 _emit 0x89;
@@ -568,10 +568,10 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_log_end(void) {}
+void nseel_asm_log_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_log10(void)
+void nseel_asm_log10(void)
 {
   __asm {
 _emit 0x89;
@@ -604,10 +604,10 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_log10_end(void) {}
+void nseel_asm_log10_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_abs(void)
+void nseel_asm_abs(void)
 {
   __asm {
 _emit 0x89;
@@ -637,11 +637,11 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_abs_end(void) {}
+void nseel_asm_abs_end(void) {}
 
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_assign(void)
+void nseel_asm_assign(void)
 {
 #ifdef TARGET_X64
 
@@ -731,10 +731,10 @@ _emit 0x90;
 
 #endif
 }
-__declspec(naked) void nseel_asm_assign_end(void) {}
+void nseel_asm_assign_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_assign_fromfp(void)
+void nseel_asm_assign_fromfp(void)
 {
   __asm {
 _emit 0x89;
@@ -780,11 +780,11 @@ _emit 0x90;
 _emit 0x90;
     }
 }
-__declspec(naked) void nseel_asm_assign_fromfp_end(void) {}
+void nseel_asm_assign_fromfp_end(void) {}
 
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_assign_fast_fromfp(void)
+void nseel_asm_assign_fast_fromfp(void)
 {
   __asm {
 _emit 0x89;
@@ -815,12 +815,12 @@ _emit 0x90;
 _emit 0x90;
    }
 }
-__declspec(naked) void nseel_asm_assign_fast_fromfp_end(void) {}
+void nseel_asm_assign_fast_fromfp_end(void) {}
 
 
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_assign_fast(void)
+void nseel_asm_assign_fast(void)
 {
 #ifdef TARGET_X64
 
@@ -891,10 +891,10 @@ _emit 0x90;
 
 #endif
 }
-__declspec(naked) void nseel_asm_assign_fast_end(void) {}
+void nseel_asm_assign_fast_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_add(void)
+void nseel_asm_add(void)
 {
   __asm {
 _emit 0x89;
@@ -928,9 +928,9 @@ _emit 0x90;
 _emit 0x90;
           }
 }
-__declspec(naked) void nseel_asm_add_end(void) {}
+void nseel_asm_add_end(void) {}
 
-__declspec(naked) void nseel_asm_add_op(void)
+void nseel_asm_add_op(void)
 {
   __asm {
 _emit 0x89;
@@ -977,9 +977,9 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_add_op_end(void) {}
+void nseel_asm_add_op_end(void) {}
 
-__declspec(naked) void nseel_asm_add_op_fast(void)
+void nseel_asm_add_op_fast(void)
 {
   __asm {
 _emit 0x89;
@@ -1011,11 +1011,11 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_add_op_fast_end(void) {}
+void nseel_asm_add_op_fast_end(void) {}
 
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_sub(void)
+void nseel_asm_sub(void)
 {
   __asm {
 _emit 0x89;
@@ -1057,9 +1057,9 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_sub_end(void) {}
+void nseel_asm_sub_end(void) {}
 
-__declspec(naked) void nseel_asm_sub_op(void)
+void nseel_asm_sub_op(void)
 {
   __asm {
 _emit 0x89;
@@ -1106,9 +1106,9 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_sub_op_end(void) {}
+void nseel_asm_sub_op_end(void) {}
 
-__declspec(naked) void nseel_asm_sub_op_fast(void)
+void nseel_asm_sub_op_fast(void)
 {
   __asm {
 _emit 0x89;
@@ -1140,10 +1140,10 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_sub_op_fast_end(void) {}
+void nseel_asm_sub_op_fast_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_mul(void)
+void nseel_asm_mul(void)
 {
   __asm {
 _emit 0x89;
@@ -1177,9 +1177,9 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_mul_end(void) {}
+void nseel_asm_mul_end(void) {}
 
-__declspec(naked) void nseel_asm_mul_op(void)
+void nseel_asm_mul_op(void)
 {
   __asm {
 _emit 0x89;
@@ -1226,9 +1226,9 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_mul_op_end(void) {}
+void nseel_asm_mul_op_end(void) {}
 
-__declspec(naked) void nseel_asm_mul_op_fast(void)
+void nseel_asm_mul_op_fast(void)
 {
   __asm {
 _emit 0x89;
@@ -1260,10 +1260,10 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_mul_op_fast_end(void) {}
+void nseel_asm_mul_op_fast_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_div(void)
+void nseel_asm_div(void)
 {
   __asm {
 _emit 0x89;
@@ -1305,9 +1305,9 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_div_end(void) {}
+void nseel_asm_div_end(void) {}
 
-__declspec(naked) void nseel_asm_div_op(void)
+void nseel_asm_div_op(void)
 {
   __asm {
 _emit 0x89;
@@ -1368,9 +1368,9 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_div_op_end(void) {}
+void nseel_asm_div_op_end(void) {}
 
-__declspec(naked) void nseel_asm_div_op_fast(void)
+void nseel_asm_div_op_fast(void)
 {
   __asm {
 _emit 0x89;
@@ -1416,10 +1416,10 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_div_op_fast_end(void) {}
+void nseel_asm_div_op_fast_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_mod(void)
+void nseel_asm_mod(void)
 {
   __asm {
 _emit 0x89;
@@ -1462,9 +1462,9 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_mod_end(void) {}
+void nseel_asm_mod_end(void) {}
 
-__declspec(naked) void nseel_asm_shl(void)
+void nseel_asm_shl(void)
 {
   __asm {
 _emit 0x89;
@@ -1500,9 +1500,9 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_shl_end(void) {}
+void nseel_asm_shl_end(void) {}
 
-__declspec(naked) void nseel_asm_shr(void)
+void nseel_asm_shr(void)
 {
   __asm {
 _emit 0x89;
@@ -1538,10 +1538,10 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_shr_end(void) {}
+void nseel_asm_shr_end(void) {}
 
 
-__declspec(naked) void nseel_asm_mod_op(void)
+void nseel_asm_mod_op(void)
 {
   __asm {
 _emit 0x89;
@@ -1588,10 +1588,10 @@ _emit 0x90;
 _emit 0x90;
     }
 }
-__declspec(naked) void nseel_asm_mod_op_end(void) {}
+void nseel_asm_mod_op_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_or(void)
+void nseel_asm_or(void)
 {
   __asm {
 _emit 0x89;
@@ -1633,9 +1633,9 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_or_end(void) {}
+void nseel_asm_or_end(void) {}
 
-__declspec(naked) void nseel_asm_or0(void)
+void nseel_asm_or0(void)
 {
   __asm {
 _emit 0x89;
@@ -1666,9 +1666,9 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_or0_end(void) {}
+void nseel_asm_or0_end(void) {}
 
-__declspec(naked) void nseel_asm_or_op(void)
+void nseel_asm_or_op(void)
 {
   __asm {
 _emit 0x89;
@@ -1714,10 +1714,10 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_or_op_end(void) {}
+void nseel_asm_or_op_end(void) {}
 
 
-__declspec(naked) void nseel_asm_xor(void)
+void nseel_asm_xor(void)
 {
   __asm {
 _emit 0x89;
@@ -1759,9 +1759,9 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_xor_end(void) {}
+void nseel_asm_xor_end(void) {}
 
-__declspec(naked) void nseel_asm_xor_op(void)
+void nseel_asm_xor_op(void)
 {
   __asm {
 _emit 0x89;
@@ -1807,11 +1807,11 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_xor_op_end(void) {}
+void nseel_asm_xor_op_end(void) {}
 
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_and(void)
+void nseel_asm_and(void)
 {
   __asm {
 _emit 0x89;
@@ -1853,9 +1853,9 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_and_end(void) {}
+void nseel_asm_and_end(void) {}
 
-__declspec(naked) void nseel_asm_and_op(void)
+void nseel_asm_and_op(void)
 {
   __asm {
 _emit 0x89;
@@ -1901,11 +1901,11 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_and_op_end(void) {}
+void nseel_asm_and_op_end(void) {}
 
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_uplus(void) // this is the same as doing nothing, it seems
+void nseel_asm_uplus(void) // this is the same as doing nothing, it seems
 {
    __asm {
 _emit 0x89;
@@ -1935,10 +1935,10 @@ _emit 0x90;
 _emit 0x90;
     }
 }
-__declspec(naked) void nseel_asm_uplus_end(void) {}
+void nseel_asm_uplus_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_uminus(void)
+void nseel_asm_uminus(void)
 {
   __asm {
 _emit 0x89;
@@ -1968,12 +1968,12 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_uminus_end(void) {}
+void nseel_asm_uminus_end(void) {}
 
 
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_sign(void)
+void nseel_asm_sign(void)
 {
   __asm {
 _emit 0x89;
@@ -2039,12 +2039,12 @@ _emit 0x90;
 _emit 0x90;
 }
 }
-__declspec(naked) void nseel_asm_sign_end(void) {}
+void nseel_asm_sign_end(void) {}
 
 
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_bnot(void)
+void nseel_asm_bnot(void)
 {
   __asm {
 _emit 0x89;
@@ -2076,10 +2076,10 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_bnot_end(void) {}
+void nseel_asm_bnot_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_fcall(void)
+void nseel_asm_fcall(void)
 {
   __asm {
 _emit 0x89;
@@ -2118,9 +2118,9 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_fcall_end(void) {}
+void nseel_asm_fcall_end(void) {}
 
-__declspec(naked) void nseel_asm_band(void)
+void nseel_asm_band(void)
 {
   __asm {
 _emit 0x89;
@@ -2166,9 +2166,9 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_band_end(void) {}
+void nseel_asm_band_end(void) {}
 
-__declspec(naked) void nseel_asm_bor(void)
+void nseel_asm_bor(void)
 {
   __asm {
 _emit 0x89;
@@ -2214,10 +2214,10 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_bor_end(void) {}
+void nseel_asm_bor_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_equal(void)
+void nseel_asm_equal(void)
 {
   __asm {
 _emit 0x89;
@@ -2261,10 +2261,10 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_equal_end(void) {}
+void nseel_asm_equal_end(void) {}
 //
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_equal_exact(void)
+void nseel_asm_equal_exact(void)
 {
   __asm {
 _emit 0x89;
@@ -2301,9 +2301,9 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_equal_exact_end(void) {}
+void nseel_asm_equal_exact_end(void) {}
 
-__declspec(naked) void nseel_asm_notequal_exact(void)
+void nseel_asm_notequal_exact(void)
 {
   __asm {
 _emit 0x89;
@@ -2341,10 +2341,10 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_notequal_exact_end(void) {}
+void nseel_asm_notequal_exact_end(void) {}
 //
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_notequal(void)
+void nseel_asm_notequal(void)
 {
   __asm {
 _emit 0x89;
@@ -2388,11 +2388,11 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_notequal_end(void) {}
+void nseel_asm_notequal_end(void) {}
 
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_above(void)
+void nseel_asm_above(void)
 {
   __asm {
 _emit 0x89;
@@ -2424,10 +2424,10 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_above_end(void) {}
+void nseel_asm_above_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
-__declspec(naked) void nseel_asm_beloweq(void)
+void nseel_asm_beloweq(void)
 {
   __asm {
 _emit 0x89;
@@ -2460,10 +2460,10 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_beloweq_end(void) {}
+void nseel_asm_beloweq_end(void) {}
 
 
-__declspec(naked) void nseel_asm_booltofp(void)
+void nseel_asm_booltofp(void)
 {
   __asm {
 _emit 0x89;
@@ -2501,9 +2501,9 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_booltofp_end(void) {}
+void nseel_asm_booltofp_end(void) {}
 
-__declspec(naked) void nseel_asm_fptobool(void)
+void nseel_asm_fptobool(void)
 {
   __asm {
 _emit 0x89;
@@ -2541,9 +2541,9 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_fptobool_end(void) {}
+void nseel_asm_fptobool_end(void) {}
 
-__declspec(naked) void nseel_asm_fptobool_rev(void)
+void nseel_asm_fptobool_rev(void)
 {
   __asm {
 _emit 0x89;
@@ -2580,9 +2580,9 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-__declspec(naked) void nseel_asm_fptobool_rev_end(void) {}
+void nseel_asm_fptobool_rev_end(void) {}
 
-__declspec(naked) void nseel_asm_min(void)
+void nseel_asm_min(void)
 {
   __asm {
 _emit 0x89;
@@ -2622,9 +2622,9 @@ _emit 0x90;
     }
 
 }
-__declspec(naked) void nseel_asm_min_end(void) {}
+void nseel_asm_min_end(void) {}
 
-__declspec(naked) void nseel_asm_max(void)
+void nseel_asm_max(void)
 {
   __asm {
 _emit 0x89;
@@ -2663,11 +2663,11 @@ _emit 0x90;
 _emit 0x90;
     }
 }
-__declspec(naked) void nseel_asm_max_end(void) {}
+void nseel_asm_max_end(void) {}
 
 
 
-__declspec(naked) void nseel_asm_min_fp(void)
+void nseel_asm_min_fp(void)
 {
   __asm {
 _emit 0x89;
@@ -2705,9 +2705,9 @@ _emit 0x90;
     }
 
 }
-__declspec(naked) void nseel_asm_min_fp_end(void) {}
+void nseel_asm_min_fp_end(void) {}
 
-__declspec(naked) void nseel_asm_max_fp(void)
+void nseel_asm_max_fp(void)
 {
   __asm {
 _emit 0x89;
@@ -2744,7 +2744,7 @@ _emit 0x90;
 _emit 0x90;
     }
 }
-__declspec(naked) void nseel_asm_max_fp_end(void) {}
+void nseel_asm_max_fp_end(void) {}
 
 
 
@@ -2753,7 +2753,7 @@ __declspec(naked) void nseel_asm_max_fp_end(void) {}
 
 
 
-__declspec(naked) void _asm_generic3parm(void)
+void _asm_generic3parm(void)
 {
   __asm {
 _emit 0x89;
@@ -2819,10 +2819,10 @@ _emit 0x90;
 _emit 0x90;
  }
 }
-__declspec(naked) void _asm_generic3parm_end(void) {}
+void _asm_generic3parm_end(void) {}
 
 
-__declspec(naked) void _asm_generic3parm_retd(void)
+void _asm_generic3parm_retd(void)
 {
   __asm {
 _emit 0x89;
@@ -2888,10 +2888,10 @@ _emit 0x90;
 _emit 0x90;
  }
 }
-__declspec(naked) void _asm_generic3parm_retd_end(void) {}
+void _asm_generic3parm_retd_end(void) {}
 
 
-__declspec(naked) void _asm_generic2parm(void) // this prob neds to be fixed for ppc
+void _asm_generic2parm(void) // this prob neds to be fixed for ppc
 {
   __asm {
 _emit 0x89;
@@ -2951,10 +2951,10 @@ _emit 0x90;
 _emit 0x90;
  }
 }
-__declspec(naked) void _asm_generic2parm_end(void) {}
+void _asm_generic2parm_end(void) {}
 
 
-__declspec(naked) void _asm_generic2parm_retd(void)
+void _asm_generic2parm_retd(void)
 {
   __asm {
 _emit 0x89;
@@ -3017,13 +3017,13 @@ _emit 0x90;
 _emit 0x90;
  }
 }
-__declspec(naked) void _asm_generic2parm_retd_end(void) {}
+void _asm_generic2parm_retd_end(void) {}
 
 
 
 
 
-__declspec(naked) void _asm_generic1parm(void)
+void _asm_generic1parm(void)
 {
   __asm {
 _emit 0x89;
@@ -3080,10 +3080,10 @@ _emit 0x90;
 _emit 0x90;
  }
 }
-__declspec(naked) void _asm_generic1parm_end(void) {}
+void _asm_generic1parm_end(void) {}
 
 
-__declspec(naked) void _asm_generic1parm_retd(void) // 1 parameter returning double
+void _asm_generic1parm_retd(void) // 1 parameter returning double
 {
   __asm {
 _emit 0x89;
@@ -3147,7 +3147,7 @@ _emit 0x90;
 _emit 0x90;
  }
 }
-__declspec(naked) void _asm_generic1parm_retd_end(void) {}
+void _asm_generic1parm_retd_end(void) {}
 
 
 
@@ -3155,7 +3155,7 @@ __declspec(naked) void _asm_generic1parm_retd_end(void) {}
 
 // this gets its own stub because it's pretty crucial for performance :/
 
-__declspec(naked) void _asm_megabuf(void)
+void _asm_megabuf(void)
 {
   __asm {
 
@@ -3313,10 +3313,10 @@ _emit 0x90;
   }
 }
 
-__declspec(naked) void _asm_megabuf_end(void) {}
+void _asm_megabuf_end(void) {}
 
 
-__declspec(naked) void _asm_gmegabuf(void)
+void _asm_gmegabuf(void)
 {
   __asm {
 
@@ -3387,9 +3387,9 @@ _emit 0x90;
  }
 }
 
-__declspec(naked) void _asm_gmegabuf_end(void) {}
+void _asm_gmegabuf_end(void) {}
 
-__declspec(naked) void nseel_asm_stack_push(void)
+void nseel_asm_stack_push(void)
 {
 #ifdef TARGET_X64
   __asm {
@@ -3475,11 +3475,11 @@ _emit 0x90;
 #endif
 
 }
-__declspec(naked) void nseel_asm_stack_push_end(void) {}
+void nseel_asm_stack_push_end(void) {}
 
 
 
-__declspec(naked) void nseel_asm_stack_pop(void)
+void nseel_asm_stack_pop(void)
 {
 #ifdef TARGET_X64
 
@@ -3559,10 +3559,10 @@ _emit 0x90;
 
 #endif
 }
-__declspec(naked) void nseel_asm_stack_pop_end(void) {}
+void nseel_asm_stack_pop_end(void) {}
 
 
-__declspec(naked) void nseel_asm_stack_pop_fast(void)
+void nseel_asm_stack_pop_fast(void)
 {
 #ifdef TARGET_X64
 
@@ -3640,9 +3640,9 @@ _emit 0x90;
 
 #endif
 }
-__declspec(naked) void nseel_asm_stack_pop_fast_end(void) {}
+void nseel_asm_stack_pop_fast_end(void) {}
 
-__declspec(naked) void nseel_asm_stack_peek_int(void)
+void nseel_asm_stack_peek_int(void)
 {
 #ifdef TARGET_X64
 
@@ -3719,11 +3719,11 @@ _emit 0x90;
 #endif
 
 }
-__declspec(naked) void nseel_asm_stack_peek_int_end(void) {}
+void nseel_asm_stack_peek_int_end(void) {}
 
 
 
-__declspec(naked) void nseel_asm_stack_peek(void)
+void nseel_asm_stack_peek(void)
 {
 #ifdef TARGET_X64
 
@@ -3804,10 +3804,10 @@ _emit 0x90;
 #endif
 
 }
-__declspec(naked) void nseel_asm_stack_peek_end(void) {}
+void nseel_asm_stack_peek_end(void) {}
 
 
-__declspec(naked) void nseel_asm_stack_peek_top(void)
+void nseel_asm_stack_peek_top(void)
 {
 #ifdef TARGET_X64
 
@@ -3874,9 +3874,9 @@ _emit 0x90;
 #endif
 
 }
-__declspec(naked) void nseel_asm_stack_peek_top_end(void) {}
+void nseel_asm_stack_peek_top_end(void) {}
 
-__declspec(naked) void nseel_asm_stack_exch(void)
+void nseel_asm_stack_exch(void)
 {
 #ifdef TARGET_X64
 
@@ -3951,10 +3951,10 @@ _emit 0x90;
 #endif
 
 }
-__declspec(naked) void nseel_asm_stack_exch_end(void) {}
+void nseel_asm_stack_exch_end(void) {}
 
 #ifdef TARGET_X64
-__declspec(naked) void eel_callcode64()
+void eel_callcode64()
 {
 	__asm {
 #ifndef EEL_X64_NO_CHANGE_FPFLAGS
@@ -4002,7 +4002,7 @@ __declspec(naked) void eel_callcode64()
 	}
 }
 
-__declspec(naked) void eel_callcode64_fast()
+void eel_callcode64_fast()
 {
 	__asm {
 		push rbx;
@@ -4035,7 +4035,7 @@ __declspec(naked) void eel_callcode64_fast()
 	}
 }
 
-__declspec(naked) void eel_setfp_round()
+void eel_setfp_round()
 {
 	__asm {
 #ifndef EEL_X64_NO_CHANGE_FPFLAGS
@@ -4051,7 +4051,7 @@ __declspec(naked) void eel_setfp_round()
 	}
 }
 
-__declspec(naked) void eel_setfp_trunc()
+void eel_setfp_trunc()
 {
 	__asm {
 #ifndef EEL_X64_NO_CHANGE_FPFLAGS
@@ -4067,7 +4067,7 @@ __declspec(naked) void eel_setfp_trunc()
 	}
 }
 
-__declspec(naked) void eel_enterfp(int s[2])
+void eel_enterfp(int s[2])
 {
 	__asm {
 #ifdef AMD64ABI
@@ -4086,7 +4086,7 @@ __declspec(naked) void eel_enterfp(int s[2])
             ret;
         }
 }
-__declspec(naked) void eel_leavefp(int s[2])
+void eel_leavefp(int s[2])
 {
 	__asm {
 #ifdef AMD64ABI
