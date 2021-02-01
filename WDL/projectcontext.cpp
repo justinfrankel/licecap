@@ -1153,32 +1153,6 @@ void cfg_encode_binary(ProjectStateContext *ctx, const void *ptr, int len)
 }
 
 
-int cfg_decode_textblock(ProjectStateContext *ctx, WDL_String *str) // 0 on success, appends to str
-{
-  int child_count=1;
-  bool did_firstline=!!str->Get()[0];
-  for (;;)
-  {
-    char linebuf[4096];
-    if (ctx->GetLine(linebuf,sizeof(linebuf))) break;
-
-    const char *p = linebuf;
-    while (*p == ' ' || *p == '\t') p++;
-    if (*p == '\'' || *p == '"' || *p == '`') p++; // skip a quote if any
-
-    if (!p[0]) continue;
-    else if (p[0] == '<') child_count++; 
-    else if (p[0] == '>') { if (child_count-- == 1) return 0; }
-    else if (child_count == 1 && p[0] == '|')
-    {     
-      if (!did_firstline) did_firstline=true;
-      else str->Append("\r\n");
-      str->Append(++p);
-    }
-  }
-  return -1;  
-}
-
 int cfg_decode_textblock(ProjectStateContext *ctx, WDL_FastString *str) // 0 on success, appends to str
 {
   int child_count=1;
@@ -1209,7 +1183,7 @@ int cfg_decode_textblock(ProjectStateContext *ctx, WDL_FastString *str) // 0 on 
 
 void cfg_encode_textblock(ProjectStateContext *ctx, const char *text)
 {
-  WDL_String tmpcopy(text);
+  WDL_FastString tmpcopy(text);
   char *txt=(char*)tmpcopy.Get();
   while (*txt)
   {
@@ -1273,38 +1247,6 @@ bool configStringWantsBlockEncoding(const char *in) // returns true if over 1k l
     }
   }
   return true;
-}
-
-void makeEscapedConfigString(const char *in, WDL_String *out)
-{
-  char c;
-  if (!in || !*in) out->Set("\"\"");
-  else if ((c = getConfigStringQuoteChar(in)))
-  {
-    if (c == ' ') 
-    {
-      out->Set(in);
-    }
-    else
-    {
-      out->Set(&c,1);
-      out->Append(in);
-      out->Append(&c,1);
-    }
-  }
-  else  // ick, change ` into '
-  {
-    out->Set("`");
-    out->Append(in);
-    out->Append("`");
-    char *p=out->Get()+1;
-    while (*p && p[1])
-    {
-      if (*p == '`') *p='\'';
-      else if (*p == '\r' || *p == '\n') *p=' ';
-      p++;
-    }
-  }
 }
 
 void makeEscapedConfigString(const char *in, WDL_FastString *out)
