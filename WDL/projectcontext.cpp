@@ -1169,11 +1169,24 @@ int cfg_decode_textblock(ProjectStateContext *ctx, WDL_FastString *str) // 0 on 
     if (!p[0]) continue;
     else if (p[0] == '<') child_count++; 
     else if (p[0] == '>') { if (child_count-- == 1) return 0; }
-    else if (child_count == 1 && p[0] == '|')
-    {     
-      if (!did_firstline) did_firstline=true;
-      else str->Append("\r\n");
-      str->Append(++p);
+    else if (child_count == 1)
+    {
+      const char *prefix = did_firstline ? "\r\n" : "";
+      // lines can have a prefix immediately before | to specify the line ending of the previous line
+      switch (p[0])
+      {
+        case 'c': prefix=""; p++; break;
+        case 'n': prefix="\n"; p++; break;
+        case 'r': prefix="\r"; p++; break;
+        case 'R': prefix="\n\r"; p++; break;
+      }
+
+      if (p[0] == '|')
+      {
+        if (*prefix) str->Append(prefix);
+        str->Append(++p);
+        did_firstline=true;
+      }
     }
   }
   return -1;  
