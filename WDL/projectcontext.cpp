@@ -1212,6 +1212,41 @@ void cfg_encode_textblock(ProjectStateContext *ctx, const char *txt) // splits l
   }
 }
 
+void cfg_encode_textblock2(ProjectStateContext *ctx, const char *txt) // preserves long lines, line endings
+{
+  char prefix = ' ';
+  while (*txt)
+  {
+    int l = 0;
+    while (txt[l] && l < 2000 && txt[l] != '\r' && txt[l] != '\n') l++;
+    ctx->AddLine("%c|%.*s",prefix,l,txt);
+    txt += l;
+    if (*txt == '\r')
+    {
+      prefix = 'r';
+      if (*++txt== '\n')
+      {
+        txt++;
+        prefix = ' ';
+      }
+    }
+    else if (*txt == '\n')
+    {
+      prefix = 'n';
+      if (*++txt == '\r')
+      {
+        txt++;
+        prefix = 'R';
+      }
+    }
+    else if (*txt) prefix = 'c';
+    else break;
+
+    if (!*txt)
+      ctx->AddLine("%c|",prefix);
+  }
+}
+
 char getConfigStringQuoteChar(const char *p)
 {
   if (!p || !*p) return '"';
