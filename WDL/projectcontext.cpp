@@ -390,13 +390,9 @@ int ProjectContextFormatString(char *outbuf, size_t outbuf_size, const char *fmt
       default:
         want_abort=true;
       break;
-    }   
+    }
     if (want_abort)
     {
-#if defined(_WIN32) && defined(_DEBUG)
-      OutputDebugString("ProjectContextFormatString(): falling back to stock vsnprintf because of:");
-      OutputDebugString(ofmt);
-#endif
       fmt=ofmt;
       break;
     }
