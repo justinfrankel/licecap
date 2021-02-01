@@ -49,7 +49,7 @@ int cfg_decode_binary(ProjectStateContext *ctx, WDL_HeapBuf *hb); // 0 on succes
 void cfg_encode_binary(ProjectStateContext *ctx, const void *ptr, int len);
 
 int cfg_decode_textblock(ProjectStateContext *ctx, WDL_FastString *str); // 0 on success, appends to str
-void cfg_encode_textblock(ProjectStateContext *ctx, const char *text);
+void cfg_encode_textblock(ProjectStateContext *ctx, const char *text); // long lines get split by newlines
 
 char getConfigStringQuoteChar(const char *in); // returns 0 if no quote char available!
 bool configStringWantsBlockEncoding(const char *in); // returns true if over 1k long, has newlines, or contains all quote chars

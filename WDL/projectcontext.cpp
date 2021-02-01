@@ -1180,23 +1180,14 @@ int cfg_decode_textblock(ProjectStateContext *ctx, WDL_FastString *str) // 0 on 
 
 }
 
-
-void cfg_encode_textblock(ProjectStateContext *ctx, const char *text)
+void cfg_encode_textblock(ProjectStateContext *ctx, const char *txt) // splits long lines
 {
-  WDL_FastString tmpcopy(text);
-  char *txt=(char*)tmpcopy.Get();
   while (*txt)
   {
-    char *ntext=txt;
-    while (*ntext && *ntext != '\r' && *ntext != '\n') ntext++;
-    if (ntext > txt || *ntext)
-    {
-      char ov=*ntext;
-      *ntext=0;
-      ctx->AddLine("|%s",txt);
-      *ntext=ov;
-    }
-    txt=ntext;
+    int l = 0;
+    while (txt[l] && l < 4000 && txt[l] != '\r' && txt[l] != '\n') l++;
+    ctx->AddLine("|%.*s",l,txt);
+    txt += l;
     if (*txt == '\r')
     {
       if (*++txt== '\n') txt++;
