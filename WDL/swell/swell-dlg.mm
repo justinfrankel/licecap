@@ -3351,7 +3351,7 @@ HWND SWELL_GetAudioUnitCocoaView(HWND parent, AudioUnit aunit, AudioUnitCocoaVie
 }
 
 
-HWND SWELL_CreateCarbonWindowView(HWND viewpar, void **wref, RECT* r, bool wantcomp)  // window is created with a root control
+HWND SWELL_CreateCarbonWindowView(HWND viewpar, void **wref, const RECT* r, bool wantcomp)  // window is created with a root control
 {
   RECT wndr = *r;
   ClientToScreen(viewpar, (POINT*)&wndr);

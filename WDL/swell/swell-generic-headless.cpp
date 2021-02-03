@@ -226,7 +226,7 @@ DWORD GetMessagePos()
   return 0;
 }
 
-HWND SWELL_CreateXBridgeWindow(HWND viewpar, void **wref, RECT *r)
+HWND SWELL_CreateXBridgeWindow(HWND viewpar, void **wref, const RECT *r)
 {
   *wref = NULL;
   return NULL;
