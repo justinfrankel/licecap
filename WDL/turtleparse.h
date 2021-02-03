@@ -387,7 +387,7 @@ protected:
           else
           {
             int t = tok_to_str(tok,tok_l,&s,true), has_langtype = 0;
-            if (!t) { on_err("error parsing object",tok); return NULL; }
+            if (!t) { on_err("error parsing object",tok); return false; }
             if (t != '<')
             {
               if (t == '"')
@@ -397,7 +397,7 @@ protected:
                 {
                   // this is a bit more permissive than the spec. include @ in string
                   tok = next_tok(str,str_end,&tok_l);
-                  if (!tok || tok != peek) { on_err("literal has incorrect language specification",peek); return NULL; }
+                  if (!tok || tok != peek) { on_err("literal has incorrect language specification",peek); return false; }
                   has_langtype++;
                   langtype.Set(tok,tok_l);
                 }
@@ -405,7 +405,7 @@ protected:
                 {
                   peek = (*str += 2); // do not include ^^ in token
                   tok = next_tok(str,str_end,&tok_l);
-                  if (!tok || tok != peek || tok_to_str(tok,tok_l,&langtype,true) == '"') { on_err("literal has incorrect type specification",peek); return NULL; }
+                  if (!tok || tok != peek || tok_to_str(tok,tok_l,&langtype,true) == '"') { on_err("literal has incorrect type specification",peek); return false; }
                   has_langtype++;
                 }
               }
