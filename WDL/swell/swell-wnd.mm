@@ -3769,7 +3769,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   {
     SWELL_ListView *obj = [[SWELL_ListView alloc] init];
 #ifdef MAC_OS_VERSION_11_0
-    if (@available(macOS 11.0, *)) [obj setStyle:4]; // plain
+    if (@available(macOS 11.0, *)) [obj setStyle:NSTableViewStyle(4)]; // plain
 #endif
     [obj setColumnAutoresizingStyle:NSTableViewNoColumnAutoresizing];
     [obj setFocusRingType:NSFocusRingTypeNone];
@@ -3845,7 +3845,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   {
     SWELL_TreeView *obj = [[SWELL_TreeView alloc] init];
 #ifdef MAC_OS_VERSION_11_0
-    if (@available(macOS 11.0, *)) [obj setStyle:4]; // plain
+    if (@available(macOS 11.0, *)) [obj setStyle:NSTableViewStyle(4)]; // plain
 #endif
     [obj setFocusRingType:NSFocusRingTypeNone];
     [obj setDataSource:(id)obj];
@@ -4385,7 +4385,7 @@ void ListView_SetColumn(HWND h, int pos, const LVCOLUMN *lvc)
 
   if (lvc->mask&LVCF_FMT)
   {
-    int align = lvc->fmt == LVCFMT_CENTER ? NSCenterTextAlignment :
+    NSTextAlignment align = lvc->fmt == LVCFMT_CENTER ? NSCenterTextAlignment :
       lvc->fmt == LVCFMT_RIGHT ? NSRightTextAlignment : NSLeftTextAlignment;
     [[col headerCell] setAlignment:align];
     [[col dataCell] setAlignment:align];

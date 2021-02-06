@@ -712,7 +712,7 @@ static void SendTreeViewExpandNotification(SWELL_hwndChild *par, NSNotification 
     NMLVCUSTOMDRAW nmlv={
       {
         {(HWND)aTableView,(UINT_PTR)tag, NM_CUSTOMDRAW},
-        CDDS_ITEMPREPAINT,NULL, {0,0,0,0}, rowIndex, 0,0
+        CDDS_ITEMPREPAINT,NULL, {0,0,0,0}, (DWORD)rowIndex, 0,0
       },
       (COLORREF)-1,
       (COLORREF)-1,
