@@ -135,11 +135,11 @@ typedef struct _codeHandleFunctionRec
   char fname[NSEEL_MAX_FUNCSIG_NAME+1];
 } _codeHandleFunctionRec;  
   
-#define LLB_DSIZE (65536-64)
 typedef struct _llBlock {
   struct _llBlock *next;
   int sizeused;
-  char block[LLB_DSIZE];
+  int sizealloc;
+  // data follows
 } llBlock;
 
 typedef struct {

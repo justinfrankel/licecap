@@ -170,7 +170,7 @@ static int nseel_vms_referencing_globallist_cnt;
 nseel_globalVarItem *nseel_globalreg_list;
 static EEL_F *get_global_var(compileContext *ctx, const char *gv, int addIfNotPresent);
 
-static void *__newBlock_align(llBlock **start,int size, int align, int alloc_page_pad);
+static void *__newBlock_align(llBlock **start,int size, int align, int code_page_size);
 
 #define OPCODE_IS_TRIVIAL(x) ((x)->opcodeType <= OPCODETYPE_VARPTRPTR)
 enum {
@@ -264,14 +264,16 @@ static int mprotect_get_page_size(void)
 #define newCtxDataBlock(x,a) __newBlock_align(&ctx->ctx_pblocks,x,a,0)
 #define newTmpBlock(ctx, size) __newBlock_align(&(ctx)->tmpblocks, size, 8,0)
 
+static char *get_llblock_buffer(llBlock *llb) { return (char *) (llb+1); }
+
 static void mprotect_blocks(llBlock *llb, int exec)
 {
 #ifndef EEL_DOESNT_NEED_EXEC_PERMS
   while (llb)
   {
-    void *start_p = llb->block, *end_p = llb->block + llb->sizeused;
-    // for code blocks, we will never execute code in a leading partial page of block,
-    // and sizeused will never extend into a trailing partial page
+    // if llb points to a page boundary exactly, we include llb in the marked region
+    // otherwise we only mark starting at the next page boundary after llb
+    void *start_p = llb, *end_p = get_llblock_buffer(llb) + llb->sizeused;
   #ifdef _WIN32
     DWORD ov;
     UINT_PTR offs=((UINT_PTR)start_p + 4095)&~4095;
@@ -843,39 +845,74 @@ static void freeBlocks(llBlock **start)
 }
 
 //---------------------------------------------------------------------------------------------------------------
-static void *__newBlock_align(llBlock **start, int size, int align, int alloc_page_pad)
+static void *__newBlock_align(llBlock **start, int size, int align, int code_page_size)
 {
   llBlock *llb = *start;
-  int alloc_adj, align_pos, sizeused;
-  if (llb && (sizeused = llb->sizeused) + size <= LLB_DSIZE)
-  {
-    align_pos = (int) (((INT_PTR)llb->block + sizeused)&(align-1));
-    if (align_pos) align_pos = align - align_pos;
+  char *wr;
+  int alloc_amt, align_pos, scan_cnt=8;
+  if (WDL_NOT_NORMALLY(align < 1)) align = 1;
 
-    if (sizeused + size + align_pos <= LLB_DSIZE)
+  while (llb && --scan_cnt > 0)
+  {
+    const int sizeused = llb->sizeused;
+    if (sizeused + size <= llb->sizealloc)
     {
-      llb->sizeused += size + align_pos;
-      return llb->block + sizeused + align_pos;
+      align_pos = (int) (((INT_PTR)get_llblock_buffer(llb) + sizeused)&(align-1));
+      if (align_pos) align_pos = align - align_pos;
+
+      if (sizeused + size + align_pos <= llb->sizealloc)
+      {
+        llb->sizeused += size + align_pos;
+        return get_llblock_buffer(llb) + sizeused + align_pos;
+      }
     }
+    llb = llb->next;
   }
 
-  if (alloc_page_pad > align) align = alloc_page_pad;
-  alloc_adj = size + align - 1 - LLB_DSIZE;
-  if (alloc_adj < 0) alloc_adj = 0;
+  if (code_page_size > 0)
+  {
+    alloc_amt = (size + code_page_size - 1) & ~(code_page_size - 1); // round alloc length up to page
+    alloc_amt += code_page_size - 1; // extra for initial page alignment
+  }
+  else
+  {
+    // data block, allocate in larger chunks
+    alloc_amt = (size + align - 1 + 31)&~31;
+    if (alloc_amt < 65536-64) alloc_amt = 65536-64;
+  }
 
-  if (alloc_page_pad > 0)
-    alloc_adj += alloc_page_pad-1;
-
-  llb = (llBlock *)malloc(sizeof(llBlock) + alloc_adj);
+  llb = (llBlock *)malloc(sizeof(*llb) + alloc_amt);
   if (!llb) return NULL;
 
-  align_pos = (int) (((INT_PTR)llb->block)&(align-1));
-  if (align_pos) align_pos = align - align_pos;
-  
+  wr = get_llblock_buffer(llb);
+  if (code_page_size > 0)
+  {
+    align_pos = 0;
+    // if in page pad mode, reduce alloc_amt to the end of the last whole page
+    alloc_amt -= (int) ((INT_PTR)(wr + alloc_amt) & (code_page_size - 1));
+
+    // if llb is not at the start of a page, advance align_pos such that wr+alignpos is the start of the next page
+    if (((INT_PTR)llb) & (code_page_size - 1))
+    {
+      align_pos = (int) (((INT_PTR)wr) & (code_page_size - 1));
+      if (align_pos) // it might happen to be page-aligned anyway (if at page-sizeof(llBlock))
+      {
+        align_pos = code_page_size - align_pos;
+      }
+    }
+  }
+  else
+  {
+    align_pos = (int) (((INT_PTR)get_llblock_buffer(llb))&(align-1));
+    if (align_pos) align_pos = align - align_pos;
+  }
+
+  WDL_ASSERT(size+align_pos <= alloc_amt);
   llb->sizeused = size + align_pos;
-  llb->next = *start;  
+  llb->sizealloc = alloc_amt;
+  llb->next = *start;
   *start = llb;
-  return llb->block + align_pos;
+  return wr + align_pos;
 }
 
 
