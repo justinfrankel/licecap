@@ -435,7 +435,7 @@ static void *NSEEL_PProc_Stack(void *data, int data_size, compileContext *ctx)
     UINT_PTR stackptr = ((UINT_PTR) (&ch->stack));
 
     ch->want_stack=1;
-    if (!ch->stack) ch->stack = newDataBlock(NSEEL_STACK_SIZE*sizeof(EEL_F),NSEEL_STACK_SIZE*sizeof(EEL_F));
+    if (!ch->stack) ch->stack = newDataBlock(NSEEL_STACK_SIZE*sizeof(EEL_F),sizeof(EEL_F));
 
     data=EEL_GLUE_set_immediate(data, stackptr);
     data=EEL_GLUE_set_immediate(data, m1); // and
@@ -454,7 +454,7 @@ static void *NSEEL_PProc_Stack_PeekInt(void *data, int data_size, compileContext
     UINT_PTR stackptr = ((UINT_PTR) (&ch->stack));
 
     ch->want_stack=1;
-    if (!ch->stack) ch->stack = newDataBlock(NSEEL_STACK_SIZE*sizeof(EEL_F),NSEEL_STACK_SIZE*sizeof(EEL_F));
+    if (!ch->stack) ch->stack = newDataBlock(NSEEL_STACK_SIZE*sizeof(EEL_F),sizeof(EEL_F));
 
     data=EEL_GLUE_set_immediate(data, stackptr);
     data=EEL_GLUE_set_immediate(data, offs);
@@ -472,7 +472,7 @@ static void *NSEEL_PProc_Stack_PeekTop(void *data, int data_size, compileContext
     UINT_PTR stackptr = ((UINT_PTR) (&ch->stack));
 
     ch->want_stack=1;
-    if (!ch->stack) ch->stack = newDataBlock(NSEEL_STACK_SIZE*sizeof(EEL_F),NSEEL_STACK_SIZE*sizeof(EEL_F));
+    if (!ch->stack) ch->stack = newDataBlock(NSEEL_STACK_SIZE*sizeof(EEL_F),sizeof(EEL_F));
 
     data=EEL_GLUE_set_immediate(data, stackptr);
   }
