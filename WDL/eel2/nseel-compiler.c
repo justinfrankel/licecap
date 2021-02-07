@@ -280,6 +280,7 @@ static void eel_set_blocks_allow_execute(llBlock *llb, int exec)
     #ifdef _WIN32
       DWORD ov;
       VirtualProtect(llb,sz,exec ? (PAGE_EXECUTE_READ) : (PAGE_READWRITE),&ov);
+      FlushInstructionCache(GetCurrentProcess(),llb,sz);
     #else
       mprotect(llb,sz,exec ? (PROT_READ|PROT_EXEC) : (PROT_READ|PROT_WRITE));
     #endif
