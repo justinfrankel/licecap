@@ -180,6 +180,63 @@ pl_Obj *plMakeSphere(pl_Float r, pl_uInt divr, pl_uInt divh, pl_Mat *m) {
   return (o);
 }
 
+pl_Obj *plMakeDisc(pl_Float r, pl_uInt divr, pl_Mat *m)
+{
+  pl_Obj *o;
+  pl_Vertex *v;
+  pl_Face *f;
+  pl_uInt32 i;
+  double a, da;
+
+  o=new pl_Obj(divr, divr);
+  if (!o) return NULL;
+
+  a = 0.0;
+  da = (2.0*PL_PI)/divr;
+  v = o->Vertices.Get();
+  for (i = 0; i < divr; i ++)
+  {
+    v->y = 0.0;
+    v->x = (pl_Float) (r*cos((double) a));
+    v->z = (pl_Float)(r*sin(a));
+    v->xformedx = (0.5 + (0.5*cos((double) a))); // temp
+    v->xformedy = (0.5 + (0.5*sin((double) a))); // use xf
+    v++;
+    a += da;
+  }
+
+  v = o->Vertices.Get();
+  f = o->Faces.Get();
+  for (i = 0; i < divr; i ++)
+  {
+    f->VertexIndices[0] = i == divr-1 ? 0 : i + 1;
+    f->VertexIndices[1] = i;
+    f->VertexIndices[2] = 0;
+    f->MappingU[0][0] = v[(i==divr-1?0:i+1)].xformedx;
+    f->MappingV[0][0] = v[(i==divr-1?0:i+1)].xformedy;
+    f->MappingU[0][1] = v[i].xformedx;
+    f->MappingV[0][1] = v[i].xformedy;
+    f->MappingU[0][2] = f->MappingV[0][2] = 0.5;
+    f->Material = m;
+    f++;
+  }
+
+  f->VertexIndices[0] = 0;
+  f->VertexIndices[1] = 2;
+  f->VertexIndices[2] = 1;
+  f->MappingU[0][0] = v[0].xformedx;
+  f->MappingV[0][0] = v[0].xformedy;
+  f->MappingU[0][1] = v[1].xformedx;
+  f->MappingV[0][1] = v[1].xformedy;
+  f->MappingU[0][2] = v[2].xformedx;
+  f->MappingV[0][2] = v[2].xformedy;
+
+  f->Material = m;
+
+  o->CalculateNormals();
+  return o;
+}
+
 pl_Obj *plMakeCylinder(pl_Float r, pl_Float h, pl_uInt divr, pl_Bool captop, 
                        pl_Bool capbottom, pl_Mat *m) {
   pl_Obj *o;

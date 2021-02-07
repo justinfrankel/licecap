@@ -412,6 +412,17 @@ pl_Obj *plMakePlane(pl_Float w, pl_Float d, pl_uInt res, pl_Mat *m);
 */
 pl_Obj *plMakeBox(pl_Float w, pl_Float d, pl_Float h, pl_Mat *m);
 
+/*
+ plMakeDisc() makes a disc centered at the origin
+ Parameters:
+   r: radius of the disc (x-z axis)
+   divr: division of of disc (around the circle) (>=3)
+   m: material to use
+ Returns:
+   pointer to object created.
+ */
+pl_Obj *plMakeDisc(pl_Float r, pl_uInt divr, pl_Mat *m);
+
 /* 
   plMakeCone() makes a cone centered at the origin
   Parameters:
