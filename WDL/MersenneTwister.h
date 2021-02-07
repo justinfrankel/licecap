@@ -288,7 +288,7 @@ inline void MTRand::seed()
 }
 
 
-inline void MTRand::initialize( const uint32 seed )
+inline void MTRand::initialize( const uint32 seedv )
 {
 	// Initialize generator state with seed
 	// See Knuth TAOCP Vol 2, 3rd Ed, p.106 for multiplier.
@@ -297,7 +297,7 @@ inline void MTRand::initialize( const uint32 seed )
 	register uint32 *s = state;
 	register uint32 *r = state;
 	register int i = 1;
-	*s++ = seed & 0xffffffffUL;
+	*s++ = seedv & 0xffffffffUL;
 	for( ; i < N; ++i )
 	{
 		*s++ = ( 1812433253UL * ( *r ^ (*r >> 30) ) + i ) & 0xffffffffUL;
