@@ -47,6 +47,10 @@
 #include <xmmintrin.h>
 #endif
 
+#define LIMIT_METAL_BOUNDS_SIZE(sz) \
+    if ((sz).width > 16384.0) (sz).width = 16384.0; \
+    if ((sz).height > 16384.0) (sz).height = 16384.0;
+
 static id __class_CAMetalLayer, __class_MTLRenderPassDescriptor, __class_MTLTextureDescriptor, __class_MTLRenderPipelineDescriptor, __class_MTLCompileOptions;
 static id<MTLDevice> (*__MTLCreateSystemDefaultDevice)(void);
 static id<MTLDevice> (*__CGDirectDisplayCopyCurrentMetalDevice)(CGDirectDisplayID);
@@ -1644,6 +1648,9 @@ static void SendTreeViewExpandNotification(SWELL_hwndChild *par, NSNotification 
     bounds.size.width *= 2;
     bounds.size.height *= 2;
   }
+
+  LIMIT_METAL_BOUNDS_SIZE(bounds.size)
+
   CGSize oldsc = layer.drawableSize;
   if (oldsc.width != bounds.size.width || oldsc.height != bounds.size.height)
   {
@@ -4073,6 +4080,8 @@ static void SWELL_Metal_WriteTex(SWELL_hwndChild *wnd, const unsigned int *srcbu
       bounds.size.width *= 2.0;
       bounds.size.height *= 2.0;
     }
+
+    LIMIT_METAL_BOUNDS_SIZE(bounds.size)
 
     if (wnd->m_use_metal == 1) // direct
     {
