@@ -1116,7 +1116,14 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL( m_lbMode ? "SysListView32_LB" : "SysListView
         if (wParam)
         {
           if (SWELL_GetOSXVersion() >= 0x1070 && [self respondsToSelector:@selector(endUpdates)])
+          {
             [self endUpdates];
+            // workaround for a weird 10.14.6 bug
+            // if the caller calls this, then invalidaterect()s the parent window right away,
+            // appkit will (sometimes) throw an exception unlocking focus on the NSScrollView.
+            // invalidating our window directly seems to prevent this.
+            [self setNeedsDisplay:YES];
+          }
         }
         else
         {
