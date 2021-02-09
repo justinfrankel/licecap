@@ -1076,6 +1076,28 @@ __attribute__((naked)) void _asm_generic2parm_retd(void)
 }
 __attribute__((naked)) void _asm_generic2parm_retd_end(void) {}
 
+
+__attribute__((naked)) void _asm_generic2xparm_retd(void)
+{
+  __asm__ __volatile__(
+    FUNCTION_MARKER
+    "push {r4, lr}\n"
+    "mov r3, r0\n" // r0 is last parameter
+    "mov r2, r1\n" //
+    "movw r0, 0xdead\n"  // r0 is ctx
+    "movt r0, 0xbeef\n"
+    "movw r1, 0xdead\n"  // r1 is second ctx
+    "movt r1, 0xbeef\n"
+    "movw r4, 0xdead\n"
+    "movt r4, 0xbeef\n"
+    "blx r4\n"
+    "pop {r4, lr}\n"
+    FUNCTION_MARKER
+  ::
+ );
+}
+__attribute__((naked)) void _asm_generic2xparm_retd_end(void) {}
+
 __attribute__((naked)) void _asm_generic1parm(void)
 {
   __asm__ __volatile__(

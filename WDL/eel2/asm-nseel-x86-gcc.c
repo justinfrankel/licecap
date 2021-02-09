@@ -1488,6 +1488,53 @@ void _asm_generic2parm_retd(void)
 void _asm_generic2parm_retd_end(void) {}
 
 
+void _asm_generic2xparm_retd(void)
+{
+  __asm__(
+      FUNCTION_MARKER
+#ifdef TARGET_X64
+#ifdef AMD64ABI
+      // input is rdi/rax
+      // pass parameters as rdi/rsi/rdx/rcx
+    "movl %rsi, %r15\n"
+    "movl %rdi, %rdx\n" // third parameter = parm
+    "movl %rax, %rcx\n" // fourth parameter = parm
+    "movl $0xfefefefe, %rdi\n" // first parameter= context
+    "movl $0xfefefefe, %rsi\n" // second parameter= context
+    "movl $0xfefefefe, %rax\n" // call function
+    "call *%rax\n"
+    "movl %r15, %rsi\n"
+    "movq xmm0, (%r15)\n"
+    "fldl (%r15)\n"
+#else
+    // rcx, rdx, r8, r9
+    "movl %rdi, %r8\n" // third parameter = parm
+    "movl $0xfefefefe, %rcx\n" // first parameter= context
+    "movl $0xfefefefe, %rdx\n" // second parameter= context
+    "movl $0xfefefefe, %rdi\n" // call function
+    "movl %rax, %r9\n" // fourth parameter = parm
+    "subl X64_EXTRA_STACK_SPACE, %rsp\n"
+    "call *%edi\n"
+    "addl X64_EXTRA_STACK_SPACE, %rsp\n"
+    "movq xmm0, (%rsi)\n"
+    "fldl (%rsi)\n"
+#endif
+#else
+    "subl $16, %esp\n"
+    "movl $0xfefefefe, %edx\n" // first parameter
+    "movl %edx, (%esp)\n"
+    "movl %edi, 8(%esp)\n"
+    "movl $0xfefefefe, %edx\n"
+    "movl $0xfefefefe, %ecx\n" // function
+    "movl %edx, 4(%esp)\n"
+    "movl %eax, 12(%esp)\n"
+    "call *%ecx\n"
+    "addl $16, %esp\n"
+#endif
+    FUNCTION_MARKER
+ );
+}
+void _asm_generic2xparm_retd_end(void) {}
 
 
 

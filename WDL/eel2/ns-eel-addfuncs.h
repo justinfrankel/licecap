@@ -40,12 +40,14 @@ extern EEL_BC_TYPE _asm_generic3parm[]; // 3 double * parms, returning double *
 extern EEL_BC_TYPE _asm_generic3parm_retd[]; // 3 double * parms, returning double
 extern EEL_BC_TYPE _asm_generic2parm[]; // 2 double * parms, returning double *
 extern EEL_BC_TYPE _asm_generic2parm_retd[]; // 2 double * parms, returning double
+extern EEL_BC_TYPE _asm_generic2xparm_retd[]; // 2 double * parms, returning double
 extern EEL_BC_TYPE _asm_generic1parm[]; // 1 double * parms, returning double *
 extern EEL_BC_TYPE _asm_generic1parm_retd[]; // 1 double * parms, returning double 
 
 extern const void *const _asm_generic1parm_retd_end;
 extern const void *const _asm_generic1parm_end;
 extern const void *const _asm_generic2parm_retd_end;
+extern const void *const _asm_generic2xparm_retd_end;
 extern const void *const _asm_generic2parm_end;
 extern const void *const _asm_generic3parm_retd_end;
 extern const void *const _asm_generic3parm_end;
@@ -59,6 +61,8 @@ void _asm_generic2parm(void); // 2 double * parms, returning double *
 void _asm_generic2parm_end(void);
 void _asm_generic2parm_retd(void); // 2 double * parms, returning double
 void _asm_generic2parm_retd_end(void);
+void _asm_generic2xparm_retd(void); // 2 double * parms, returning double
+void _asm_generic2xparm_retd_end(void);
 void _asm_generic1parm(void); // 1 double * parms, returning double *
 void _asm_generic1parm_end(void);
 void _asm_generic1parm_retd(void); // 1 double * parms, returning double 

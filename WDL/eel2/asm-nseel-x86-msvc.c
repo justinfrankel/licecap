@@ -3020,6 +3020,75 @@ _emit 0x90;
 void _asm_generic2parm_retd_end(void) {}
 
 
+void _asm_generic2xparm_retd(void)
+{
+  __asm {
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+#ifdef TARGET_X64
+#ifdef AMD64ABI
+      // input is rdi/rax
+      // pass parameters as rdi/rsi/rdx/rcx
+    mov r15, rsi;
+    mov rdx, rdi; // third parameter = parm
+    mov rcx, rax; // fourth parameter = parm
+    mov rdi, 0xfefefefe; // first parameter= context
+    mov rsi, 0xfefefefe; // second parameter= context
+    mov rax, 0xfefefefe; // call function
+    call rax;
+    mov rsi, r15;
+    movq [r15], xmm0;
+    fld qword ptr [r15];
+#else
+    // rcx, rdx, r8, r9
+    mov r8, rdi; // third parameter = parm
+    mov rcx, 0xfefefefe; // first parameter= context
+    mov rdx, 0xfefefefe; // second parameter= context
+    mov rdi, 0xfefefefe; // call function
+    mov r9, rax; // fourth parameter = parm
+    sub rsp, X64_EXTRA_STACK_SPACE;
+    call edi;
+    add rsp, X64_EXTRA_STACK_SPACE;
+    movq [rsi], xmm0;
+    fld qword ptr [rsi];
+#endif
+#else
+    sub esp, 16;
+    mov edx, 0xfefefefe; // first parameter
+    mov dword ptr [esp], edx;
+    mov dword ptr [esp+8], edi;
+    mov edx, 0xfefefefe;
+    mov ecx, 0xfefefefe; // function
+    mov dword ptr [esp+4], edx;
+    mov dword ptr [esp+12], eax;
+    call ecx;
+    add esp, 16;
+#endif
+_emit 0x89;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+_emit 0x90;
+ }
+}
+void _asm_generic2xparm_retd_end(void) {}
 
 
 

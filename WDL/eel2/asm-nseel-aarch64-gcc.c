@@ -1004,6 +1004,35 @@ void _asm_generic2parm_retd(void)
 }
 void _asm_generic2parm_retd_end(void) {}
 
+void _asm_generic2xparm_retd(void)
+{
+  __asm__ __volatile__(
+    FUNCTION_MARKER
+    "str x30, [sp, #-16]!\n" // input: r0 last, r1=second to last
+    "mov x2, x1\n"
+    "mov x3, x0\n"
+
+    "mov x0, 0xdead\n"  // r0 is first parm (context)
+    "movk x0, 0xbeef, lsl 16\n"
+    "movk x0, 0xbeef, lsl 32\n"
+
+    "mov x1, 0xdead\n"  // second parm
+    "movk x1, 0xbeef, lsl 16\n"
+    "movk x1, 0xbeef, lsl 32\n"
+
+    "mov x4, 0xdead\n"
+    "movk x4, 0xbeef, lsl 16\n"
+    "movk x4, 0xbeef, lsl 32\n"
+
+    "blr x4\n"
+    "ldr x30, [sp], #16\n"
+    FUNCTION_MARKER
+  ::
+ );
+}
+void _asm_generic2xparm_retd_end(void) {}
+
+
 void _asm_generic1parm(void)
 {
   __asm__ __volatile__(

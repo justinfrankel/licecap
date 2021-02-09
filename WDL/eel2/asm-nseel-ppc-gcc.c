@@ -1156,6 +1156,28 @@ void _asm_generic2parm_retd(void)
 }
 void _asm_generic2parm_retd_end(void) {}
 
+void _asm_generic2xparm_retd(void)
+{
+  __asm__(
+    FUNCTION_MARKER
+   "mr r6, r3\n"
+   "addis r3, 0, 0xdead\n"
+   "ori r3, r3, 0xbeef\n"
+   "addis r4, 0, 0xdead\n"
+   "ori r4, r4, 0xbeef\n"
+   "addis r7, 0, 0xdead\n"
+   "ori r7, r7, 0xbeef\n"
+   "mr r5, r14\n"
+   "mtctr r7\n"
+   "subi r1, r1, 64\n"
+   "bctrl\n"
+   "addi r1, r1, 64\n"
+    FUNCTION_MARKER
+  ::
+ );
+}
+void _asm_generic2xparm_retd_end(void) {}
+
 void _asm_generic1parm(void) // this prob neds to be fixed for ppc
 {
   __asm__(
