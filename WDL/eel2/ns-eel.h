@@ -114,6 +114,7 @@ void NSEEL_addfunctionex2(const char *name, int nparms, char *code_startaddr, in
 
 void NSEEL_addfunc_ret_type(const char *name, int np, int ret_type,  NSEEL_PPPROC pproc, void *fptr, eel_function_table *destination); // ret_type=-1 for bool, 1 for value, 0 for ptr
 void NSEEL_addfunc_varparm_ex(const char *name, int min_np, int want_exact, NSEEL_PPPROC pproc, EEL_F (NSEEL_CGEN_CALL *fptr)(void *, INT_PTR, EEL_F **), eel_function_table *destination);
+void NSEEL_addfunc_varparm_ctxptr(const char *name, int min_np, int want_exact, void *ctxptr, EEL_F (NSEEL_CGEN_CALL *fptr)(void *, INT_PTR, EEL_F **), eel_function_table *destination);
 
 int *NSEEL_getstats(); // returns a pointer to 5 ints... source bytes, static code bytes, call code bytes, data bytes, number of code handles
 

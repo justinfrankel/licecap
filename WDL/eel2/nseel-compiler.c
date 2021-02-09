@@ -735,6 +735,13 @@ void NSEEL_addfunc_varparm_ex(const char *name, int min_np, int want_exact, NSEE
   const int sz = (int) ((char *)_asm_generic2parm_retd_end-(char *)_asm_generic2parm_retd);
   NSEEL_addfunctionex2(name,min_np|(want_exact?BIF_TAKES_VARPARM_EX:BIF_TAKES_VARPARM),(char *)_asm_generic2parm_retd,sz,pproc,fptr,NULL,destination);
 }
+
+void NSEEL_addfunc_varparm_ctxptr(const char *name, int min_np, int want_exact, void *ctxptr, EEL_F (NSEEL_CGEN_CALL *fptr)(void *, INT_PTR, EEL_F **), eel_function_table *destination)
+{
+  const int sz = (int) ((char *)_asm_generic2parm_retd_end-(char *)_asm_generic2parm_retd);
+  NSEEL_addfunctionex2(name,min_np|(want_exact?BIF_TAKES_VARPARM_EX:BIF_TAKES_VARPARM),(char *)_asm_generic2parm_retd,sz,NULL,ctxptr,fptr,destination);
+}
+
 void NSEEL_addfunc_ret_type(const char *name, int np, int ret_type,  NSEEL_PPPROC pproc, void *fptr, eel_function_table *destination) // ret_type=-1 for bool, 1 for value, 0 for ptr
 {
   char *stub=NULL;
