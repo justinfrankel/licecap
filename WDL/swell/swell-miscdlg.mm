@@ -399,8 +399,11 @@ bool BrowseForDirectory(const char *text, const char *initialdir, char *fn, int 
 		
   NSString *aFile = [filesToOpen objectAtIndex:0];
   if (!aFile) return 0;
-  SWELL_CFStringToCString(aFile,fn,fnsize);
-  fn[fnsize-1]=0;
+  if (fn && fnsize>0)
+  {
+    SWELL_CFStringToCString(aFile,fn,fnsize);
+    fn[fnsize-1]=0;
+  }
   return 1;
 }
 
