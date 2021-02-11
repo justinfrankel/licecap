@@ -3279,7 +3279,7 @@ void CoolSB_OnColorThemeChange()
 
 static BOOL GetScrollInfo(HWND hwnd, int sb, SCROLLINFO *si)
 {
-  si->nMin=0; si->nMax=1000; si->nPage=10; si->nPos=si->nTrackPos=0;
+  si->nMin=0; si->nMax=1000; si->nPage=1000; si->nPos=si->nTrackPos=0;
   return FALSE;
 }
 static int GetScrollPos(HWND hwnd, int sb)
