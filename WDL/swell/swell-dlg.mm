@@ -2491,6 +2491,7 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(0)
   [ch release];
 
   [self setAutorecalculatesKeyViewLoop:YES];
+  [self setBackgroundColor:NSColor.clearColor];
   [self display];
   [self release]; // matching retain above
   

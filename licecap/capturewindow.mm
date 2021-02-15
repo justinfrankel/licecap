@@ -323,6 +323,8 @@ bool GetScreenData(int xpos, int ypos, LICE_IBitmap *bmOut)
 
 void DrawTransparentRectInCurrentContext(RECT r)
 {
+  [[NSColor systemGrayColor] set];
+  NSRectFill(NSMakeRect(0,0,r.right+r.left,r.bottom+r.top+20));
   [[NSColor clearColor] set];
   NSRectFill(NSMakeRect(r.left,r.top,r.right-r.left,r.bottom-r.top));
 }

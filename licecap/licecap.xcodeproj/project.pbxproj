@@ -61,6 +61,8 @@
 			isa = PBXBuildRule;
 			compilerSpec = com.intel.compilers.icc.11_1_0;
 			fileType = sourcecode.cpp;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 			);
@@ -69,6 +71,8 @@
 			isa = PBXBuildRule;
 			compilerSpec = com.intel.compilers.icc.11_1_0;
 			fileType = sourcecode.c;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 			);
@@ -387,6 +391,7 @@
 			developmentRegion = en;
 			hasScannedForEncodings = 1;
 			knownRegions = (
+				en,
 				English,
 				Japanese,
 				French,
@@ -507,6 +512,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+				CLANG_CXX_LIBRARY = "libc++";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -516,6 +522,7 @@
 				GCC_PREFIX_HEADER = licecap_Prefix.pch;
 				INFOPLIST_FILE = "licecap-Info.plist";
 				INSTALL_PATH = "$(HOME)/Applications";
+				MACOSX_DEPLOYMENT_TARGET = 11.1;
 				PRODUCT_NAME = licecap;
 			};
 			name = Debug;
@@ -525,12 +532,14 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+				CLANG_CXX_LIBRARY = "libc++";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = licecap_Prefix.pch;
 				INFOPLIST_FILE = "licecap-Info.plist";
 				INSTALL_PATH = "$(HOME)/Applications";
+				MACOSX_DEPLOYMENT_TARGET = 11.1;
 				PRODUCT_NAME = licecap;
 			};
 			name = Release;
