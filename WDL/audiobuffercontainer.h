@@ -10,6 +10,101 @@
 
 #define CHANNELPINMAPPER_MAXPINS 64
 
+
+// eventually ChannelPinMapper etc should use this instead of WDL_UINT64
+struct PinMapPin
+{
+  enum { PINMAP_PIN_MAX_CHANNELS = CHANNELPINMAPPER_MAXPINS };
+  // currently must be WDL_UINT64 since we cast to WDL_UINT64 for EffectPinConnectDialog
+  // probably should change to unsigned int when we migrate to higher channel counts
+  // (more efficient for 32-bit platforms)
+  enum { STATE_ENT_BITS=64 };
+  WDL_UINT64 state[(PINMAP_PIN_MAX_CHANNELS + STATE_ENT_BITS - 1) / STATE_ENT_BITS];
+  static WDL_UINT64 make_mask(unsigned int idx) { return WDL_UINT64_CONST(1) << (idx & (STATE_ENT_BITS-1)); }
+  static WDL_UINT64 full_mask() { return ~WDL_UINT64_CONST(0); }
+
+
+  void clear() { memset(state,0,sizeof(state)); }
+  void clear_chan(unsigned int ch) { if (WDL_NORMALLY(ch < PINMAP_PIN_MAX_CHANNELS)) state[ch/STATE_ENT_BITS] &= ~make_mask(ch); }
+  void set_chan(unsigned int ch) { if (WDL_NORMALLY(ch < PINMAP_PIN_MAX_CHANNELS)) state[ch/STATE_ENT_BITS] |= make_mask(ch); }
+  void set_chan_lt(unsigned int cnt)
+  {
+    if (WDL_NOT_NORMALLY(cnt > PINMAP_PIN_MAX_CHANNELS)) cnt = PINMAP_PIN_MAX_CHANNELS;
+    for (int x = 0; cnt && x < (int) (sizeof(state)/sizeof(state[0])); x ++)
+    {
+      if (cnt < STATE_ENT_BITS) { state[x] |= make_mask(cnt)-1; cnt=0; }
+      else { state[x] = full_mask(); cnt -= STATE_ENT_BITS; }
+    }
+  }
+
+  bool has_chan(unsigned int ch) const { return WDL_NORMALLY(ch < PINMAP_PIN_MAX_CHANNELS) && (state[ch/STATE_ENT_BITS] & make_mask(ch)); }
+  bool has_chan_lt(unsigned int cnt) const
+  {
+    if (WDL_NOT_NORMALLY(cnt > PINMAP_PIN_MAX_CHANNELS)) cnt = PINMAP_PIN_MAX_CHANNELS;
+    for (int x = 0; cnt && x < (int) (sizeof(state)/sizeof(state[0])); x ++)
+    {
+      if (cnt < STATE_ENT_BITS) return (state[x] & (make_mask(cnt)-1));
+      if (state[x]) return true;
+      cnt -= STATE_ENT_BITS;
+    }
+    return false;
+  }
+
+  // call with 0, then increment after each call (returns false when done)
+  bool enum_chans(unsigned int *ch, unsigned int maxch=PINMAP_PIN_MAX_CHANNELS) const
+  {
+    if (WDL_NOT_NORMALLY(maxch > PINMAP_PIN_MAX_CHANNELS))
+      maxch = PINMAP_PIN_MAX_CHANNELS;
+
+    unsigned int x = *ch;
+    if (x >= maxch) return false;
+
+    WDL_UINT64 s = state[x / STATE_ENT_BITS] >> (x & (STATE_ENT_BITS-1));
+    do
+    {
+      if (s)
+      {
+        do
+        {
+          if (s&1) { *ch = x; return true; }
+          s>>=1;
+          x++;
+          WDL_ASSERT(x & (STATE_ENT_BITS-1)); // we should never run out of bits!
+        }
+        while (x < maxch);
+        break;
+      }
+      x = (x & ~(STATE_ENT_BITS-1)) + STATE_ENT_BITS;
+      s = state[x / STATE_ENT_BITS];
+    }
+    while (x < maxch);
+
+
+    *ch = x;
+    return false;
+  }
+
+  PinMapPin & operator |= (const PinMapPin &v)
+  {
+    for (int x = 0; x < (int) (sizeof(state)/sizeof(state[0])); x ++) state[x]|=v.state[x];
+    return *this;
+  }
+
+  bool equal_to(const PinMapPin &v, unsigned int nch_top = PINMAP_PIN_MAX_CHANNELS) const
+  {
+    if (WDL_NOT_NORMALLY(nch_top > PINMAP_PIN_MAX_CHANNELS)) nch_top = PINMAP_PIN_MAX_CHANNELS;
+    for (unsigned int x = 0; x < nch_top; x += STATE_ENT_BITS)
+    {
+      if ((v.state[x/STATE_ENT_BITS]^state[x/STATE_ENT_BITS]) &
+          (((nch_top-x) < STATE_ENT_BITS) ? (make_mask(nch_top-x)-1) : full_mask()))
+        return false;
+    }
+    return true;
+  }
+};
+typedef char assert_pinmappin_is_sizeofuint64[sizeof(PinMapPin) == sizeof(WDL_UINT64) ? 1 : -1];
+
+
 class ChannelPinMapper
 {
 public: 
