@@ -1151,6 +1151,9 @@ EEL_F eel_lice_state::gfx_setfont(void *opaque, int np, EEL_F **parms)
             else if (toupper(c&0xff)=='M') fontflag|=64;//LICE_FONT_FLAG_FX_MONO
             else if (toupper(c&0xff)=='S') fontflag|=128; //LICE_FONT_FLAG_FX_SHADOW
             else if (toupper(c&0xff)=='O') fontflag|=256; //LICE_FONT_FLAG_FX_OUTLINE
+            else if (toupper(c&0xff)=='Z') fontflag|=512;
+            else if (toupper(c&0xff)=='Y') fontflag|=1024;
+
             c>>=8;
           }
         }
@@ -1219,7 +1222,10 @@ EEL_F eel_lice_state::gfx_setfont(void *opaque, int np, EEL_F **parms)
             }
 
             s->use_fonth=wdl_max(tm.tmHeight,1);
-            LICE__SetFromHFont(s->font,hf,512 | (fontflag&(511-15)));//LICE_FONT_FLAG_OWNS_HFONT);
+            int useflag = 512 | (fontflag&(511-15));
+            if (fontflag&512) useflag |= 1; // LICE_FONT_FLAG_VERTICAL
+            else if (fontflag&1024) useflag |= 3; // LICE_FONT_FLAG_VERTICAL|LICE_FONT_FLAG_VERTICAL_BOTTOMUP
+            LICE__SetFromHFont(s->font,hf, useflag);//LICE_FONT_FLAG_OWNS_HFONT);
           }
         }
       }
