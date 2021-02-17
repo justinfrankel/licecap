@@ -644,7 +644,8 @@ if(@resourceFiles) {
   # on other image times.
   if($unflattenable &&
    (command($gConfig{'cmd_hdiutil'}, 'unflatten', $targetImage)) != 0) {
-    cleanupDie('hdiutil unflatten failed');
+    # cleanupDie('hdiutil unflatten failed');
+    $unflattenable = 0;
   }
   # Don't push flatten onto the cleanup stack.  If we fail now, we'll be
   # removing $targetImage anyway.
@@ -934,10 +935,9 @@ sub diskImageMaker($$$$$$$$) {
       my($hybridImage);
       $hybridImage = giveExtension($tempDir.'/hybrid', '.dmg');
 
-      if(command($gConfig{'cmd_hdiutil'}, 'makehybrid', '-hfs',
-       '-hfs-volume-name', $name, '-hfs-openfolder', $source, '-ov',
-       $source, '-o', $hybridImage) != 0) {
-        cleanupDie('hdiutil makehybrid failed');
+      if(command($gConfig{'cmd_hdiutil'}, 'create', '-volname', $name, 
+                         '-ov', '-fs', 'HFS+', '-srcfolder', $source, '-o', $hybridImage) != 0) {
+        cleanupDie('hdiutil create -srcfolder failed');
       }
 
       $uncompressedImage = $hybridImage;
