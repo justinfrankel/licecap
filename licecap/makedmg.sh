@@ -100,8 +100,15 @@ if ($sign_by != "")
     system("codesign -s \"$sign_by\" $workdir/LICEcap/LICEcap.app");
 }
 
-system("perl ./pkg-dmg --format UDBZ --target ./build/licecap$ver.dmg --source $workdir/LICEcap --license ./license-cleaned.txt --copy stage_DS_Store:/.DS_Store --symlink /Applications:/Applications --mkdir .background --copy background.png:.background --volname LICECAP_INSTALL --icon licecap.icns --config cmd_SetFile=/Applications/Xcode.app/Contents/Developer/usr/bin/SetFile --config cmd_Rez=/Applications/Xcode.app/Contents/Developer/usr/bin/Rez");
+$destfile = "./build/licecap$ver.dmg";
 
+system("perl ./pkg-dmg --format UDBZ --target $destfile --source $workdir/LICEcap --license ./license-cleaned.txt --copy stage_DS_Store:/.DS_Store --symlink /Applications:/Applications --mkdir .background --copy background.png:.background --volname LICECAP_INSTALL --icon licecap.icns --config cmd_SetFile=/Applications/Xcode.app/Contents/Developer/usr/bin/SetFile --config cmd_Rez=/Applications/Xcode.app/Contents/Developer/usr/bin/Rez");
 
+system("sh ./make-license-xml.sh $destfile");
+
+if ($sign_by != "")
+{
+  system("codesign -s \"$sign_by\" $destfile");
+}
 
 ?>
