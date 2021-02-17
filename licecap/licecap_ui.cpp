@@ -1126,8 +1126,10 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 #elif defined(__APPLE__)
       extern void SWELL_SetWindowShadow(HWND, bool);
       void SetNSWindowOpaque(HWND, bool);
+      void SetNSWindowTransparent(HWND);
       SWELL_SetWindowShadow(hwndDlg,false);
       SetNSWindowOpaque(hwndDlg,false);
+      SetNSWindowTransparent(hwndDlg);
 #endif
 
       g_wndsize.init(hwndDlg);
@@ -1417,12 +1419,24 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
         PAINTSTRUCT ps;
         if (BeginPaint(hwndDlg,&ps))
         {
-          RECT r;
-          void DrawTransparentRectInCurrentContext(RECT r);
+          RECT r,r2;
           GetWindowRect(GetDlgItem(hwndDlg,IDC_VIEWRECT),&r);
           ScreenToClient(hwndDlg,(LPPOINT)&r);
           ScreenToClient(hwndDlg,((LPPOINT)&r)+1);
-          DrawTransparentRectInCurrentContext(r);
+          GetClientRect(hwndDlg,&r2);
+
+          RECT tr = r2;
+          tr.right = r.left;
+          SWELL_FillDialogBackground(ps.hdc,&tr,0);
+          tr.left = r.right; tr.right = r2.right;
+          SWELL_FillDialogBackground(ps.hdc,&tr,0);
+          tr = r;
+          tr.bottom = r.top; tr.top = r2.top;
+          SWELL_FillDialogBackground(ps.hdc,&tr,0);
+          tr.top = r.bottom; tr.bottom = r2.bottom;
+          SWELL_FillDialogBackground(ps.hdc,&tr,0);
+          SWELL_FillDialogBackground(ps.hdc,&tr,0);
+
           HPEN pen = CreatePen(PS_SOLID,0,RGB(128,128,128));
           HGDIOBJ oldPen = SelectObject(ps.hdc,pen);
           

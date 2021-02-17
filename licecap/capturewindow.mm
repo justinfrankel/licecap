@@ -321,10 +321,13 @@ bool GetScreenData(int xpos, int ypos, LICE_IBitmap *bmOut)
   return true;
 }
 
-void DrawTransparentRectInCurrentContext(RECT r)
+
+void SetNSWindowTransparent(HWND h)
 {
-  [[NSColor clearColor] set];
-  NSRectFill(NSMakeRect(r.left,r.top,r.right-r.left,r.bottom-r.top));
+  NSWindow *w = (NSWindow *)h;
+  if ([w isKindOfClass:[NSView class]]) w = [(NSView *)w window];
+  else if (![w isKindOfClass:[NSWindow class]]) return;
+  [w setBackgroundColor:[NSColor clearColor]];
 }
 
 void SetNSWindowOpaque(HWND h, bool op)

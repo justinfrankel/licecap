@@ -1,3 +1,8 @@
+v1.31 - February 17, 2021
+  + macOS: Big Sur support (thanks https://github.com/ganjarpanji)
+  + macOS: ARM native support
+  + macOS: now requires macOS 10.7 or later
+
 v1.30 - April 4, 2020
   + macOS: fix Catalina file browser default extension issues
   + macOS: notarized for Catalina
