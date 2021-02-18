@@ -2478,6 +2478,8 @@ static void GetInitialWndPos(HWND owner, int h, int* x, int* y)
   *y = r.bottom-h-100;
 }
 
+NSView **g_swell_mac_foreign_key_event_sink;
+
 
 @implementation SWELL_ModelessWindow : NSWindow
 
@@ -2609,6 +2611,18 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(0)
   }
 }
 #endif
+
+-(void)keyDown:(NSEvent *)event
+{
+  if (g_swell_mac_foreign_key_event_sink && [event window] != self)
+  {
+    *g_swell_mac_foreign_key_event_sink = [self contentView];
+  }
+  else
+  {
+    [super keyDown:event];
+  }
+}
 
 @end
 
