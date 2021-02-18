@@ -761,8 +761,10 @@ static EEL_F NSEEL_CGEN_CALL _gfx_setimgdim(void *opaque, EEL_F *img, EEL_F *w, 
   return 0.0;
 }
 
-
-
+static EEL_F NSEEL_CGEN_CALL _gfx_getsyscol(void* ctxe, INT_PTR np, EEL_F **parms)
+{
+  return (EEL_F)LICE_RGBA_FROMNATIVE(GetSysColor(COLOR_3DFACE));
+}
 
 void eel_lice_state::gfx_lineto(EEL_F xpos, EEL_F ypos, EEL_F aaflag)
 {
@@ -1969,6 +1971,7 @@ void eel_lice_register()
   NSEEL_addfunc_varparm("gfx_getfont",1,NSEEL_PProc_THIS,&_gfx_getfont);
   NSEEL_addfunc_varparm("gfx_set",1,NSEEL_PProc_THIS,&_gfx_set);
   NSEEL_addfunc_varparm("gfx_getdropfile",1,NSEEL_PProc_THIS,&_gfx_getdropfile);
+  NSEEL_addfunc_varparm("gfx_getsyscol",0,NSEEL_PProc_THIS,&_gfx_getsyscol);
 }
 #endif
 
