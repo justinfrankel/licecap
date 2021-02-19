@@ -298,6 +298,7 @@ public:
   int m_kb_queue[64];
   unsigned char m_kb_queue_valid;
   unsigned char m_kb_queue_pos;
+  HCURSOR m_cursor;
   int m_cursor_resid;
 #ifdef EEL_LICE_LOADTHEMECURSOR
   char m_cursor_name[128];
@@ -324,6 +325,7 @@ eel_lice_state::eel_lice_state(NSEEL_VMCTX vm, void *ctx, int image_slots, int f
   memset(hwnd_standalone_kb_state,0,sizeof(hwnd_standalone_kb_state));
   m_kb_queue_valid=0;
   m_cursor_resid=0;
+  m_cursor = NULL;
 #ifndef EEL_LICE_STANDALONE_NOINITQUIT
   memset(&m_last_undocked_r,0,sizeof(m_last_undocked_r));
 #endif
@@ -1625,16 +1627,53 @@ EEL_F eel_lice_state::gfx_setcursor(void* opaque, EEL_F** parms, int nparms)
 {
   if (!hwnd_standalone) return 0.0;
 
-  m_cursor_resid=(int)parms[0][0];
-
-#ifdef EEL_LICE_LOADTHEMECURSOR
-  m_cursor_name[0]=0;
-  if (nparms > 1)
+  bool chg = false;
+  const int nc = (int)parms[0][0];
+  if (m_cursor_resid != nc)
   {
-    const char* p=EEL_STRING_GET_FOR_INDEX(parms[1][0], NULL);
-    if (p && p[0]) lstrcpyn(m_cursor_name, p, sizeof(m_cursor_name));
+    m_cursor_resid = nc;
+    chg = true;
+  }
+
+  const char *p = NULL;
+#ifdef EEL_LICE_LOADTHEMECURSOR
+  if (nparms > 1) p=EEL_STRING_GET_FOR_INDEX(parms[1][0], NULL);
+
+  if (strncmp(p?p:"",m_cursor_name,sizeof(m_cursor_name)-1))
+  {
+    lstrcpyn(m_cursor_name, p?p:"", sizeof(m_cursor_name));
+    chg = true;
   }
 #endif
+
+  if (chg)
+  {
+    m_cursor = NULL;
+    if (m_cursor_resid > 0)
+    {
+      if (!p || !*p) m_cursor = LoadCursor(NULL, MAKEINTRESOURCE(m_cursor_resid));
+#ifdef EEL_LICE_LOADTHEMECURSOR
+      else m_cursor = EEL_LICE_LOADTHEMECURSOR(m_cursor_resid, p);
+#endif
+    }
+
+    bool do_set = GetCapture() == hwnd_standalone;
+    if (!do_set && GetFocus() == hwnd_standalone)
+    {
+      POINT pt;
+      RECT r;
+      GetCursorPos(&pt);
+      ScreenToClient(hwnd_standalone,&pt);
+      GetClientRect(hwnd_standalone,&r);
+      do_set = PtInRect(&r,pt);
+    }
+
+    if (do_set)
+    {
+      SetCursor(m_cursor ? m_cursor : LoadCursor(NULL,IDC_ARROW));
+    }
+  }
+
   return 1.0;
 }
 
@@ -2446,21 +2485,16 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
     case WM_SETCURSOR:
     {
       eel_lice_state *ctx=(eel_lice_state*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
-      if (ctx && ctx->m_cursor_resid > 0)
+      if (ctx && ctx->m_cursor)
       {
         POINT p;
         GetCursorPos(&p);
         ScreenToClient(hwnd, &p);
         RECT r;
         GetClientRect(hwnd, &r);
-        if (p.x >= 0 && p.x < r.right && p.y >= 0 && p.y < r.bottom)
+        if (PtInRect(&r,p))
         {
-#ifdef EEL_LICE_LOADTHEMECURSOR
-          if (ctx->m_cursor_name[0]) 
-            SetCursor(EEL_LICE_LOADTHEMECURSOR(ctx->m_cursor_resid, ctx->m_cursor_name));
-          else
-#endif
-            SetCursor(LoadCursor(NULL, MAKEINTRESOURCE(ctx->m_cursor_resid)));
+          SetCursor(ctx->m_cursor);
           return TRUE;
         }
       }
