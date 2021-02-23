@@ -103,6 +103,7 @@ private:
   int m_filtlatency;
   int m_samples_in_rsinbuf;
   int m_lp_oversize;
+  int m_sinc_ideal_calced; // -1=not yet calced
 
   int m_sincsize;
   int m_filtercnt;

@@ -1020,6 +1020,7 @@ static void inline SincSample2N(double *outptr, const double *inptr, double frac
 
 WDL_Resampler::WDL_Resampler()
 {
+  m_sinc_ideal_calced = -1;
   m_filterq=0.707f;
   m_filterpos=0.693f; // .792 ?
 
@@ -1086,6 +1087,7 @@ void WDL_Resampler::SetRates(double rate_in, double rate_out)
     m_sratein=rate_in; 
     m_srateout=rate_out;  
     m_ratio=m_sratein / m_srateout;
+    m_sinc_ideal_calced = -1;
   }
 }
 
@@ -1098,39 +1100,45 @@ const WDL_SincFilterSample *WDL_Resampler::BuildLowPass(double filtpos, bool *is
   int ideal_interp = 0;
   if (wantinterp)
   {
-    if (m_ratio < 1.0)
+    if (m_sinc_ideal_calced < 0)
     {
-      const double drat = m_srateout/m_sratein;
-      const int irat = (int) (drat + 0.5);
-      if (irat > 1 && irat==drat) ideal_interp=irat;
-    }
-    else 
-    {
-      const int irat = (int) (m_ratio + 0.5);
-      if (m_ratio == irat) ideal_interp=1; // eg 96k to 48k, only need one table
-    }
-
-    if (!ideal_interp)
-    {
-      // if whole integer rates, calculate GCD
-      const int in1 = (int)m_sratein, out1 = (int)m_srateout;
-      if (out1 > 0 && in1 > 0 && m_sratein == (double)in1 && m_srateout == (double)out1)
+      if (m_ratio < 1.0)
       {
-        // don't bother finding the GCD if it's lower than is useful
-        int min_cd =  out1 / (2*wantinterp);
-        if (min_cd < 1) min_cd = 1;
-
-        int n1 = out1, n2=in1;
-        while (n2 >= min_cd)
-        {
-          const int tmp = n1;
-          n1 = n2;
-          n2 = tmp % n2;
-        }
-        if (!n2)
-          ideal_interp = out1 / n1;
+        const double drat = m_srateout/m_sratein;
+        const int irat = (int) (drat + 0.5);
+        if (irat > 1 && irat==drat) ideal_interp=irat;
       }
+      else
+      {
+        const int irat = (int) (m_ratio + 0.5);
+        if (m_ratio == irat) ideal_interp=1; // eg 96k to 48k, only need one table
+      }
+
+      if (!ideal_interp)
+      {
+        // if whole integer rates, calculate GCD
+        const int in1 = (int)m_sratein, out1 = (int)m_srateout;
+        if (out1 > 0 && in1 > 0 && m_sratein == (double)in1 && m_srateout == (double)out1)
+        {
+          // don't bother finding the GCD if it's lower than is useful
+          int min_cd =  out1 / (2*wantinterp);
+          if (min_cd < 1) min_cd = 1;
+
+          int n1 = out1, n2=in1;
+          while (n2 >= min_cd)
+          {
+            const int tmp = n1;
+            n1 = n2;
+            n2 = tmp % n2;
+          }
+          if (!n2)
+            ideal_interp = out1 / n1;
+        }
+      }
+      m_sinc_ideal_calced = ideal_interp;
     }
+    else
+      ideal_interp = m_sinc_ideal_calced;
 
     if (ideal_interp > 0 && ideal_interp <= wantinterp*2) // use ideal filter for reduced cpu use even if it means more memory
     {
