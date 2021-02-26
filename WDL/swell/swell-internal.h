@@ -490,6 +490,8 @@ typedef struct WindowPropRec
 - (void **)swellGetOwnerWindowHead;
 -(void)swellDoDestroyStuff;
 -(void)swellResetOwnedWindowLevels;
+
+-(void)toggleFullScreen:(id)sender;
 @end
 
 @interface SWELL_ModalDialog : NSPanel

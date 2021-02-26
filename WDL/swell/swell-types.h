@@ -990,7 +990,6 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define WM_INITDIALOG                   0x0110
 #define WM_COMMAND                      0x0111
 #define WM_SYSCOMMAND                   0x0112
-#define SC_CLOSE        0xF060
 #define WM_TIMER                        0x0113
 #define WM_HSCROLL                      0x0114
 #define WM_VSCROLL                      0x0115
@@ -1012,7 +1011,10 @@ __attribute__ ((visibility ("default"))) BOOL WINAPI DllMain(HINSTANCE hInstDLL,
 #define WM_MOUSELAST                    0x020A
 #define WM_CAPTURECHANGED               0x0215
 #define WM_DROPFILES                    0x0233
+#define WM_SWELL_EXTENDED               0x0399 /* wParam = message specific type */
 #define WM_USER                         0x0400
+
+#define SC_CLOSE        0xF060
 
 #define HTCAPTION 2
 #define HTBOTTOMRIGHT 17

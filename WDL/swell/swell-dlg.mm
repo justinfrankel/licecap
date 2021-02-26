@@ -2628,6 +2628,12 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(0)
   }
 }
 
+-(void)toggleFullScreen:(id)sender
+{
+  if (!SendMessage((HWND)[self contentView],WM_SWELL_EXTENDED,(WPARAM)"toggleFullScreen",(LPARAM)sender))
+    [super toggleFullScreen:sender];
+}
+
 @end
 
 
