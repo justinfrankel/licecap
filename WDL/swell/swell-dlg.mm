@@ -191,8 +191,12 @@ char g_swell_nomiddleman_cocoa_override=0; // -1 to disable, 1 to force
 
 static BOOL useNoMiddleManCocoa() 
 { 
+#ifdef __ppc__
+  return false;
+#else
   const int v = SWELL_GetOSXVersion();
   return v >= 0x1050 && (g_swell_nomiddleman_cocoa_override ? (g_swell_nomiddleman_cocoa_override>0) : v < 0x10a0);
+#endif
 }
 
 void updateWindowCollection(NSWindow *w)
