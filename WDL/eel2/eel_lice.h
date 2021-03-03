@@ -216,6 +216,13 @@ public:
     int use_fonth;
   }; 
   WDL_TypedBuf<gfxFontStruct> m_gfx_fonts;
+  enum {
+    EELFONT_FLAG_BOLD = (1<<24),
+    EELFONT_FLAG_ITALIC = (2<<24),
+    EELFONT_FLAG_UNDERLINE = (4<<24),
+    EELFONT_FLAG_MASK = EELFONT_FLAG_BOLD|EELFONT_FLAG_ITALIC|EELFONT_FLAG_UNDERLINE
+  };
+
   int m_gfx_font_active; // -1 for default, otherwise index into gfx_fonts (NOTE: this differs from the exposed API, which defines 0 as default, 1-n)
   LICE_IFont *GetActiveFont() { return m_gfx_font_active>=0&&m_gfx_font_active<m_gfx_fonts.GetSize() && m_gfx_fonts.Get()[m_gfx_font_active].use_fonth ? m_gfx_fonts.Get()[m_gfx_font_active].font : NULL; }
 
@@ -1145,17 +1152,19 @@ EEL_F eel_lice_state::gfx_setfont(void *opaque, int np, EEL_F **parms)
           unsigned int c = np > 3 ? (unsigned int) parms[3][0] : 0;
           while (c)
           {
-            if (toupper(c&0xff)=='B') fontflag|=1;
-            else if (toupper(c&0xff)=='I') fontflag|=2;
-            else if (toupper(c&0xff)=='U') fontflag|=4;
-            else if (toupper(c&0xff)=='R') fontflag|=16; //LICE_FONT_FLAG_FX_BLUR
-            else if (toupper(c&0xff)=='V') fontflag|=32;//LICE_FONT_FLAG_FX_INVERT
-            else if (toupper(c&0xff)=='M') fontflag|=64;//LICE_FONT_FLAG_FX_MONO
-            else if (toupper(c&0xff)=='S') fontflag|=128; //LICE_FONT_FLAG_FX_SHADOW
-            else if (toupper(c&0xff)=='O') fontflag|=256; //LICE_FONT_FLAG_FX_OUTLINE
-            else if (toupper(c&0xff)=='Z') fontflag|=512;
-            else if (toupper(c&0xff)=='Y') fontflag|=1024;
-
+            switch (toupper(c&0xff))
+            {
+              case 'B': fontflag|=EELFONT_FLAG_BOLD; break;
+              case 'I': fontflag|=EELFONT_FLAG_ITALIC; break;
+              case 'U': fontflag|=EELFONT_FLAG_UNDERLINE; break;
+              case 'R': fontflag|=16; break;   //LICE_FONT_FLAG_FX_BLUR
+              case 'V': fontflag|=32; break;   //LICE_FONT_FLAG_FX_INVERT
+              case 'M': fontflag|=64; break;   //LICE_FONT_FLAG_FX_MONO
+              case 'S': fontflag|=128; break;  //LICE_FONT_FLAG_FX_SHADOW
+              case 'O': fontflag|=256; break;  //LICE_FONT_FLAG_FX_OUTLINE
+              case 'Z': fontflag|=1; break;    //LICE_FONT_FLAG_VERTICAL
+              case 'Y': fontflag|=1|2; break;  //LICE_FONT_FLAG_VERTICAL|LICE_FONT_FLAG_VERTICAL_BOTTOMUP
+            }
             c>>=8;
           }
         }
@@ -1176,7 +1185,9 @@ EEL_F eel_lice_state::gfx_setfont(void *opaque, int np, EEL_F **parms)
         if (!s->font) s->font=LICE_CreateFont();
         if (s->font)
         {
-          const int fw = (fontflag&1) ? FW_BOLD : FW_NORMAL;
+          const int fw = (fontflag&EELFONT_FLAG_BOLD) ? FW_BOLD : FW_NORMAL;
+          const bool italic = !!(fontflag&EELFONT_FLAG_ITALIC);
+          const bool underline = !!(fontflag&EELFONT_FLAG_UNDERLINE);
           HFONT hf=NULL;
 #if defined(_WIN32) && !defined(WDL_NO_SUPPORT_UTF8)
           WCHAR wf[256];
@@ -1184,10 +1195,10 @@ EEL_F eel_lice_state::gfx_setfont(void *opaque, int np, EEL_F **parms)
               GetVersion()<0x80000000 &&
               MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,s->last_fontname,-1,wf,256))
           {
-            hf = CreateFontW(sz,0,0,0,fw,!!(fontflag&2),!!(fontflag&4),FALSE,ANSI_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,wf);
+            hf = CreateFontW(sz,0,0,0,fw,italic,underline,FALSE,ANSI_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,wf);
           }
 #endif
-          if (!hf) hf = CreateFont(sz,0,0,0,fw,!!(fontflag&2),!!(fontflag&4),FALSE,ANSI_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,s->last_fontname);
+          if (!hf) hf = CreateFont(sz,0,0,0,fw,italic,underline,FALSE,ANSI_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,s->last_fontname);
 
           if (!hf)
           {
@@ -1224,10 +1235,7 @@ EEL_F eel_lice_state::gfx_setfont(void *opaque, int np, EEL_F **parms)
             }
 
             s->use_fonth=wdl_max(tm.tmHeight,1);
-            int useflag = 512 | (fontflag&(511-15));
-            if (fontflag&512) useflag |= 1; // LICE_FONT_FLAG_VERTICAL
-            else if (fontflag&1024) useflag |= 3; // LICE_FONT_FLAG_VERTICAL|LICE_FONT_FLAG_VERTICAL_BOTTOMUP
-            LICE__SetFromHFont(s->font,hf, useflag);//LICE_FONT_FLAG_OWNS_HFONT);
+            LICE__SetFromHFont(s->font,hf, (fontflag & ~EELFONT_FLAG_MASK) | 512 /*LICE_FONT_FLAG_OWNS_HFONT*/);
           }
         }
       }
