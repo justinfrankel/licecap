@@ -1769,7 +1769,7 @@ double ReadMetadataPrefPos(WDL_StringKeyedArray<char*> *metadata, double srate)
   {
     WDL_UINT64 ipos=atoi(v);
     v=metadata->Get("IXML:BEXT:BWF_TIME_REFERENCE_HIGH");
-    if (v[0]) ipos |= ((WDL_UINT64)atoi(v))<<32;
+    if (v && v[0]) ipos |= ((WDL_UINT64)atoi(v))<<32;
     return (double)ipos/srate;
   }
 
