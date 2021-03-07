@@ -40,6 +40,28 @@ WDL_UINT64 ParseUInt64(const char *val)
   return i;
 }
 
+void InsertMetadataIncrKeyIfNeeded(WDL_StringKeyedArray<char*> *metadata,
+  const char *key, const char *val)
+{
+  if (!metadata->Exists(key))
+  {
+    metadata->Insert(key, strdup(val));
+  }
+  else
+  {
+    static WDL_FastString s_str;
+    for (int i=2; i < 64; ++i)
+    {
+      s_str.SetFormatted(512, "%s_%d", key, i);
+      if (!metadata->Exists(s_str.Get()))
+      {
+        metadata->Insert(s_str.Get(), strdup(val));
+        break;
+      }
+    }
+  }
+}
+
 void XMLCompliantAppend(WDL_FastString *str, const char *txt)
 {
   if (str && txt) for (;;)
@@ -55,7 +77,6 @@ void XMLCompliantAppend(WDL_FastString *str, const char *txt)
     }
   }
 }
-
 
 const char *XMLHasOpenTag(WDL_FastString *str, const char *tag) // tag like "<FOO>")
 {
@@ -82,7 +103,7 @@ void UnpackXMLElement(const char *pre, wdl_xml_element *elem,
   }
   if (elem->value.Get()[0])
   {
-    metadata->Insert(key.Get(), strdup(elem->value.Get()));
+    InsertMetadataIncrKeyIfNeeded(metadata, key.Get(), elem->value.Get());
   }
   for (int i=0; i < elem->elements.GetSize(); ++i)
   {
@@ -193,7 +214,7 @@ void UnpackXMPDescription(const char *curkey, wdl_xml_element *elem,
   if (IsXMPMetadata(elem->name, &key)) curkey=key.Get();
   if (curkey && elem->value.Get()[0])
   {
-    metadata->Insert(curkey, strdup(elem->value.Get()));
+    InsertMetadataIncrKeyIfNeeded(metadata, curkey, elem->value.Get());
   }
 
   for (i=0; i < elem->elements.GetSize(); ++i)
