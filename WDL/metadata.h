@@ -49,13 +49,13 @@ void InsertMetadataIncrKeyIfNeeded(WDL_StringKeyedArray<char*> *metadata,
   }
   else
   {
-    static WDL_FastString s_str;
-    for (int i=2; i < 64; ++i)
+    for (int i=2; i < 1000; ++i)
     {
-      s_str.SetFormatted(512, "%s_%d", key, i);
-      if (!metadata->Exists(s_str.Get()))
+      char str[2048];
+      snprintf(str,sizeof(str), "%s_%d", key, i);
+      if (!metadata->Exists(str))
       {
-        metadata->Insert(s_str.Get(), strdup(val));
+        metadata->Insert(str, strdup(val));
         break;
       }
     }
