@@ -840,6 +840,18 @@ treatAsDir:
                      return 0;
                    }
                    if (buf[strlen(buf)-1] == '/') goto treatAsDir;
+
+                   const char *extlist = parms->extlist;
+                   if (extlist && *extlist && WDL_get_fileext(buf)[0] != '.')
+                   {
+                      const char *erd = extlist+strlen(extlist)+1;
+                      if (*erd == '*' && erd[1] == '.') // add default extension
+                      {
+                        const char *a = (erd+=1);
+                        while (*erd && *erd != ';') erd++;
+                        if (erd > a+1) snprintf_append(buf,sizeof(buf),"%.*s",(int)(erd-a),a);
+                      }
+                   }
                    if (!stat(buf,&st))
                    {
                      snprintf(msg,sizeof(msg),"File exists:\r\n\r\n%.1000s\r\n\r\nOverwrite?",buf);
@@ -1023,16 +1035,6 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
 {
   BrowseFile_State state( text, initialdir, initialfile, extlist, BrowseFile_State::SAVE, fn, fnsize );
   if (!DialogBoxParam(NULL,NULL,GetForegroundWindow(),swellFileSelectProc,(LPARAM)&state)) return false;
-  if (fn && fnsize > 0 && extlist && *extlist && WDL_get_fileext(fn)[0] != '.')
-  {
-    const char *erd = extlist+strlen(extlist)+1;
-    if (*erd == '*' && erd[1] == '.') // add default extension
-    {
-      const char *a = (erd+=1);
-      while (*erd && *erd != ';') erd++;
-      if (erd > a+1) snprintf_append(fn,fnsize,"%.*s",(int)(erd-a),a);
-    }
-  }
 
   return true;
 }
