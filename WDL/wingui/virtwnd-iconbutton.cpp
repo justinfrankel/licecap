@@ -712,6 +712,8 @@ void WDL_VirtualComboBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin
 
 WDL_VirtualStaticText::WDL_VirtualStaticText()
 {
+  calculate_text=NULL;
+  calculate_text_ctx=NULL;
   m_dotint=false;
   m_bkbm=0;
   m_margin_r=m_margin_l=0;
@@ -785,6 +787,7 @@ int WDL_VirtualStaticText::OnMouseDown(int xpos, int ypos)
 
 void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect, int rscale)
 {
+  if (calculate_text) calculate_text(this,calculate_text_ctx, &m_text);
   RECT r=m_position;
   ScaleRect(&r,rscale);
   r.left+=origin_x;

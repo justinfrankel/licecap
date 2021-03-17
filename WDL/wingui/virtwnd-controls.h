@@ -187,6 +187,10 @@ class WDL_VirtualStaticText : public WDL_VWnd
     WDL_FastString m_text;
     bool m_didvert; // true if text was drawn vertically on the last paint
     int m_didalign; // the actual alignment used on the last paint
+
+  public:
+    void (*calculate_text)(WDL_VirtualStaticText *ctl, void *ctx, WDL_FastString *fs); // if set, this will be called from paint
+    void *calculate_text_ctx;
 };
 
 class WDL_VirtualComboBox : public WDL_VWnd
@@ -301,6 +305,11 @@ class WDL_VirtualSlider : public WDL_VWnd
     bool m_sendmsgonclick;
     bool m_grayed;
     bool m_is_knob;
+
+  public:
+    int (*calculate_slider_position)(WDL_VirtualSlider *ctl, void *ctx); // if set, this will be called from paint (unless captured)
+    void *calculate_slider_position_ctx;
+
 };
 
 
