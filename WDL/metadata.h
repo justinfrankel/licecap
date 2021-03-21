@@ -52,7 +52,7 @@ void InsertMetadataIncrKeyIfNeeded(WDL_StringKeyedArray<char*> *metadata,
     for (int i=2; i < 100; ++i)
     {
       char str[2048];
-      snprintf(str,sizeof(str), "%s_%d", key, i);
+      snprintf(str,sizeof(str), "%s:%d", key, i);
       if (!metadata->Exists(str))
       {
         metadata->Insert(str, strdup(val));
