@@ -4953,7 +4953,7 @@ had_error:
 
         if (ctx->gotEndOfInput&4)
         {
-          snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"%d: %smissing ) or ]",linenumber+lineoffs,cur_err);
+          snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"%d: %.200smissing ) or ]",linenumber+lineoffs,cur_err);
         }
         else
         {
@@ -4975,11 +4975,11 @@ had_error:
 
           // display left_amt >>>> right_amt_nospace
           if (left_amt_nospace > 0)
-            snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"%d: %s'%.*s <!> %.*s'",linenumber+lineoffs,cur_err,
+            snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"%d: %.200s'%.*s <!> %.*s'",linenumber+lineoffs,cur_err,
               left_amt_nospace,p-left_amt_nospace,
               right_amt_nospace,p);
           else
-            snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"%d: %s'%.*s'",linenumber+lineoffs,cur_err,right_amt_nospace,p);
+            snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"%d: %.200s'%.*s'",linenumber+lineoffs,cur_err,right_amt_nospace,p);
         }
       }
 
