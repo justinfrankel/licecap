@@ -421,7 +421,11 @@ int eelScriptInst::runcode(const char *codeptr, int showerr, const char *showerr
   #ifdef __aarch64__
           snprintf(buf2,sizeof(buf2), "objdump -D -b binary -maarch64 \"%s\"",buf);
   #elif defined(__LP64__)
-          snprintf(buf2,sizeof(buf2),"objdump -D -b binary -m i386:x86-64 \"%s\"",buf);
+          #ifdef __APPLE__
+            snprintf(buf2,sizeof(buf2),"distorm3 --b64 \"%s\"",buf);
+          #else
+            snprintf(buf2,sizeof(buf2),"objdump -D -b binary -m i386:x86-64 \"%s\"",buf);
+          #endif
   #else
           snprintf(buf2,sizeof(buf2),"distorm3 --b32 \"%s\"",buf);
   #endif
