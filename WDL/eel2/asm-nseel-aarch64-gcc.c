@@ -28,8 +28,9 @@ void nseel_asm_2pdd(void)
     "mov x3, 0xdead\n" 
     "movk x3, 0xbeef, lsl 16\n"  
     "movk x3, 0xbeef, lsl 32\n"  
-    "fmov d1, d0\n" 
-    "ldr d0, [x1]\n" 
+    "fmov d2, d0\n"
+    "fmov d0, d1\n"
+    "fmov d1, d2\n"
     "str x30, [sp, #-16]!\n"
     "blr x3\n" 
     "ldr x30, [sp], #16\n"
@@ -212,7 +213,6 @@ void nseel_asm_add(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-   "ldr d1, [x1]\n"
    "fadd d0, d1, d0\n"
     FUNCTION_MARKER
   );
@@ -252,7 +252,6 @@ void nseel_asm_sub(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-   "ldr d1, [x1]\n"
    "fsub d0, d1, d0\n"
     FUNCTION_MARKER
   );
@@ -291,7 +290,6 @@ void nseel_asm_mul(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-   "ldr d1, [x1]\n"
    "fmul d0, d0, d1\n"
     FUNCTION_MARKER
   );
@@ -330,7 +328,6 @@ void nseel_asm_div(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-   "ldr d1, [x1]\n"
    "fdiv d0, d1, d0\n"
     FUNCTION_MARKER
   );
@@ -369,7 +366,6 @@ void nseel_asm_mod(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
     "fabs d0, d0\n"
     "fabs d1, d1\n"
     "fcvtzu w1, d0\n"
@@ -386,7 +382,6 @@ void nseel_asm_shl(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
     "fcvtzs w0, d1\n"
     "fcvtzs w1, d0\n"
     "lsl w0, w0, w1\n"
@@ -400,7 +395,6 @@ void nseel_asm_shr(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
     "fcvtzs w0, d1\n"
     "fcvtzs w1, d0\n"
     "asr w0, w0, w1\n"
@@ -437,7 +431,6 @@ void nseel_asm_or(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
     "fcvtzs x0, d0\n"
     "fcvtzs x1, d1\n"
     "orr x0, x0, x1\n"
@@ -479,7 +472,6 @@ void nseel_asm_xor(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
     "fcvtzs x0, d0\n"
     "fcvtzs x1, d1\n"
     "eor x0, x0, x1\n"
@@ -510,7 +502,6 @@ void nseel_asm_and(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
     "fcvtzs x0, d0\n"
     "fcvtzs x1, d1\n"
     "and x0, x0, x1\n"
@@ -726,7 +717,6 @@ void nseel_asm_equal(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
     "ldr d2, [x21]\n"
     "fsub d0, d0, d1\n"
     "fabs d0, d0\n"
@@ -742,7 +732,6 @@ void nseel_asm_equal_exact(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
     "fcmp d1, d0\n"
     "cset w0, eq\n"
     FUNCTION_MARKER
@@ -756,7 +745,6 @@ void nseel_asm_notequal_exact(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
     "fcmp d1, d0\n"
     "cset w0, ne\n"
     FUNCTION_MARKER
@@ -772,7 +760,6 @@ void nseel_asm_notequal(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
     "ldr d2, [x21]\n"
     "fsub d0, d0, d1\n"
     "fabs d0, d0\n"
@@ -790,7 +777,6 @@ void nseel_asm_below(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
     "fcmp d1, d0\n"
     "cset w0, lt\n"
     FUNCTION_MARKER
@@ -804,7 +790,6 @@ void nseel_asm_beloweq(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
     "fcmp d1, d0\n"
     "cset w0, le\n"
     FUNCTION_MARKER
@@ -819,7 +804,6 @@ void nseel_asm_above(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
     "fcmp d1, d0\n"
     "cset w0, gt\n"
     FUNCTION_MARKER
@@ -832,7 +816,6 @@ void nseel_asm_aboveeq(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
     "fcmp d1, d0\n"
     "cset w0, ge\n"
     FUNCTION_MARKER
@@ -875,7 +858,6 @@ void nseel_asm_min_fp(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
     "fcmp d1, d0\n"
     "fcsel d0, d1, d0, lt\n"
     FUNCTION_MARKER
@@ -887,7 +869,6 @@ void nseel_asm_max_fp(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
     "fcmp d1, d0\n"
     "fcsel d0, d1, d0, gt\n"
     FUNCTION_MARKER
