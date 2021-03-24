@@ -25,6 +25,20 @@
 // 8-15 callee saved
 // 16-31 temporary
 
+// v8-v15 spill registers
+#define GLUE_MAX_SPILL_REGS 8
+#define GLUE_SAVE_TO_SPILL_SIZE(x) (4)
+#define GLUE_RESTORE_SPILL_TO_FPREG2_SIZE(x) (4)
+
+static void GLUE_RESTORE_SPILL_TO_FPREG2(void *b, int ws)
+{
+  *(unsigned int *)b = 0x1e604101 + (ws<<5); // fmov d1, d8+ws
+}
+static void GLUE_SAVE_TO_SPILL(void *b, int ws)
+{
+  *(unsigned int *)b = 0x1e604008 + ws; // fmov d8+ws, d0
+}
+
 
 #define GLUE_HAS_FPREG2 1
 
@@ -241,7 +255,8 @@ static void eel_callcode64(INT_PTR bp, INT_PTR cp, INT_PTR rt)
           "ldp x21, x19, [sp], 16\n"
           "ldp x22, x23, [sp], 16\n"
             ::"r" (cp), "r" (bp), "r" (rt), "r" (consttab) :"x0","x1","x2","x3","x4","x5","x6","x7",
-                                                            "x8","x9","x10","x11","x12","x13","x14","x15");
+                                                            "x8","x9","x10","x11","x12","x13","x14","x15",
+							    "v8","v9","v10","v11","v12","v13","v14","v15");
              
 };
 #endif
