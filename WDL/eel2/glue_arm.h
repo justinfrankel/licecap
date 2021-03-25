@@ -18,6 +18,18 @@
 
 // d0 is return value?
 
+
+#define GLUE_HAS_FPREG2 1
+
+static const unsigned int GLUE_COPY_FPSTACK_TO_FPREG2[] = {
+  0xeeb01b40  // fcpyd d1, d0
+};
+
+static unsigned int GLUE_POP_STACK_TO_FPREG2[] = {
+     0xed9d1b00,//  vldr d1, [sp]
+     0xe28dd008,//  add sp, sp, #8
+};
+
 #define GLUE_MAX_FPSTACK_SIZE 0 // no stack support
 #define GLUE_MAX_JMPSIZE ((1<<25) - 1024) // maximum relative jump size
 
@@ -40,11 +52,12 @@ static const unsigned int GLUE_JMP_IF_P1_NZ[]=
   0x1A000000,  // branch if Z clear
 };
 
+#define GLUE_MOV_PX_DIRECTVALUE_TOFPREG2_SIZE 12 // wr=-2, sets d1
 #define GLUE_MOV_PX_DIRECTVALUE_SIZE 8
-static void GLUE_MOV_PX_DIRECTVALUE_GEN(void *b, INT_PTR v, unsigned int wv) 
-{   
+static void GLUE_MOV_PX_DIRECTVALUE_GEN(void *b, INT_PTR v, int wv)
+{
   // requires ARMv6thumb2 or later
-  const unsigned int reg_add = wv << 12;
+  const unsigned int reg_add = wdl_max(wv,0) << 12;
   static const unsigned int tab[2] = {
     0xe3000000, // movw r0, #0000
     0xe3400000, // movt r0, #0000
@@ -53,6 +66,7 @@ static void GLUE_MOV_PX_DIRECTVALUE_GEN(void *b, INT_PTR v, unsigned int wv)
   unsigned int *p=(unsigned int *)b;
   p[0] = tab[0] | reg_add | (v&0xfff) | ((v&0xf000)<<4);
   p[1] = tab[1] | reg_add | ((v>>16)&0xfff) | ((v&0xf0000000)>>12);
+  if (wv == -2) p[2] = 0xed901b00; // fldd d1, [r0]
 }
 
 const static unsigned int GLUE_FUNC_ENTER[1] = { 0xe92d4010 }; // push {r4, lr} 
@@ -262,13 +276,6 @@ static void GLUE_POP_FPSTACK_TO_WTP_TO_PX(unsigned char *buf, int wv)
   GLUE_SET_PX_FROM_WTP(buf,wv); 
   memcpy(buf + GLUE_SET_PX_FROM_WTP_SIZE,GLUE_POP_FPSTACK_TO_WTP,sizeof(GLUE_POP_FPSTACK_TO_WTP));
 };
-
-static unsigned int GLUE_POP_STACK_TO_FPSTACK[2] = 
-{ 
-  0xed9d0b00, // fldd d0, [sp]
-  0xe28dd008, // add sp, sp, #8
-};
-
 
 static const unsigned int GLUE_SET_P1_Z[] =  { 0xe3a00000 }; // mov r0, #0
 static const unsigned int GLUE_SET_P1_NZ[] = { 0xe3a00001 }; // mov r0, #1
