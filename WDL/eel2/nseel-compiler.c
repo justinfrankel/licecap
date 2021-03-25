@@ -529,6 +529,10 @@ static double eel1sigmoid(double x, double constraint)
 #error GLUE_HAS_FPREG2 and GLUE_MAX_FPSTACK_SIZE are exclusive
 #endif
 
+#if GLUE_MAX_SPILL_REGS > 0 && GLUE_HAS_FPREG2 <= 0
+#error GLUE_MAX_SPILL_REGS requires GLUE_HAS_FPREG2
+#endif
+
 #if GLUE_MAX_FPSTACK_SIZE > 0 || GLUE_HAS_FPREG2 > 0
   #define BIF_SECONDLASTPARMST 0x0001000 // use with BIF_LASTPARMONSTACK only (last two parameters get passed on fp stack)
   #define BIF_LAZYPARMORDERING 0x0002000 // allow optimizer to avoid fxch when using BIF_TWOPARMSONFPSTACK_LAZY etc
@@ -2829,6 +2833,9 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
   int local_fpstack_use=0; // how many items we have pushed onto the fp stack
   int parm_size=0;
   int restore_stack_amt=0;
+#if GLUE_MAX_SPILL_REGS > 0
+  int spill_reg = -1;
+#endif
 
   void *func_e=NULL;
   NSEEL_PPPROC preProc=0;
@@ -3101,6 +3108,24 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
 
         if (may_need_fppush>=0)
         {
+#if GLUE_MAX_SPILL_REGS > 0
+          if (local_fpstack_use+subfpstackuse < GLUE_MAX_SPILL_REGS && pn == n_params - 1 && !(ctx->optimizeDisableFlags&OPTFLAG_NO_FPSTACK))
+          {
+            int spill_sz;
+            spill_reg = local_fpstack_use+subfpstackuse;
+            spill_sz = GLUE_SAVE_TO_SPILL_SIZE(spill_reg);
+            if (bufOut_len < parm_size + spill_sz) RET_MINUS1_FAIL("failed on size, savetospilll")
+
+            if (bufOut)
+            {
+              memmove(bufOut + may_need_fppush + spill_sz, bufOut + may_need_fppush, parm_size - may_need_fppush);
+              GLUE_SAVE_TO_SPILL(bufOut + may_need_fppush, spill_reg);
+            }
+            parm_size += spill_sz;
+            local_fpstack_use++;
+          }
+          else
+#endif
           if (local_fpstack_use+subfpstackuse >= (GLUE_MAX_FPSTACK_SIZE-1) || (ctx->optimizeDisableFlags&OPTFLAG_NO_FPSTACK))
           {
             if (bufOut_len < parm_size + (int)sizeof(GLUE_POP_FPSTACK_TOSTACK)) 
@@ -3197,6 +3222,13 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
           }
           else
           {
+#if GLUE_MAX_SPILL_REGS > 0
+            if (spill_reg<0) RET_MINUS1_FAIL("spill reg not allocated");
+
+            if (bufOut_len < parm_size + GLUE_RESTORE_SPILL_TO_FPREG2_SIZE(spill_reg)) RET_MINUS1_FAIL("size, copy fps to fpreg2")
+            if (bufOut) GLUE_RESTORE_SPILL_TO_FPREG2(bufOut+parm_size,spill_reg);
+            parm_size += GLUE_RESTORE_SPILL_TO_FPREG2_SIZE(spill_reg);
+#endif
             local_fpstack_use--;
           }
         }
@@ -3452,8 +3484,9 @@ static int compileEelFunctionCall(compileContext *ctx, opcodeRec *op, unsigned c
   
   if (!func) RET_MINUS1_FAIL("eelfuncaddr")
 
+#if GLUE_MAX_FPSTACK_SIZE > 0
   *fpStackUse += 1;
-
+#endif
 
   if (cfp_numparams>0 && n_params != cfp_numparams)
   {
@@ -4161,7 +4194,9 @@ doNonInlineIf_:
 #ifdef GLUE_HAS_FLDZ
           if (op->parms.dv.directValue == 0.0)
           {
+#if GLUE_MAX_FPSTACK_SIZE > 0
             *fpStackUse = 1;
+#endif
             *calledRvType = RETURNVALUE_FPSTACK;
             if (bufOut_len < sizeof(GLUE_FLDZ)) RET_MINUS1_FAIL("direct fp fail 1")
             if (bufOut) memcpy(bufOut,GLUE_FLDZ,sizeof(GLUE_FLDZ));
@@ -4171,7 +4206,9 @@ doNonInlineIf_:
 #ifdef GLUE_HAS_FLD1
           if (op->parms.dv.directValue == 1.0)
           {
+#if GLUE_MAX_FPSTACK_SIZE > 0
             *fpStackUse = 1;
+#endif
             *calledRvType = RETURNVALUE_FPSTACK;
             if (bufOut_len < sizeof(GLUE_FLD1)) RET_MINUS1_FAIL("direct fp fail 1")
             if (bufOut) memcpy(bufOut,GLUE_FLD1,sizeof(GLUE_FLD1));
@@ -4204,7 +4241,9 @@ doNonInlineIf_:
         {
           if (preferredReturnValues & RETURNVALUE_FPSTACK)
           {
+#if GLUE_MAX_FPSTACK_SIZE > 0
             *fpStackUse = 1;
+#endif
             if (bufOut_len < GLUE_MOV_PX_DIRECTVALUE_TOSTACK_SIZE) RET_MINUS1_FAIL("direct fp fail 2")
             if (bufOut)
             {
