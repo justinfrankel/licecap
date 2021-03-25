@@ -30,6 +30,20 @@ static unsigned int GLUE_POP_STACK_TO_FPREG2[] = {
      0xe28dd008,//  add sp, sp, #8
 };
 
+#define GLUE_MAX_SPILL_REGS 8
+#define GLUE_SAVE_TO_SPILL_SIZE(x) (4)
+#define GLUE_RESTORE_SPILL_TO_FPREG2_SIZE(x) (4)
+
+static void GLUE_RESTORE_SPILL_TO_FPREG2(void *b, int ws)
+{
+  *(unsigned int *)b = 0xeeb01b48 + ws; // fcpyd d1, d8+ws
+}
+static void GLUE_SAVE_TO_SPILL(void *b, int ws)
+{
+  *(unsigned int *)b = 0xeeb08b40 + (ws<<12); // fcpyd d8+ws, d0
+}
+
+
 #define GLUE_MAX_FPSTACK_SIZE 0 // no stack support
 #define GLUE_MAX_JMPSIZE ((1<<25) - 1024) // maximum relative jump size
 
@@ -217,7 +231,8 @@ static void eel_callcode32(INT_PTR bp, INT_PTR cp, INT_PTR rt)
           "pop {r1, lr}\n"
           "mov sp, r1\n"
             ::"r" (cp), "r" (bp), "r" (rt), "r" (__consttab) : 
-             "r5", "r6", "r7", "r8", "r10");
+             "r5", "r6", "r7", "r8", "r10", 
+             "d8","d9","d10","d11","d12","d13","d14","d15");
 };
 #endif
 
