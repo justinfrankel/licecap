@@ -6,7 +6,6 @@
 #define GLUE_JMP_TYPE int
 #define GLUE_JMP_SET_OFFSET(endOfInstruction,offset) (((GLUE_JMP_TYPE *)(endOfInstruction))[-1] = (offset))
 
-#define GLUE_HAS_FXCH 
 #define GLUE_MAX_FPSTACK_SIZE 64
 #define BIF_FPSTACKUSE(x) (0) // fp stack is not used within functions
 #define BIF_GETFPSTACKUSE(x) (1)

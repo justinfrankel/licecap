@@ -483,7 +483,6 @@ static const unsigned char GLUE_WHILE_CHECK_RV[] = {
 static const unsigned char GLUE_SET_P1_Z[] = { 0x29, 0xC0 }; // sub eax, eax
 static const unsigned char GLUE_SET_P1_NZ[] = { 0xb0, 0x01 }; // mov al, 1
 
-#define GLUE_HAS_FXCH
 static const unsigned char GLUE_FXCH[] = {0xd9, 0xc9};
 
 #define GLUE_HAS_FLDZ

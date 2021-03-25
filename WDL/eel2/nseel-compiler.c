@@ -525,11 +525,20 @@ static double eel1sigmoid(double x, double constraint)
 #define BIF_WONTMAKEDENORMAL   0x0100000
 #define BIF_CLEARDENORMAL      0x0200000
 
-#if defined(GLUE_HAS_FXCH) && GLUE_MAX_FPSTACK_SIZE > 0
+#if GLUE_HAS_FPREG2 > 0 && GLUE_MAX_FPSTACK_SIZE > 0
+#error GLUE_HAS_FPREG2 and GLUE_MAX_FPSTACK_SIZE are exclusive
+#endif
+
+#if GLUE_MAX_FPSTACK_SIZE > 0 || GLUE_HAS_FPREG2 > 0
   #define BIF_SECONDLASTPARMST 0x0001000 // use with BIF_LASTPARMONSTACK only (last two parameters get passed on fp stack)
   #define BIF_LAZYPARMORDERING 0x0002000 // allow optimizer to avoid fxch when using BIF_TWOPARMSONFPSTACK_LAZY etc
-  #define BIF_REVERSEFPORDER   0x0004000 // force a fxch (reverse order of last two parameters on fp stack, used by comparison functions)
+#else
+  #define BIF_SECONDLASTPARMST 0
+  #define BIF_LAZYPARMORDERING 0
+#endif
 
+#if GLUE_MAX_FPSTACK_SIZE > 0
+  #define BIF_REVERSEFPORDER   0x0004000 // force a fxch (reverse order of last two parameters on fp stack, used by comparison functions)
   #ifndef BIF_FPSTACKUSE
     #define BIF_FPSTACKUSE(x) (((x)>=0&&(x)<8) ? ((7-(x))<<16):0)
   #endif
@@ -537,9 +546,6 @@ static double eel1sigmoid(double x, double constraint)
     #define BIF_GETFPSTACKUSE(x) (7 - (((x)>>16)&7))
   #endif
 #else
-  // do not support fp stack use unless GLUE_HAS_FXCH and GLUE_MAX_FPSTACK_SIZE>0
-  #define BIF_SECONDLASTPARMST 0
-  #define BIF_LAZYPARMORDERING 0
   #define BIF_REVERSEFPORDER   0
   #define BIF_FPSTACKUSE(x) 0
   #define BIF_GETFPSTACKUSE(x) 0
@@ -1548,6 +1554,9 @@ opcodeRec *nseel_createSimpleCompiledFunction(compileContext *ctx, int fn, int n
 #define RETURNVALUE_BOOL 4 // P1 is nonzero if true
 #define RETURNVALUE_BOOL_REVERSED 8 // P1 is zero if true
 #define RETURNVALUE_CACHEABLE 16 // only to be used when (at least) RETURNVALUE_NORMAL is set
+#if GLUE_HAS_FPREG2 > 0
+#define RETURNVALUE_FPREG2 32 // only usable for compileOpcodes() on a trivial opcode
+#endif
 
 
 
@@ -1726,34 +1735,26 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
       *abiInfo = BIF_RETURNSBOOL;
     RF(bor);
 
-#ifdef GLUE_HAS_FXCH
     case FN_GT:
       *abiInfo = BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2);
     RF(above);
     case FN_GTE:
       *abiInfo = BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL|BIF_REVERSEFPORDER|BIF_FPSTACKUSE(2);
-    RF(beloweq);
-    case FN_LT:
-      *abiInfo = BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL|BIF_REVERSEFPORDER|BIF_FPSTACKUSE(2);
-    RF(above);
-    case FN_LTE:
-      *abiInfo = BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2);
+#if BIF_REVERSEFPORDER > 0
     RF(beloweq);
 #else
-    case FN_GT:
-      *abiInfo = BIF_RETURNSBOOL|BIF_LASTPARMONSTACK;
-    RF(above);
-    case FN_GTE:
-      *abiInfo = BIF_RETURNSBOOL|BIF_LASTPARMONSTACK;
     RF(aboveeq);
-    case FN_LT:
-      *abiInfo = BIF_RETURNSBOOL|BIF_LASTPARMONSTACK;
-    RF(below);
-    case FN_LTE:
-      *abiInfo = BIF_RETURNSBOOL|BIF_LASTPARMONSTACK;
-    RF(beloweq);
 #endif
-
+    case FN_LT:
+      *abiInfo = BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL|BIF_REVERSEFPORDER|BIF_FPSTACKUSE(2);
+#if BIF_REVERSEFPORDER > 0
+    RF(above);
+#else
+    RF(below);
+#endif
+    case FN_LTE:
+      *abiInfo = BIF_TWOPARMSONFPSTACK|BIF_RETURNSBOOL|BIF_FPSTACKUSE(2);
+    RF(beloweq);
 
 #undef RF
 #define RF(x) *endP = _asm_##x##_end; return (void*)_asm_##x
@@ -2983,7 +2984,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
   else // not varparm
   {
     int pn;
-  #ifdef GLUE_HAS_FXCH
+  #if GLUE_MAX_FPSTACK_SIZE > 0
     int need_fxch=0;
   #endif
     int last_nt_parm=-1, last_nt_parm_type=-1;
@@ -3181,10 +3182,16 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
         {
           if (!local_fpstack_use)
           {
-            if (bufOut_len < parm_size + (int)sizeof(GLUE_POP_STACK_TO_FPSTACK)) RET_MINUS1_FAIL("size, popstacktofpstack 2")
-            if (bufOut) memcpy(bufOut+parm_size,GLUE_POP_STACK_TO_FPSTACK,sizeof(GLUE_POP_STACK_TO_FPSTACK));
-            parm_size += sizeof(GLUE_POP_STACK_TO_FPSTACK);
-            #ifdef GLUE_HAS_FXCH
+            #if GLUE_HAS_FPREG2 > 0
+              if (bufOut_len < parm_size + (int)sizeof(GLUE_POP_STACK_TO_FPREG2)) RET_MINUS1_FAIL("size, popstacktofpstack2 2")
+              if (bufOut) memcpy(bufOut+parm_size,GLUE_POP_STACK_TO_FPREG2,sizeof(GLUE_POP_STACK_TO_FPREG2));
+              parm_size += sizeof(GLUE_POP_STACK_TO_FPREG2);
+            #else
+              if (bufOut_len < parm_size + (int)sizeof(GLUE_POP_STACK_TO_FPSTACK)) RET_MINUS1_FAIL("size, popstacktofpstack 2")
+              if (bufOut) memcpy(bufOut+parm_size,GLUE_POP_STACK_TO_FPSTACK,sizeof(GLUE_POP_STACK_TO_FPSTACK));
+              parm_size += sizeof(GLUE_POP_STACK_TO_FPSTACK);
+            #endif
+            #if GLUE_MAX_FPSTACK_SIZE > 0
               need_fxch = 1;
             #endif
           }
@@ -3209,11 +3216,17 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
       {
         if (pn == n_params-2 && (cfunc_abiinfo&(BIF_SECONDLASTPARMST)))  // second to last parameter
         {
+          #if GLUE_HAS_FPREG2 > 0
+          const int req = RETURNVALUE_FPREG2;
+          #else
+          const int req = RETURNVALUE_FPSTACK;
+          #endif
           int a = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size,computTableSize,namespacePathToThis,
-                                  RETURNVALUE_FPSTACK,NULL,NULL,canHaveDenormalOutput);
+                                    req,NULL,NULL,canHaveDenormalOutput);
           if (a<0) RET_MINUS1_FAIL("coc call here 2")
           parm_size+=a;
-          #ifdef GLUE_HAS_FXCH
+
+          #if GLUE_MAX_FPSTACK_SIZE > 0
             need_fxch = 1;
           #endif
         }
@@ -3229,6 +3242,15 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
             wantFpStack=-1; // cacheable but non-FP stack
           }
   #endif
+  #if GLUE_HAS_FPREG2 > 0
+          if (pn > 0 && (cfunc_abiinfo&(BIF_SECONDLASTPARMST) && !OPCODE_IS_TRIVIAL(op->parms.parms[pn-1])))
+          {
+            if (bufOut_len < parm_size+(int)sizeof(GLUE_COPY_FPSTACK_TO_FPREG2)) RET_MINUS1_FAIL("fptofpstack2tfp");
+            if (bufOut) memcpy(bufOut+parm_size,GLUE_COPY_FPSTACK_TO_FPREG2,sizeof(GLUE_COPY_FPSTACK_TO_FPREG2));
+            parm_size += sizeof(GLUE_COPY_FPSTACK_TO_FPREG2);
+          }
+  #endif
+
           a = compileOpcodes(ctx,op->parms.parms[pn],bufOut ? bufOut+parm_size : NULL,bufOut_len - parm_size,computTableSize,namespacePathToThis,
             func == nseel_asm_bnot ? (RETURNVALUE_BOOL_REVERSED|RETURNVALUE_BOOL) :
               (cfunc_abiinfo & BIF_LASTPARMONSTACK) ? RETURNVALUE_FPSTACK : 
@@ -3254,7 +3276,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
           }
 
           parm_size+=a;
-          #ifdef GLUE_HAS_FXCH
+          #if GLUE_MAX_FPSTACK_SIZE > 0
             need_fxch = 0;
           #endif
 
@@ -3293,7 +3315,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
       }
     }
 
-  #ifdef GLUE_HAS_FXCH
+  #if GLUE_MAX_FPSTACK_SIZE > 0
     if ((cfunc_abiinfo&(BIF_SECONDLASTPARMST)) && !(cfunc_abiinfo&(BIF_LAZYPARMORDERING))&&
         ((!!need_fxch)^!!(cfunc_abiinfo&BIF_REVERSEFPORDER)) 
         )
@@ -4163,6 +4185,19 @@ doNonInlineIf_:
     case OPCODETYPE_VARPTR:
     case OPCODETYPE_VARPTRPTR:
 
+        #if GLUE_HAS_FPREG2 > 0
+          if (preferredReturnValues & RETURNVALUE_FPREG2)
+          {
+            if (preferredReturnValues != RETURNVALUE_FPREG2) RET_MINUS1_FAIL("RETURNVALUE_FPREG2 but not exact hm")
+            if (bufOut_len < GLUE_MOV_PX_DIRECTVALUE_TOFPREG2_SIZE) RET_MINUS1_FAIL("direct fp2 fail 2")
+            if (bufOut)
+            {
+              if (generateValueToReg(ctx,op,bufOut,-2,namespacePathToThis, 1 /*allow caching*/)<0) RET_MINUS1_FAIL("direct fp2 fail gvr")
+            }
+            *calledRvType = RETURNVALUE_FPREG2;
+            return rv_offset+GLUE_MOV_PX_DIRECTVALUE_TOFPREG2_SIZE;
+          }
+        #endif
 
       #ifdef GLUE_MOV_PX_DIRECTVALUE_TOSTACK_SIZE
         if (OPCODE_IS_TRIVIAL(op))
@@ -4332,6 +4367,13 @@ int compileOpcodes(compileContext *ctx, opcodeRec *op, unsigned char *bufOut, in
 #endif
   if (codesz < 0) return codesz;
 
+#if GLUE_HAS_FPREG2 > 0
+  if (supportedReturnValues & RETURNVALUE_FPREG2)
+  {
+    if (code_returns != RETURNVALUE_FPREG2)
+      RET_MINUS1_FAIL("fpstack2 not return correct fail");
+  }
+#endif
 
   /*
   {
