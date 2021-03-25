@@ -109,41 +109,41 @@ ifndef NO_GFX
 
 endif
 
-
-asm-nseel-x64.o: a2x64.php asm-nseel-x86-gcc.c
-	php a2x64.php elf64
-
-ifeq ($(UNAME_S),Darwin)
-asm-nseel-x64-sse.o: asm-nseel-x64-sse.asm
-	nasm -D AMD64ABI -f macho64 --prefix _ asm-nseel-x64-sse.asm
-else
-asm-nseel-x64-sse.o: asm-nseel-x64-sse.asm
-	nasm -D AMD64ABI -f elf64 asm-nseel-x64-sse.asm
-endif
-
 ifdef PORTABLE
   CFLAGS +=  -DEEL_TARGET_PORTABLE
 else
   ifeq ($(UNAME_S),Darwin)
     ifeq ($(ARCH),x86_64)
-      ifdef EEL_X64_USE_SSE
-      OBJS2 += asm-nseel-x64-macho-sse.o
-      CFLAGS += -DEEL_X64_USE_SSE
+      ASM_FMT = macho64
+      NASM_OPTS = --prefix _
+      ifdef NO_SSE
+      OBJS2 += asm-nseel-x64.o
+      CFLAGS += -DEEL_X64_NO_SSE
       else
-      OBJS2 += asm-nseel-x64-macho.o
+      OBJS2 += asm-nseel-x64-sse.o
       endif
     endif
   endif
   ifeq ($(UNAME_S),Linux)
     ifeq ($(ARCH),x86_64)
-      ifdef EEL_X64_USE_SSE
-      OBJS2 += asm-nseel-x64-sse.o
-      CFLAGS += -DEEL_X64_USE_SSE
-      else
+      ASM_FMT = elf64
+      NASM_OPTS =
+      ifdef NO_SSE
       OBJS2 += asm-nseel-x64.o
+      CFLAGS += -DEEL_X64_NO_SSE
+      else
+      OBJS2 += asm-nseel-x64-sse.o
       endif
     endif
   endif
+
+asm-nseel-x64-sse.o: asm-nseel-x64-sse.asm
+	nasm -D AMD64ABI -f $(ASM_FMT) $(NASM_OPTS) asm-nseel-x64-sse.asm
+
+asm-nseel-x64.o: a2x64.php asm-nseel-x86-gcc.c
+	php a2x64.php $(ASM_FMT)
+
+
 endif
 CXXFLAGS=$(CFLAGS)
 

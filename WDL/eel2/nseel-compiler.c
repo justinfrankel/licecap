@@ -118,7 +118,7 @@ FILE *g_eel_dump_fp, *g_eel_dump_fp2;
 
 #elif defined(_WIN64) || defined(__LP64__)
 
-#ifdef EEL_X64_USE_SSE
+#ifndef EEL_X64_NO_SSE
 #include "glue_x86_64_sse.h"
 #else
 #include "glue_x86_64.h"
