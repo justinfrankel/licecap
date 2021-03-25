@@ -12,10 +12,50 @@
 
 SECTION .text
 
-%ifndef AMD64ABI
-%define X64_EXTRA_STACK_SPACE 32  ;  win32 requires allocating space for 4 parameters at 8 bytes each, even though we pass via register
-%endif
+%ifdef AMD64ABI
 
+  ; non-win64 needs to preserve xmm4-xmm7 when calling other functions
+  %macro pre_call 0
+     sub rsp, 32
+     movsd [rsp], xmm4
+     movsd [rsp+8], xmm5
+     movsd [rsp+16], xmm6
+     movsd [rsp+24], xmm7
+  %endmacro
+  %macro post_call 0
+     movsd xmm4, [rsp]
+     movsd xmm5, [rsp+8]
+     movsd xmm6, [rsp+16]
+     movsd xmm7, [rsp+24]
+     add rsp, 32
+  %endmacro
+
+%else
+  ; win64 doesn't need to preserve any spill registers when calling functions, but must when called
+  %macro pre_call 0
+     sub rsp, 32
+  %endmacro
+  %macro post_call 0
+     add rsp, 32
+  %endmacro
+
+  %macro save_spill_full 0
+     sub rsp, 64
+     movdqu [rsp], xmm6
+     movdqu [rsp+16], xmm7
+     movdqu [rsp+32], xmm8
+     movdqu [rsp+48], xmm9
+  %endmacro
+  %macro restore_spill_full 0
+     movdqu xmm6, [rsp]
+     movdqu xmm7, [rsp+16]
+     movdqu xmm8, [rsp+32]
+     movdqu xmm9, [rsp+48]
+     add rsp, 64
+  %endmacro
+
+
+%endif
 
 global nseel_asm_1pdd
 nseel_asm_1pdd:
@@ -23,15 +63,15 @@ nseel_asm_1pdd:
 db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
 
    mov rdi, qword 0xFEFEFEFEFEFEFEFE
+   pre_call
 %ifdef AMD64ABI
    mov r15, rsi
    call rdi
    mov rsi, r15
 %else
-   sub rsp, X64_EXTRA_STACK_SPACE
    call rdi
-   add rsp, X64_EXTRA_STACK_SPACE
 %endif
+  post_call
 
 db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
 
@@ -48,15 +88,18 @@ db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
   movsd xmm0, xmm1
   movsd xmm1, xmm2
   mov rdi, qword 0xFEFEFEFEFEFEFEFE
+
+  pre_call
+
 %ifdef AMD64ABI
   mov r15, rsi
   call rdi
   mov rsi, r15
 %else
-  sub rsp, X64_EXTRA_STACK_SPACE
   call rdi
-  add rsp, X64_EXTRA_STACK_SPACE
 %endif
+
+  post_call
 
 db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
 
@@ -73,6 +116,8 @@ db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
   mov rax, qword 0xFEFEFEFEFEFEFEFE
   movsd xmm1, xmm0
   movsd xmm0, [rdi]
+  pre_call
+
 %ifdef AMD64ABI
   mov r15, rsi
   mov r14, rdi
@@ -81,12 +126,12 @@ db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
   movq [r14], xmm0
   mov rax, r14  ;  set return value
 %else
-  sub rsp, X64_EXTRA_STACK_SPACE
   call rax
   movq [rdi], xmm0
   mov rax, rdi  ;  set return value
-  add rsp, X64_EXTRA_STACK_SPACE
 %endif
+
+  post_call
 
 db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
 
@@ -992,6 +1037,7 @@ _asm_generic3parm:
 
 db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
 
+   pre_call
 %ifdef AMD64ABI
 
     mov r15, rsi
@@ -1010,10 +1056,9 @@ db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
     mov r8, rdi  ;  third parameter = parm
     mov r9, rax  ;  fourth parameter = parm
     mov rdi, qword 0xFEFEFEFEFEFEFEFE  ;  call function
-    sub rsp, X64_EXTRA_STACK_SPACE
     call rdi
-    add rsp, X64_EXTRA_STACK_SPACE
 %endif
+   post_call
 
 db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
 
@@ -1026,6 +1071,7 @@ global _asm_generic3parm_retd
 _asm_generic3parm_retd:
 
 db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
+  pre_call
 %ifdef AMD64ABI
     mov r15, rsi
     mov rdx, rdi  ;  third parameter = parm
@@ -1041,10 +1087,9 @@ db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
     mov r8, rdi  ;  third parameter = parm
     mov r9, rax  ;  fourth parameter = parm
     mov rdi, qword 0xFEFEFEFEFEFEFEFE  ;  call function
-    sub rsp, X64_EXTRA_STACK_SPACE
     call rdi
-    add rsp, X64_EXTRA_STACK_SPACE
 %endif
+  post_call
 db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
 
 
@@ -1057,6 +1102,7 @@ _asm_generic2parm:
 
 db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
 
+  pre_call
 %ifdef AMD64ABI
     mov r15, rsi
     mov rsi, rdi  ;  second parameter = parm
@@ -1070,10 +1116,9 @@ db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
     mov rdx, rdi  ;  second parameter = parm
     mov r8, rax  ;  third parameter = parm
     mov rdi, qword 0xFEFEFEFEFEFEFEFE  ;  call function
-    sub rsp, X64_EXTRA_STACK_SPACE
     call rdi
-    add rsp, X64_EXTRA_STACK_SPACE
 %endif
+  post_call
 db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
 
 
@@ -1085,6 +1130,7 @@ global _asm_generic2parm_retd
 _asm_generic2parm_retd:
 
 db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
+  pre_call
 %ifdef AMD64ABI
     mov r15, rsi
     mov rsi, rdi  ;  second parameter = parm
@@ -1098,10 +1144,9 @@ db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
     mov rcx, qword 0xFEFEFEFEFEFEFEFE  ;  first parameter= context
     mov rdi, qword 0xFEFEFEFEFEFEFEFE  ;  call function
     mov r8, rax  ;  third parameter = parm
-    sub rsp, X64_EXTRA_STACK_SPACE
     call rdi
-    add rsp, X64_EXTRA_STACK_SPACE
 %endif
+  post_call
 db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
 
 
@@ -1112,6 +1157,7 @@ global _asm_generic2xparm_retd
 _asm_generic2xparm_retd:
 
 db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
+  pre_call
 %ifdef AMD64ABI
     mov r15, rsi
     mov rdx, rdi  ;  third parameter = parm
@@ -1127,10 +1173,9 @@ db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
     mov rdx, qword 0xFEFEFEFEFEFEFEFE  ;  second parameter= context
     mov rdi, qword 0xFEFEFEFEFEFEFEFE  ;  call function
     mov r9, rax  ;  fourth parameter = parm
-    sub rsp, X64_EXTRA_STACK_SPACE
     call rdi
-    add rsp, X64_EXTRA_STACK_SPACE
 %endif
+  post_call
 db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
 
 
@@ -1142,6 +1187,7 @@ global _asm_generic1parm
 _asm_generic1parm:
 
 db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
+  pre_call
 %ifdef AMD64ABI
     mov rdi, qword 0xFEFEFEFEFEFEFEFE  ;  first parameter= context
     mov r15, rsi
@@ -1153,10 +1199,9 @@ db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
     mov rcx, qword 0xFEFEFEFEFEFEFEFE  ;  first parameter= context
     mov rdx, rax  ;  second parameter = parm
     mov rdi, qword 0xFEFEFEFEFEFEFEFE  ;  call function
-    sub rsp, X64_EXTRA_STACK_SPACE
     call rdi
-    add rsp, X64_EXTRA_STACK_SPACE
 %endif
+  post_call
 db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
 
 
@@ -1168,6 +1213,7 @@ global _asm_generic1parm_retd
 _asm_generic1parm_retd:
 
 db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
+  pre_call
 %ifdef AMD64ABI
     mov rdi, qword 0xFEFEFEFEFEFEFEFE  ;  first parameter = context pointer
     mov rcx, qword 0xFEFEFEFEFEFEFEFE  ;  function address
@@ -1183,10 +1229,9 @@ db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
 
     mov rdx, rax  ;  second parameter = parm
 
-    sub rsp, X64_EXTRA_STACK_SPACE
     call rdi
-    add rsp, X64_EXTRA_STACK_SPACE
 %endif
+  post_call
 db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
 
 
@@ -1218,7 +1263,9 @@ label_15:
       mov rdi, r12  ;  set first parm to ctx
       mov r15, rsi  ;  save rsi
       mov rsi, rdx  ;  esi becomes second parameter (edi is first, context pointer)
+      pre_call
       call rax
+      post_call
       mov rsi, r15  ;  restore rsi
       jmp label_17
 label_16:
@@ -1245,9 +1292,9 @@ label_18:
       mov rax, qword 0xFEFEFEFEFEFEFEFE  ;  function ptr
       mov rcx, r12  ;  set first parm to ctx
       mov rdx, rdi  ;  rdx is second parameter (rcx is first)
-      sub rsp, X64_EXTRA_STACK_SPACE
+      pre_call
       call rax
-      add rsp, X64_EXTRA_STACK_SPACE
+      post_call
       jmp label_20
 label_19:
 
@@ -1274,6 +1321,7 @@ db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
 
     addsd xmm0, qword [r12-8]
 
+    pre_call
 %ifdef AMD64ABI
 
     mov r15, rsi
@@ -1287,10 +1335,9 @@ db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
     mov rcx, qword 0xFEFEFEFEFEFEFEFE  ;  first parameter = context pointer
     mov rdi, qword 0xFEFEFEFEFEFEFEFE
     cvttsd2si rdx, xmm0
-    sub rsp, X64_EXTRA_STACK_SPACE
     call rdi
-    add rsp, X64_EXTRA_STACK_SPACE
 %endif
+  post_call
 
 db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
 
@@ -1453,8 +1500,15 @@ eel_callcode64:
 %else
 		push rdi
 		push rsi
+
     		mov r12, rdx  ;  second parameter is ram-blocks pointer
+
+                save_spill_full
+
 		call rcx
+
+                restore_spill_full
+
 		pop rsi
 		pop rdi
 %endif
@@ -1524,8 +1578,15 @@ eel_callcode64_fast:
 %else
 		push rdi
 		push rsi
+
     		mov r12, rdx  ;  second parameter is ram-blocks pointer
+
+                save_spill_full
+
 		call rcx
+
+                restore_spill_full
+
 		pop rsi
 		pop rdi
 %endif

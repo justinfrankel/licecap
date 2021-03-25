@@ -11,6 +11,52 @@ static unsigned char GLUE_POP_STACK_TO_FPREG2[] = {
   0x48, 0x81, 0xC4, 16, 0,0,0, //  add rsp, 16
 };
 
+// spill registers
+#define GLUE_MAX_SPILL_REGS 4
+#ifdef _WIN32
+  // win64: xmm6-xmm15 are nonvolatile, so we use xmm6-xmm9 as spill registers (xmm8/xmm9 are 5 byte encodings)
+  #define GLUE_SAVE_TO_SPILL_SIZE(x) (4 + ((x)>1))
+  #define GLUE_RESTORE_SPILL_TO_FPREG2_SIZE(x) (4 + ((x)>1))
+
+  static void GLUE_RESTORE_SPILL_TO_FPREG2(void *b, int ws)
+  {
+    if (ws < 2)
+    {
+      *(unsigned int *)b = 0xce100ff2 + (ws<<24); // movsd xmm1, xmm6+ws
+    }
+    else
+    {
+      // movsd xmm1, xmm8 + (ws-2)
+      *(unsigned int *)b = 0x100f41f2;
+      ((unsigned char *)b)[4] = 0xc8 + (ws-2);
+    }
+  }
+  static void GLUE_SAVE_TO_SPILL(void *b, int ws)
+  {
+    if (ws < 2)
+    {
+      *(unsigned int *)b = 0xf0100ff2 + (ws<<27); // movsd xmm6+ws, xmm0
+    }
+    else
+    {
+      // movsd xmm8+(ws-2), xmm0
+      *(unsigned int *)b = 0x100f44f2;
+      ((unsigned char *)b)[4] = 0xc0 + ((ws-2)<<3);
+    }
+  }
+#else
+  // non-win32: our function stubs preserve xmm4-xmm7
+  #define GLUE_SAVE_TO_SPILL_SIZE(x) (4)
+  #define GLUE_RESTORE_SPILL_TO_FPREG2_SIZE(x) (4)
+  static void GLUE_RESTORE_SPILL_TO_FPREG2(void *b, int ws)
+  {
+    *(unsigned int *)b = 0xcc100ff2 + (ws<<24); // movsd xmm1, xmm4+ws
+  }
+  static void GLUE_SAVE_TO_SPILL(void *b, int ws)
+  {
+    *(unsigned int *)b = 0xe0100ff2 + (ws<<27); // movsd xmm4+ws, xmm0
+  }
+#endif
 
 #define GLUE_MAX_FPSTACK_SIZE 0 
 #define GLUE_JMP_SET_OFFSET(endOfInstruction,offset) (((int *)(endOfInstruction))[-1] = (int) (offset))
