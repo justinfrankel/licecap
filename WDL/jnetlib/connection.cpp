@@ -10,6 +10,7 @@
 #include "netinc.h"
 #include "util.h"
 #include "connection.h"
+#include "../wdlcstring.h"
 
 
 JNL_Connection::JNL_Connection(JNL_IAsyncDNS *dns, int sendbufsize, int recvbufsize)
@@ -80,8 +81,7 @@ void JNL_Connection::connect(const char *hostname, int port)
     }
     SET_SOCK_DEFAULTS(m_socket);
     SET_SOCK_BLOCK(m_socket,0);
-    strncpy(m_host,hostname,sizeof(m_host)-1);
-    m_host[sizeof(m_host)-1]=0;
+    lstrcpyn_safe(m_host,hostname,sizeof(m_host));
     memset(m_saddr,0,sizeof(struct sockaddr_in));
     if (!m_host[0])
     {

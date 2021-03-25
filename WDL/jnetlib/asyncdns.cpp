@@ -13,6 +13,7 @@
 #ifdef _WIN32
 #include <process.h>
 #endif
+#include "../wdlcstring.h"
 
 JNL_AsyncDNS::JNL_AsyncDNS(int max_cache_entries)
 {
@@ -77,15 +78,7 @@ unsigned int JNL_AsyncDNS::_threadfunc(void *_d)
         {
           struct hostent *ent;
           ent=::gethostbyaddr((const char *)&_this->m_cache[x].addr,4,AF_INET);
-          if (ent)
-          {
-            strncpy(_this->m_cache[x].hostname,ent->h_name,255);
-            _this->m_cache[x].hostname[255]=0;
-          }
-          else
-          {
-            _this->m_cache[x].hostname[0]=0;
-          }
+          lstrcpyn_safe(_this->m_cache[x].hostname,ent ? ent->h_name : "",sizeof(_this->m_cache[x].hostname));
         }
         _this->m_cache[x].resolved=1;
       }
@@ -192,8 +185,7 @@ int JNL_AsyncDNS::reverse(unsigned int addr, char *hostname)
         {
           return -1;
         }
-        strncpy(hostname,m_cache[x].hostname,255);
-        hostname[255]=0;
+        lstrcpyn_safe(hostname,m_cache[x].hostname,256);
         return 0;
       }
       makesurethreadisrunning();
