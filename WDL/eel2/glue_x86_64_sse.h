@@ -3,6 +3,15 @@
 
 // SSE version (needs the appropriate .o linked!)
 
+#define GLUE_HAS_FPREG2 1
+
+static const unsigned int GLUE_COPY_FPSTACK_TO_FPREG2[] = { 0xc8100ff2 }; //  movsd  %xmm0,%xmm1
+static unsigned char GLUE_POP_STACK_TO_FPREG2[] = {
+  0xf2, 0x0f, 0x10, 0x0c, 0x24,  // movsd (%rsp), %xmm1
+  0x48, 0x81, 0xC4, 16, 0,0,0, //  add rsp, 16
+};
+
+
 #define GLUE_MAX_FPSTACK_SIZE 0 
 #define GLUE_JMP_SET_OFFSET(endOfInstruction,offset) (((int *)(endOfInstruction))[-1] = (int) (offset))
 
@@ -21,6 +30,8 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
   //  pushing values to the stack (for eel functions) has alignment pushed first, then value (value is at the lower address)
   //  pushing pointers to the stack has the pointer pushed first, then the alignment (pointer is at the higher address)
   #define GLUE_MOV_PX_DIRECTVALUE_SIZE 10
+  #define GLUE_MOV_PX_DIRECTVALUE_TOSTACK_SIZE 14 // wr=-1, sets xmm0
+  #define GLUE_MOV_PX_DIRECTVALUE_TOFPREG2_SIZE 14 // wr=-2, sets xmm1 
   static void GLUE_MOV_PX_DIRECTVALUE_GEN(void *b, INT_PTR v, int wr) {   
     const static unsigned short tab[3] = 
     {
@@ -29,8 +40,10 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
       0xB948 /* mov rcx, dv */ 
     };
     unsigned short *bb = (unsigned short *)b;
-    *bb++ = tab[wr];  // mov rax, directvalue
+    *bb++ = tab[wdl_max(wr,0)];  // mov rax, directvalue
     *(INT_PTR *)bb = v; 
+    if (wr == -2) *(unsigned int *)(bb + 4) = 0x08100ff2; // movsd (%rax), %xmm1
+    else if (wr == -1) *(unsigned int *)(bb + 4) = 0x00100ff2; // movsd (%rax), %xmm0
   }
 
   const static unsigned char  GLUE_PUSH_P1[2]={	   0x50,0x50}; // push rax (pointer); push rax (alignment)
@@ -178,11 +191,6 @@ const static unsigned int GLUE_FUNC_LEAVE[1];
     };
     memcpy(b,tab[wv],GLUE_PUSH_VAL_AT_PX_TO_FPSTACK_SIZE);
   }
-  static unsigned char GLUE_POP_STACK_TO_FPSTACK[] = {
-    0xf2, 0x0f, 0x10, 0x04, 0x24,  // movsd (%rsp), %xmm0
-    0x48, 0x81, 0xC4, 16, 0,0,0, //  add rsp, 16
-  };
-
 
 #define GLUE_POP_FPSTACK_TO_WTP_TO_PX_SIZE (GLUE_SET_PX_FROM_WTP_SIZE + sizeof(GLUE_POP_FPSTACK_TO_WTP))
 static void GLUE_POP_FPSTACK_TO_WTP_TO_PX(unsigned char *buf, int wv)
