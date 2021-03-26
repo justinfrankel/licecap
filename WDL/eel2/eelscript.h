@@ -420,6 +420,8 @@ int eelScriptInst::runcode(const char *codeptr, int showerr, const char *showerr
 #else
   #ifdef __aarch64__
           snprintf(buf2,sizeof(buf2), "objdump -D -b binary -maarch64 \"%s\"",buf);
+  #elif defined(__arm__)
+          snprintf(buf2,sizeof(buf2), "objdump -D -b binary -m arm \"%s\"",buf);
   #elif defined(__LP64__)
           #ifdef __APPLE__
             snprintf(buf2,sizeof(buf2),"distorm3 --b64 \"%s\"",buf);
