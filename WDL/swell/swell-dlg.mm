@@ -2509,6 +2509,8 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(0)
   [self setAcceptsMouseMovedEvents:YES];
   [self setContentView:(NSView *)child];
   [self useOptimizedDrawing:YES];
+  if (SWELL_GetOSXVersion()>=0x10c0) [self setValue:[NSNumber numberWithInt:2] forKey:@"tabbingMode"];
+
   updateWindowCollection(self);
     
   if (owner && [(id)owner respondsToSelector:@selector(swellAddOwnedWindow:)])
@@ -2557,6 +2559,8 @@ SWELLDIALOGCOMMONIMPLEMENTS_WND(0)
   [self setAcceptsMouseMovedEvents:YES];
   [self useOptimizedDrawing:YES];
   [self setDelegate:(id)self];
+  if (SWELL_GetOSXVersion()>=0x10c0) [self setValue:[NSNumber numberWithInt:2] forKey:@"tabbingMode"];
+
   updateWindowCollection(self);
   
   if (resstate&&resstate->title) SetWindowText((HWND)self, resstate->title);
