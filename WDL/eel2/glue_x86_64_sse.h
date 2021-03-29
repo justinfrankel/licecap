@@ -384,6 +384,51 @@ static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
   return fn;
 }
 
-// end of x86-64 SSE
+#define GLUE_HAS_FUSE 1
+static int GLUE_FUSE(compileContext *ctx, unsigned char *code, int left_size, int right_size, int spill_reg)
+{
+  char tmp[32];
+  if (right_size == 4 &&
+      code[0] == 0xf2 &&
+      code[1] == 0x0f &&
+      code[3] == 0xc1 && // low nibble is xmm1
+      (code[2] == 0x58 || code[2] == 0x59 || code[2] == 0x5c || code[2]==0x5d || code[2] == 0x5f)) // add/mul/sub/min/max
+  {
+    if (spill_reg >= 0)
+    {
+      const int sz = GLUE_RESTORE_SPILL_TO_FPREG2_SIZE(spill_reg);
+      GLUE_RESTORE_SPILL_TO_FPREG2(tmp,spill_reg);
+      if (left_size>=sz && !memcmp(code-sz,tmp,sz))
+      {
+        code[-2] = code[2]; // modify the movsd into an addsd
+        code[-1] -= 8; // movsd uses 0xc8+(xmmX&7), addsd etc use 0xc0
+        return -4;
+      }
+    }
+    else
+    {
+      if (left_size==28)
+      {
+        if (code[-28] == 0x48 && code[-27] == 0xb8 && // mov rax, const64_1
+            *(int *)(code - 18) == 0x08100ff2 &&      // movsd xmm1, [rax]
+            code[-14] == 0x48 && code[-13] == 0xb8 && // mov rax, const64_2
+            *(int *)(code - 4) == 0x00100ff2          // movsd xmm0, [rax]
+            )
+        {
+          char c2[8], c1[8];
+          memcpy(c1,code-26,8);
+          memcpy(c2,code-12,8);
 
+          memcpy(code-26,c2,8); // mov rax, const64_2
+          code[-18] = 0x48; code[-17] = 0xbf; memcpy(code-16,c1,8); // mov rdi, const64_1
+          *(int *)(code-8) = 0x00100ff2; // movsd xmm0, [rax]
+          memmove(code-4,code,3);
+          code[-1] = 0x07; // [rdi]
+          return -4;
+        }
+      }
+    }
+  }
+  return 0;
+}
 #endif
