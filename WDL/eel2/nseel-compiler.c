@@ -3401,6 +3401,16 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
   {
     unsigned char *p=bufOut + parm_size;
     memcpy(p, func, func_size);
+#if GLUE_HAS_FUSE
+    parm_size += GLUE_FUSE(ctx,p,parm_size,func_size,
+#if GLUE_MAX_SPILL_REGS > 0
+        spill_reg
+#else
+        -1
+#endif
+    );
+    p = bufOut + parm_size;
+#endif
     if (preProc) p=preProc(p,func_size,ctx);
     if (repl)
     {
