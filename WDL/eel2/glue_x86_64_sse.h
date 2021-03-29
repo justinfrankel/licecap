@@ -3,6 +3,7 @@
 
 // SSE version (needs the appropriate .o linked!)
 
+#define GLUE_PREFER_NONFP_DV_ASSIGNS
 #define GLUE_HAS_FPREG2 1
 
 static const unsigned int GLUE_COPY_FPSTACK_TO_FPREG2[] = { 0xc8100ff2 }; //  movsd  %xmm0,%xmm1
