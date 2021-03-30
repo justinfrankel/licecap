@@ -387,6 +387,7 @@ static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
 #define GLUE_HAS_FUSE 1
 static int GLUE_FUSE(compileContext *ctx, unsigned char *code, int left_size, int right_size, int fuse_flags, int spill_reg)
 {
+  const UINT_PTR base = (UINT_PTR) ctx->ram_state->blocks;
   char tmp[32];
   const int is_sse_op = right_size == 4 && // add/mul/sub/min/max
                         code[0] == 0xf2 &&
@@ -419,7 +420,6 @@ static int GLUE_FUSE(compileContext *ctx, unsigned char *code, int left_size, in
           *(int *)(code - 4) == 0x00100ff2          // movsd xmm0, [rax]
           )
       {
-        const UINT_PTR base = (UINT_PTR) ctx->ram_state->blocks;
         UINT_PTR c1, c2;
         INT_PTR c2offs,c1offs;
         unsigned char opc[3];
@@ -516,7 +516,6 @@ static int GLUE_FUSE(compileContext *ctx, unsigned char *code, int left_size, in
       if (code[-14] == 0x48 && code[-13] == 0xb8 && // mov rax, const64_2
           *(int *)(code - 4) == 0x00100ff2)          // movsd xmm0, [rax]
       {
-        const UINT_PTR base = (UINT_PTR) ctx->ram_state->blocks;
         INT_PTR c1;
         memcpy(&c1,code-12,8);
         c1 -= base;
@@ -537,6 +536,62 @@ static int GLUE_FUSE(compileContext *ctx, unsigned char *code, int left_size, in
         }
       }
     }
+
+    if (left_size == 20 && right_size == 9 &&
+        code[-20]==0x48 && code[-19] == 0xbf && // mov rdi, const64_1
+        code[-10]==0x48 && code[-9] == 0xb8  // mov rax, const64_2
+        )
+    {
+      static unsigned char assign_copy[9] = { 0x48, 0x8b, 0x10,  // mov rdx, [rax]
+                                              0x48, 0x89, 0x17,  // mov [rdi], rdx
+                                              0x48, 0x89, 0xf8, // mov rax, rdi
+      };
+      if (!memcmp(code,assign_copy,9))
+      {
+        int wrpos = -20;
+        INT_PTR c1,c2; // c1 is dest, c2 is src
+        memcpy(&c1,code-18,8);
+        memcpy(&c2,code-8,8);
+
+        if (!PTR_32_OK(c2-base))
+        {
+          code[wrpos++] = 0x48; // mov rdi, dest
+          code[wrpos++] = 0xbf;
+          memcpy(code+wrpos,&c1,8);
+          wrpos +=8;
+        }
+
+        code[wrpos++] = 0x48; // mov rax, src
+        code[wrpos++] = 0xb8;
+        memcpy(code+wrpos,&c1,8);
+        wrpos +=8;
+
+        if (PTR_32_OK(c2-base))
+        {
+          // mov rdx, [r12+offs]
+          code[wrpos++] = 0x49;
+          code[wrpos++] = 0x8b;
+          code[wrpos++] = 0x94;
+          code[wrpos++] = 0x24;
+          *(int *)(code+wrpos) = (int)(c2-base);
+          wrpos += 4;
+        }
+        else
+        {
+          code[wrpos++] = 0x48; // mov rdx, [rdi]
+          code[wrpos++] = 0x89;
+          code[wrpos++] = 0x17;
+        }
+
+        code[wrpos++] = 0x48; // mov [rax], rdx
+        code[wrpos++] = 0x89;
+        code[wrpos++] = 0x10;
+
+        return wrpos - right_size;
+      }
+    }
+
+
   }
   return 0;
 }
