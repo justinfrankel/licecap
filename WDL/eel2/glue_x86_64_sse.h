@@ -388,13 +388,15 @@ static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
 static int GLUE_FUSE(compileContext *ctx, unsigned char *code, int left_size, int right_size, int spill_reg)
 {
   char tmp[32];
-  if (right_size == 4 &&
-      code[0] == 0xf2 &&
-      code[1] == 0x0f &&
-      code[3] == 0xc1 && // low nibble is xmm1
-      (code[2] == 0x58 || code[2] == 0x59 || code[2] == 0x5c || code[2]==0x5d || code[2] == 0x5f)) // add/mul/sub/min/max
+  const int is_sse_op = right_size == 4 && // add/mul/sub/min/max
+                        code[0] == 0xf2 &&
+                        code[1] == 0x0f &&
+                        code[3] == 0xc1 && // low nibble is xmm1
+                        (code[2] == 0x58 || code[2] == 0x59 || code[2] == 0x5c || code[2]==0x5d || code[2] == 0x5f);
+
+  if (spill_reg >= 0)
   {
-    if (spill_reg >= 0)
+    if (is_sse_op)
     {
       const int sz = GLUE_RESTORE_SPILL_TO_FPREG2_SIZE(spill_reg);
       GLUE_RESTORE_SPILL_TO_FPREG2(tmp,spill_reg);
@@ -405,27 +407,108 @@ static int GLUE_FUSE(compileContext *ctx, unsigned char *code, int left_size, in
         return -4;
       }
     }
-    else
+  }
+  else
+  {
+    if (left_size==28)
     {
-      if (left_size==28)
+      // if const64_1 is within a 32-bit offset of ctx->ram_blocks->blocks, we can use [r12+offs]
+      if (code[-28] == 0x48 && code[-27] == 0xb8 && // mov rax, const64_1
+          *(int *)(code - 18) == 0x08100ff2 &&      // movsd xmm1, [rax]
+          code[-14] == 0x48 && code[-13] == 0xb8 && // mov rax, const64_2
+          *(int *)(code - 4) == 0x00100ff2          // movsd xmm0, [rax]
+          )
       {
-        if (code[-28] == 0x48 && code[-27] == 0xb8 && // mov rax, const64_1
-            *(int *)(code - 18) == 0x08100ff2 &&      // movsd xmm1, [rax]
-            code[-14] == 0x48 && code[-13] == 0xb8 && // mov rax, const64_2
-            *(int *)(code - 4) == 0x00100ff2          // movsd xmm0, [rax]
-            )
-        {
-          char c2[8], c1[8];
-          memcpy(c1,code-26,8);
-          memcpy(c2,code-12,8);
+        const UINT_PTR base = (UINT_PTR) ctx->ram_state->blocks;
+        UINT_PTR c1, c2;
+        INT_PTR c2offs,c1offs;
+        unsigned char opc[3];
+        int wrpos = -28;
+        if (is_sse_op) memcpy(opc,code,3);
+        memcpy(&c1,code-26,8);
+        memcpy(&c2,code-12,8);
 
-          memcpy(code-26,c2,8); // mov rax, const64_2
-          code[-18] = 0x48; code[-17] = 0xbf; memcpy(code-16,c1,8); // mov rdi, const64_1
-          *(int *)(code-8) = 0x00100ff2; // movsd xmm0, [rax]
-          memmove(code-4,code,3);
-          code[-1] = 0x07; // [rdi]
-          return -4;
+#define PTR_32_OK(x) ((x) == (INT_PTR)(int)(x))
+        c2offs = c2-base;
+        if (!PTR_32_OK(c2offs))
+        {
+          code[wrpos++] = 0x48;
+          code[wrpos++] = 0xb8;
+          memcpy(code+wrpos,&c2,8); // mov rax, const64_2
+          wrpos += 8;
         }
+
+        c1offs = c1-base;
+        if (!PTR_32_OK(c1offs))
+        {
+          code[wrpos++] = 0x48;
+          code[wrpos++] = 0xbf;
+          memcpy(code+wrpos,&c1,8); // mov rdi, const64_1
+          wrpos += 8;
+        }
+
+        if (!PTR_32_OK(c2offs))
+        {
+          *(int *)(code+wrpos) = 0x00100ff2; // movsd xmm0, [rax]
+          wrpos += 4;
+        }
+        else
+        {
+          // movsd xmm0, [r12+offs]
+          code[wrpos++] = 0xf2;
+          code[wrpos++] = 0x41;
+          code[wrpos++] = 0x0f;
+          code[wrpos++] = 0x10;
+          code[wrpos++] = 0x84;
+          code[wrpos++] = 0x24;
+          *(int *)(code+wrpos) = (int)c2offs;
+          wrpos += 4;
+        }
+
+        if (!is_sse_op)
+        {
+          // load xmm1 from rdi/c1offs
+          if (!PTR_32_OK(c1offs))
+          {
+            *(int *)(code+wrpos) = 0x0f100ff2; // movsd xmm1, [rdi]
+            wrpos += 4;
+          }
+          else
+          {
+            // movsd xmm1, [r12+offs]
+            code[wrpos++] = 0xf2;
+            code[wrpos++] = 0x41;
+            code[wrpos++] = 0x0f;
+            code[wrpos++] = 0x10;
+            code[wrpos++] = 0x8c;
+            code[wrpos++] = 0x24;
+            *(int *)(code+wrpos) = (int)c1offs;
+            wrpos += 4;
+          }
+          if (wrpos<0) memmove(code+wrpos,code,right_size);
+          return wrpos;
+        }
+
+        // fuse to sse op
+        if (!PTR_32_OK(c1offs))
+        {
+          memcpy(code+wrpos,opc,3);
+          code[wrpos+3] = 0x07; // [rdi]
+          wrpos += 4;
+        }
+        else
+        {
+          // mul/add/sub/min/max/sd xmm0, [r12+offs]
+          code[wrpos++] = opc[0]; // 0xf2
+          code[wrpos++] = 0x41;
+          code[wrpos++] = opc[1]; // 0x0f
+          code[wrpos++] = opc[2]; // 0x58 etc
+          code[wrpos++] = 0x84;
+          code[wrpos++] = 0x24;
+          *(int *)(code+wrpos) = (int)c1offs;
+          wrpos += 4;
+        }
+        return wrpos - right_size;
       }
     }
   }
