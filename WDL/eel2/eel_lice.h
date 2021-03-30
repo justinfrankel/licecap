@@ -2010,8 +2010,8 @@ static EEL_F * NSEEL_CGEN_CALL _gfx_update(void *opaque, EEL_F *n)
       MSG msg;
       while (PeekMessage(&msg,NULL,0,0,PM_REMOVE)) 
       {
-	      TranslateMessage(&msg);
-	      DispatchMessage(&msg);
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
       }
 #else
       void SWELL_RunEvents();
@@ -2084,7 +2084,7 @@ static int eel_lice_key_xlate(int msg, int wParam, int lParam, bool *isAltOut)
     if (lParam & FVIRTKEY)
 #endif
     switch (wParam)
-	  {
+    {
       case VK_HOME: return EEL_MB_C("home");
       case VK_UP: return EEL_MB_C("up");
       case VK_PRIOR: return EEL_MB_C("pgup");
