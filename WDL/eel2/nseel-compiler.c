@@ -2833,6 +2833,9 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
   int local_fpstack_use=0; // how many items we have pushed onto the fp stack
   int parm_size=0;
   int restore_stack_amt=0;
+#ifdef GLUE_HAS_FUSE
+  int fuse_flags = 0; // 1 = last parm was trivial (likely mov rax, movsd xmm0 ,[rax])
+#endif
 #if GLUE_MAX_SPILL_REGS > 0
   int spill_reg = -1;
 #endif
@@ -3293,6 +3296,9 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
             &rvt, NULL,canHaveDenormalOutput);
            
           if (a<0) RET_MINUS1_FAIL("coc call here 3")
+#ifdef GLUE_HAS_FUSE
+          if (rvt == RETURNVALUE_FPSTACK) fuse_flags |= 1;
+#endif
 
           if (func == nseel_asm_bnot && rvt == RETURNVALUE_BOOL_REVERSED)
           {
@@ -3402,7 +3408,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
     unsigned char *p=bufOut + parm_size;
     memcpy(p, func, func_size);
 #if GLUE_HAS_FUSE
-    parm_size += GLUE_FUSE(ctx,p,parm_size,func_size,
+    parm_size += GLUE_FUSE(ctx,p,parm_size,func_size,fuse_flags,
 #if GLUE_MAX_SPILL_REGS > 0
         spill_reg
 #else

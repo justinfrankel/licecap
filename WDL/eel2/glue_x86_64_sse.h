@@ -385,7 +385,7 @@ static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
 }
 
 #define GLUE_HAS_FUSE 1
-static int GLUE_FUSE(compileContext *ctx, unsigned char *code, int left_size, int right_size, int spill_reg)
+static int GLUE_FUSE(compileContext *ctx, unsigned char *code, int left_size, int right_size, int fuse_flags, int spill_reg)
 {
   char tmp[32];
   const int is_sse_op = right_size == 4 && // add/mul/sub/min/max
@@ -509,6 +509,32 @@ static int GLUE_FUSE(compileContext *ctx, unsigned char *code, int left_size, in
           wrpos += 4;
         }
         return wrpos - right_size;
+      }
+    }
+    if ((fuse_flags&1) && left_size >= 14)
+    {
+      if (code[-14] == 0x48 && code[-13] == 0xb8 && // mov rax, const64_2
+          *(int *)(code - 4) == 0x00100ff2)          // movsd xmm0, [rax]
+      {
+        const UINT_PTR base = (UINT_PTR) ctx->ram_state->blocks;
+        INT_PTR c1;
+        memcpy(&c1,code-12,8);
+        c1 -= base;
+        if (PTR_32_OK(c1))
+        {
+          // movsd xmm0, [r12+offs]
+          int wrpos = -14;
+          code[wrpos++] = 0xf2;
+          code[wrpos++] = 0x41;
+          code[wrpos++] = 0x0f;
+          code[wrpos++] = 0x10;
+          code[wrpos++] = 0x84;
+          code[wrpos++] = 0x24;
+          *(int *)(code+wrpos) = (int)c1;
+          wrpos += 4;
+          if (wrpos<0) memmove(code+wrpos,code,right_size);
+          return wrpos;
+        }
       }
     }
   }
