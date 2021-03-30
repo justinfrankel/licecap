@@ -79,7 +79,7 @@ FILE *g_eel_dump_fp, *g_eel_dump_fp2;
     P2 EDI
     P3 ECX
     WTP RSI
-    x86_64: r12 is a pointer to ram_state.blocks
+    x86_64: r12 is a pointer to ram_state->blocks
     x86_64: r13 is a pointer to closenessfactor
 
   registers on PPC are:
@@ -87,7 +87,7 @@ FILE *g_eel_dump_fp, *g_eel_dump_fp2;
     P2 r14 
     P3 r15
     WTP r16 (r17 has the original value)
-    r13 is a pointer to ram_state.blocks
+    r13 is a pointer to ram_state->blocks
 
     ppc uses f31 and f30 and others for certain constants
 
@@ -5218,7 +5218,7 @@ had_error:
   if (handle)
   {
     handle->compile_flags = compile_flags;
-    handle->ramPtr = ctx->ram_state.blocks;
+    handle->ramPtr = ctx->ram_state->blocks;
     memcpy(handle->code_stats,ctx->l_stats,sizeof(ctx->l_stats));
     nseel_evallib_stats[0]+=ctx->l_stats[0];
     nseel_evallib_stats[1]+=ctx->l_stats[1];
@@ -5348,10 +5348,12 @@ NSEEL_VMCTX NSEEL_VM_alloc() // return a handle
 
   if (ctx) 
   {
-    ctx->ram_state.sign_mask[0] = ctx->ram_state.sign_mask[1] = WDL_UINT64_CONST(0x8000000000000000);
-    ctx->ram_state.abs_mask[0] = ctx->ram_state.abs_mask[1]   = WDL_UINT64_CONST(0x7FFFFFFFFFFFFFFF);
-    ctx->ram_state.maxblocks = NSEEL_RAM_BLOCKS_DEFAULTMAX;
-    ctx->ram_state.closefact = NSEEL_CLOSEFACTOR;
+    ctx->ram_state = __newBlock_align(&ctx->ctx_pblocks,sizeof(*ctx->ram_state),16,0);
+    memset(ctx->ram_state,0,sizeof(*ctx->ram_state));
+    ctx->ram_state->sign_mask[0] = ctx->ram_state->sign_mask[1] = WDL_UINT64_CONST(0x8000000000000000);
+    ctx->ram_state->abs_mask[0] = ctx->ram_state->abs_mask[1]   = WDL_UINT64_CONST(0x7FFFFFFFFFFFFFFF);
+    ctx->ram_state->maxblocks = NSEEL_RAM_BLOCKS_DEFAULTMAX;
+    ctx->ram_state->closefact = NSEEL_CLOSEFACTOR;
   }
   return ctx;
 }
@@ -5364,10 +5366,10 @@ int NSEEL_VM_setramsize(NSEEL_VMCTX _ctx, int maxent)
   {
     maxent = (maxent + NSEEL_RAM_ITEMSPERBLOCK - 1)/NSEEL_RAM_ITEMSPERBLOCK;
     if (maxent > NSEEL_RAM_BLOCKS) maxent = NSEEL_RAM_BLOCKS;
-    ctx->ram_state.maxblocks = maxent;
+    ctx->ram_state->maxblocks = maxent;
   }
   
-  return ctx->ram_state.maxblocks * NSEEL_RAM_ITEMSPERBLOCK;
+  return ctx->ram_state->maxblocks * NSEEL_RAM_ITEMSPERBLOCK;
 }
 
 void NSEEL_VM_SetFunctionValidator(NSEEL_VMCTX _ctx, const char * (*validateFunc)(const char *fn_name, void *user), void *user)
@@ -5474,7 +5476,7 @@ void NSEEL_VM_SetCustomFuncThis(NSEEL_VMCTX ctx, void *thisptr)
 
 void *NSEEL_PProc_RAM(void *data, int data_size, compileContext *ctx)
 {
-  if (data_size>0) data=EEL_GLUE_set_immediate(data, (INT_PTR)ctx->ram_state.blocks); 
+  if (data_size>0) data=EEL_GLUE_set_immediate(data, (INT_PTR)ctx->ram_state->blocks); 
   return data;
 }
 

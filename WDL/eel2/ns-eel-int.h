@@ -239,11 +239,7 @@ typedef struct _compileContext
     int maxblocks;
     double closefact;
     EEL_F *blocks[NSEEL_RAM_BLOCKS];
-  } ram_state
-#ifdef __GNUC__
-    __attribute__ ((aligned (16)))
-#endif
-   ;
+  } *ram_state; // allocated from blocks with 16 byte alignment
 
   void *gram_blocks;
 

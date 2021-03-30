@@ -530,7 +530,7 @@ static EEL_F NSEEL_CGEN_CALL _gfx_transformblit(void *opaque, INT_PTR np, EEL_F 
     EEL_F *d = EEL_LICE_RAMFUNC(opaque,7,sz);
     if (!d) return 0.0;
 #else
-    EEL_F **blocks = ctx->m_vmref  ? ((compileContext*)ctx->m_vmref)->ram_state.blocks : 0;
+    EEL_F **blocks = ctx->m_vmref ? ((compileContext*)ctx->m_vmref)->ram_state->blocks : 0;
     if (!blocks || np < 8) return 0.0;
 
     const int addr1= (int) (parms[7][0]+0.5);
@@ -717,7 +717,7 @@ static EEL_F * NSEEL_CGEN_CALL _gfx_blitext(void *opaque, EEL_F *img, EEL_F *coo
         
     EEL_F buf[10];
     int x;
-    EEL_F **blocks = ctx->m_vmref  ? ((compileContext*)ctx->m_vmref)->ram_state.blocks : 0;
+    EEL_F **blocks = ctx->m_vmref ? ((compileContext*)ctx->m_vmref)->ram_state->blocks : 0;
     if (!blocks) return img;
     for (x = 0;x < 10; x ++)
     {
