@@ -5338,6 +5338,8 @@ NSEEL_VMCTX NSEEL_VM_alloc() // return a handle
 
   if (ctx) 
   {
+    ctx->ram_state.sign_mask[0] = ctx->ram_state.sign_mask[1] = WDL_UINT64_CONST(0x8000000000000000);
+    ctx->ram_state.abs_mask[0] = ctx->ram_state.abs_mask[1]   = WDL_UINT64_CONST(0x7FFFFFFFFFFFFFFF);
     ctx->ram_state.maxblocks = NSEEL_RAM_BLOCKS_DEFAULTMAX;
     ctx->ram_state.closefact = NSEEL_CLOSEFACTOR;
   }

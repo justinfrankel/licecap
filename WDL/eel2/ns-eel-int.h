@@ -233,13 +233,15 @@ typedef struct _compileContext
   
   struct
   {
+    WDL_UINT64 sign_mask[2];
+    WDL_UINT64 abs_mask[2];
     int needfree;
     int maxblocks;
     double closefact;
     EEL_F *blocks[NSEEL_RAM_BLOCKS];
   } ram_state
 #ifdef __GNUC__
-    __attribute__ ((aligned (8)))
+    __attribute__ ((aligned (16)))
 #endif
    ;
 
