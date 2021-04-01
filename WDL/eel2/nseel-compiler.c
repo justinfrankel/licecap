@@ -4064,9 +4064,11 @@ doNonInlineIf_:
 
         if (bufOut)
         {
-          newblock2=compileCodeBlockWithRet(ctx,op->parms.parms[0],computTableSize,namespacePathToThis, RETURNVALUE_BOOL, NULL, fpStackUse, NULL);
+          int fUse1 = 0;
+          newblock2=compileCodeBlockWithRet(ctx,op->parms.parms[0],computTableSize,namespacePathToThis, RETURNVALUE_BOOL, NULL, &fUse1, NULL);
           if (!newblock2) RET_MINUS1_FAIL("repeatwhile ccbwr fail")
       
+          if (fUse1 > *fpStackUse) *fpStackUse = fUse1;
           memcpy(pwr,stubfunc,stubsz);
           pwr=EEL_GLUE_set_immediate(pwr,(INT_PTR)newblock2); 
         }
@@ -4079,7 +4081,7 @@ doNonInlineIf_:
         unsigned char *jzoutpt;
 #endif
         unsigned char *looppt;
-        int parm_size=0,subsz;
+        int parm_size=0,subsz, fUse1=0;
         if (bufOut_len < parm_size + (int)(GLUE_WHILE_SETUP_SIZE + sizeof(GLUE_WHILE_BEGIN))) RET_MINUS1_FAIL("while size fail 1")
 
         if (bufOut) memcpy(bufOut + parm_size,GLUE_WHILE_SETUP,GLUE_WHILE_SETUP_SIZE);
@@ -4089,7 +4091,8 @@ doNonInlineIf_:
         if (bufOut) memcpy(bufOut + parm_size,GLUE_WHILE_BEGIN,sizeof(GLUE_WHILE_BEGIN));
         parm_size+=sizeof(GLUE_WHILE_BEGIN);
 
-        subsz = compileOpcodes(ctx,op->parms.parms[0],bufOut ? (bufOut + parm_size) : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL,fpStackUse, NULL);
+        subsz = compileOpcodes(ctx,op->parms.parms[0],bufOut ? (bufOut + parm_size) : NULL,bufOut_len - parm_size, computTableSize, namespacePathToThis, RETURNVALUE_BOOL, NULL,&fUse1, NULL);
+        if (fUse1 > *fpStackUse) *fpStackUse = fUse1;
         if (subsz<0) RET_MINUS1_FAIL("while coc fail")
 
         if (bufOut_len < parm_size + (int)(sizeof(GLUE_WHILE_END) + sizeof(GLUE_WHILE_CHECK_RV))) RET_MINUS1_FAIL("which size fial 2")
@@ -4211,7 +4214,7 @@ doNonInlineIf_:
           if (op->parms.dv.directValue == 0.0)
           {
 #if GLUE_MAX_FPSTACK_SIZE > 0
-            *fpStackUse = 1;
+            if (*fpStackUse < 1) *fpStackUse = 1;
 #endif
             *calledRvType = RETURNVALUE_FPSTACK;
             if (bufOut_len < sizeof(GLUE_FLDZ)) RET_MINUS1_FAIL("direct fp fail 1")
@@ -4223,7 +4226,7 @@ doNonInlineIf_:
           if (op->parms.dv.directValue == 1.0)
           {
 #if GLUE_MAX_FPSTACK_SIZE > 0
-            *fpStackUse = 1;
+            if (*fpStackUse < 1) *fpStackUse = 1;
 #endif
             *calledRvType = RETURNVALUE_FPSTACK;
             if (bufOut_len < sizeof(GLUE_FLD1)) RET_MINUS1_FAIL("direct fp fail 1")
@@ -4258,7 +4261,7 @@ doNonInlineIf_:
           if (preferredReturnValues & RETURNVALUE_FPSTACK)
           {
 #if GLUE_MAX_FPSTACK_SIZE > 0
-            *fpStackUse = 1;
+            if (*fpStackUse < 1) *fpStackUse = 1;
 #endif
             if (bufOut_len < GLUE_MOV_PX_DIRECTVALUE_TOSTACK_SIZE) RET_MINUS1_FAIL("direct fp fail 2")
             if (bufOut)
@@ -4292,17 +4295,19 @@ doNonInlineIf_:
       
       if (op->fntype == FUNCTYPE_EELFUNC)
       {
-        int a;
+        int a, fpUse1=0;
         
-        a = compileEelFunctionCall(ctx,op,bufOut,bufOut_len,computTableSize,namespacePathToThis, calledRvType,fpStackUse,canHaveDenormalOutput);
+        a = compileEelFunctionCall(ctx,op,bufOut,bufOut_len,computTableSize,namespacePathToThis, calledRvType,&fpUse1,canHaveDenormalOutput);
         if (a<0) return a;
+        if (fpUse1 > *fpStackUse) *fpStackUse = fpUse1;
         rv_offset += a;
       }
       else
       {
-        int a;
-        a = compileNativeFunctionCall(ctx,op,bufOut,bufOut_len,computTableSize,namespacePathToThis, calledRvType,fpStackUse,preferredReturnValues,canHaveDenormalOutput);
+        int a, fpUse1=0;
+        a = compileNativeFunctionCall(ctx,op,bufOut,bufOut_len,computTableSize,namespacePathToThis, calledRvType,&fpUse1,preferredReturnValues,canHaveDenormalOutput);
         if (a<0)return a;
+        if (fpUse1 > *fpStackUse) *fpStackUse = fpUse1;
         rv_offset += a;
       }        
     return rv_offset;
