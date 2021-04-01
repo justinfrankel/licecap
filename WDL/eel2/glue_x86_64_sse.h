@@ -47,15 +47,57 @@ static unsigned char GLUE_POP_STACK_TO_FPREG2[] = {
   }
 #else
   // non-win32: our function stubs preserve xmm4-xmm7
+
+#ifdef _DEBUG
+#define GLUE_VALIDATE_SPILLS
+#endif
+
+#ifdef GLUE_VALIDATE_SPILLS
+
+static unsigned char save_validate[]={
+0x48,0x83,0xec,0x10, //  subq $16, %rsp
+0xf2,0x0f,0x11,0x04,0x24, //  movsd %xmm0, (%rsp)
+0x66,0x48,0x0f,0x6e,0xe4, //  movq %rsp, %xmm4  (+ws<<3)
+};
+
+static unsigned char restore_validate[] = {
+  0xf2, 0x0f, 0x10, 0xcc, // movsd %xmm7, %xmm1 (+ws)
+  0x66, 0x48, 0x0f, 0x6e, 0xdc, //  movq %rsp, %xmm3
+  0x66, 0x0f, 0x2e, 0xd9, //  ucomisd %xmm1, %xmm3
+  0x74, 0x02, //  je 2 <skip>
+  0xcd, 0x03, //  int $3
+  0xf2, 0x0f, 0x10, 0x0c, 0x24, //  movsd (%rsp), %xmm1
+  0x48, 0x83, 0xc4, 0x10, //  addq $16, %rsp
+};
+  #define GLUE_SAVE_TO_SPILL_SIZE(x) (sizeof(save_validate))
+  #define GLUE_RESTORE_SPILL_TO_FPREG2_SIZE(x) (sizeof(restore_validate))
+
+#else
+
   #define GLUE_SAVE_TO_SPILL_SIZE(x) (4)
   #define GLUE_RESTORE_SPILL_TO_FPREG2_SIZE(x) (4)
+
+#endif
+
   static void GLUE_RESTORE_SPILL_TO_FPREG2(void *b, int ws)
   {
+#ifdef GLUE_VALIDATE_SPILLS
+    char *p = (char*) b;
+    memcpy(p,restore_validate,sizeof(restore_validate));
+    p[3] += ws;
+#else
     *(unsigned int *)b = 0xcc100ff2 + (ws<<24); // movsd xmm1, xmm4+ws
+#endif
   }
   static void GLUE_SAVE_TO_SPILL(void *b, int ws)
   {
+#ifdef GLUE_VALIDATE_SPILLS
+    char *p = (char*) b;
+    memcpy(p,save_validate,sizeof(save_validate));
+    p[sizeof(save_validate)-1] += ws<<3;
+#else
     *(unsigned int *)b = 0xe0100ff2 + (ws<<27); // movsd xmm4+ws, xmm0
+#endif
   }
 #endif
 
@@ -388,7 +430,6 @@ static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
 static int GLUE_FUSE(compileContext *ctx, unsigned char *code, int left_size, int right_size, int fuse_flags, int spill_reg)
 {
   const UINT_PTR base = (UINT_PTR) ctx->ram_state->blocks;
-  char tmp[32];
   const int is_sse_op = right_size == 4 && // add/mul/sub/min/max
                         code[0] == 0xf2 &&
                         code[1] == 0x0f &&
@@ -397,8 +438,10 @@ static int GLUE_FUSE(compileContext *ctx, unsigned char *code, int left_size, in
 
   if (spill_reg >= 0)
   {
+#ifndef GLUE_VALIDATE_SPILLS
     if (is_sse_op)
     {
+      char tmp[32];
       const int sz = GLUE_RESTORE_SPILL_TO_FPREG2_SIZE(spill_reg);
       GLUE_RESTORE_SPILL_TO_FPREG2(tmp,spill_reg);
       if (left_size>=sz && !memcmp(code-sz,tmp,sz))
@@ -408,6 +451,7 @@ static int GLUE_FUSE(compileContext *ctx, unsigned char *code, int left_size, in
         return -4;
       }
     }
+#endif
   }
   else
   {
