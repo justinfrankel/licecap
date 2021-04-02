@@ -3261,16 +3261,22 @@ HWND SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, 
   }
   
   [button setTag:idx];
-  if (!(g_swell_osx_style&1))
-    [button setBezelStyle:NSShadowlessSquareBezelStyle ];
-  else
-    [button setBezelStyle:NSRoundedBezelStyle ];
+
   NSRect tr=MakeCoords(x,y,w,h,true);
-  
-  
-  if ((g_swell_osx_style&1) && tr.size.height >= 18 && tr.size.height<24)
+  if (g_swell_osx_style&1)
   {
-    tr.size.height=24;
+    [button setBezelStyle:NSRoundedBezelStyle];
+    if (tr.size.height >= 18 && tr.size.height<24)
+    {
+      tr.origin.y -= floor((24-tr.size.height)*0.5);
+      tr.size.height=24;
+    }
+    tr.size.width += 14;
+    tr.origin.x -= 7;
+  }
+  else
+  {
+    [button setBezelStyle:NSShadowlessSquareBezelStyle];
   }
   
   [button setFrame:tr];
@@ -4096,7 +4102,8 @@ HWND SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
     SWELL_PopUpButton *obj=[[SWELL_PopUpButton alloc] init];
     [obj setTag:idx];
     [obj setFont:[NSFont systemFontOfSize:10.0f]];
-    NSRect rc=MakeCoords(x,y,w,18,true,true);
+    NSRect rc=MakeCoords(x,y,w,(g_swell_osx_style&1) ? 24 : 18,true,true);
+    if (g_swell_osx_style&1) rc.origin.y -= 2;
         
     [obj setSwellStyle:flags];
     [obj setFrame:rc];
