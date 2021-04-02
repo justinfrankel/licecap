@@ -71,7 +71,7 @@ static void InvalidateSuperViews(NSView *view);
 
 
 int g_swell_osx_readonlytext_wndbg = 0;
-int g_swell_osx_style = 0; // &1 = rounded buttons
+int g_swell_osx_style = 0; // &1 = rounded buttons, &2=big sur styled lists
 static void *SWELL_CStringToCFString_FilterPrefix(const char *str)
 {
   int c=0;
@@ -3733,6 +3733,19 @@ void SWELL_UnregisterCustomControlCreator(SWELL_ControlCreatorProc proc)
   }
 }
 
+static void set_listview_bigsur_style(NSTableView *obj)
+{
+  if (SWELL_GetOSXVersion() < 0x1100) return;
+#ifdef MAC_OS_VERSION_11_0
+  // newer SDKs default to NSTableViewStyleAutomatic
+  int style = (g_swell_osx_style & 2) ? -1 : 4 /* NSTableViewStylePlain */;
+#else
+  // old SDKs default to something similar to NSTableViewStylePlain
+  int style = (g_swell_osx_style & 2) ? 0 /* NSTableViewStyleAutomatic */ : -1;
+#endif
+  if (style >= 0) [obj setValue:[NSNumber numberWithInt:style] forKey:@"style"];
+}
+
 
 HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int style, int x, int y, int w, int h, int exstyle)
 {
@@ -3775,9 +3788,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   else if (!stricmp(classname, "SysListView32")||!stricmp(classname, "SysListView32_LB"))
   {
     SWELL_ListView *obj = [[SWELL_ListView alloc] init];
-#ifdef MAC_OS_VERSION_11_0
-    if (@available(macOS 11.0, *)) [obj setStyle:NSTableViewStyle(4)]; // plain
-#endif
+    set_listview_bigsur_style(obj);
     [obj setColumnAutoresizingStyle:NSTableViewNoColumnAutoresizing];
     [obj setFocusRingType:NSFocusRingTypeNone];
     [obj setDataSource:(id)obj];
@@ -3851,9 +3862,7 @@ HWND SWELL_MakeControl(const char *cname, int idx, const char *classname, int st
   else if (!stricmp(classname, "SysTreeView32"))
   {
     SWELL_TreeView *obj = [[SWELL_TreeView alloc] init];
-#ifdef MAC_OS_VERSION_11_0
-    if (@available(macOS 11.0, *)) [obj setStyle:NSTableViewStyle(4)]; // plain
-#endif
+    set_listview_bigsur_style(obj);
     [obj setFocusRingType:NSFocusRingTypeNone];
     [obj setDataSource:(id)obj];
     obj->style=style;
