@@ -71,7 +71,7 @@ static void InvalidateSuperViews(NSView *view);
 
 
 int g_swell_osx_readonlytext_wndbg = 0;
-int g_swell_want_nice_style = 1;
+int g_swell_osx_style = 0; // &1 = rounded buttons
 static void *SWELL_CStringToCFString_FilterPrefix(const char *str)
 {
   int c=0;
@@ -3261,14 +3261,14 @@ HWND SWELL_MakeButton(int def, const char *label, int idx, int x, int y, int w, 
   }
   
   [button setTag:idx];
-  if (g_swell_want_nice_style==1)
+  if (!(g_swell_osx_style&1))
     [button setBezelStyle:NSShadowlessSquareBezelStyle ];
   else
     [button setBezelStyle:NSRoundedBezelStyle ];
   NSRect tr=MakeCoords(x,y,w,h,true);
   
   
-  if (g_swell_want_nice_style!=1 && tr.size.height >= 18 && tr.size.height<24)
+  if ((g_swell_osx_style&1) && tr.size.height >= 18 && tr.size.height<24)
   {
     tr.size.height=24;
   }
@@ -4095,7 +4095,7 @@ HWND SWELL_MakeCombo(int idx, int x, int y, int w, int h, int flags)
     [obj setTarget:ACTIONTARGET];
     [obj setAction:@selector(onSwellCommand:)];
 
-    if (g_swell_want_nice_style==1)
+    if (!(g_swell_osx_style&1))
     {
       [obj setBezelStyle:NSShadowlessSquareBezelStyle ];
       [[obj cell] setArrowPosition:NSPopUpArrowAtBottom];
