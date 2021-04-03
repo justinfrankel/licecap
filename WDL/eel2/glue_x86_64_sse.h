@@ -599,13 +599,13 @@ static int GLUE_FUSE(compileContext *ctx, unsigned char *code, int left_size, in
 
         if (!PTR_32_OK(c2-base))
         {
-          code[wrpos++] = 0x48; // mov rdi, dest
+          code[wrpos++] = 0x48; // mov rdi, src
           code[wrpos++] = 0xbf;
-          memcpy(code+wrpos,&c1,8);
+          memcpy(code+wrpos,&c2,8);
           wrpos +=8;
         }
 
-        code[wrpos++] = 0x48; // mov rax, src
+        code[wrpos++] = 0x48; // mov rax, dest
         code[wrpos++] = 0xb8;
         memcpy(code+wrpos,&c1,8);
         wrpos +=8;
@@ -623,7 +623,7 @@ static int GLUE_FUSE(compileContext *ctx, unsigned char *code, int left_size, in
         else
         {
           code[wrpos++] = 0x48; // mov rdx, [rdi]
-          code[wrpos++] = 0x89;
+          code[wrpos++] = 0x8b;
           code[wrpos++] = 0x17;
         }
 
