@@ -290,7 +290,7 @@ void nseel_asm_mul(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-   "fmul d0, d0, d1\n"
+   "fmul d0, d1, d0\n"
     FUNCTION_MARKER
   );
 }

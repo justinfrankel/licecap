@@ -384,6 +384,28 @@ void eel_leavefp(int _s[2])
   glue_setscr(s[0]);
 }
 
+#define GLUE_HAS_FUSE 1
+static int GLUE_FUSE(compileContext *ctx, unsigned char *code, int left_size, int right_size, int fuse_flags, int spill_reg)
+{
+  if (left_size>=4 && right_size == 4)
+  {
+    unsigned int instr = ((unsigned int *)code)[-1];
+    if (spill_reg >= 0 && (instr & 0xfffffc1f) == 0x1e604001) // fmov d1, dX
+    {
+      const int src_reg = (instr>>5)&0x1f;
+      if (src_reg == spill_reg + 8)
+      {
+        instr = ((unsigned int *)code)[0];
+        if ((instr & 0xffffcfff) == 0x1e600820)
+        {
+          ((unsigned int *)code)[-1] = instr + ((src_reg-1) << 5);
+          return -4;
+        }
+      }
+    }
+  }
+  return 0;
+}
 
 
 #endif
