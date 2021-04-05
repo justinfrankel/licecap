@@ -103,7 +103,14 @@ void WDL_VirtualListBox::CalcLayout(int num_items, layout_info *layout)
 
   s_heights.Resize(0,false);
 
-  int startitem = wdl_min(m_viewoffs,num_items-1), cols = 1, y = 0;
+  int maxvis = 1;
+  if (!m_GetItemHeight)
+  {
+    const int rh = GetRowHeight();
+    if (WDL_NORMALLY(rh>0)) maxvis = wdl_max(h/rh,1) * max_cols;
+  }
+
+  int startitem = wdl_min(m_viewoffs,num_items-maxvis), cols = 1, y = 0;
   if (startitem < 0) startitem = 0;
 
   const int rh_base = GetRowHeight();
