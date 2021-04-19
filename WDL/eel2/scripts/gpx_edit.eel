@@ -34,6 +34,60 @@ function hit_test(x,y) global(tab tabsz circle_size gfx_w gfx_h v_lat.scale v_lo
   hit
 );
 
+function make_lowpass(f filtsize filtpos) global() local(windowpos sincpos x)
+(
+  x = 0;
+  loop(filtsize,
+    x == filtsize/2 ? (
+      f[x] = 1.0;
+    ) : (
+      windowpos = 2 * x * $pi / filtsize;
+      sincpos = filtpos * $pi * (x - filtsize/2);
+
+      // blackman-harris * window
+      f[x] = (0.35875 - 0.48829 * cos(windowpos) + 0.14128 * cos(2*windowpos) - 0.01168 * cos(3*windowpos)) * sin(sincpos) / sincpos;
+    );
+    x+=1;
+  );
+);
+
+function lowpass() local(src sz i j lpf_pos v sx sy filt p) global(tab tabsz)
+(
+  lpf_pos>0.001 ? lpf_pos *= 0.95 : lpf_pos = 0.9;
+  sz = 64;
+  src = tab+tabsz*2 + sz*4 + 1024;
+  filt = src + tabsz*2 + sz*4 + 1024;
+  make_lowpass(filt, sz, lpf_pos);
+  memcpy(src, tab, tabsz*2);
+  i = src;
+  j = src + tabsz*2;
+  loop(sz/2,
+    memcpy(i-2,i,2);
+    memcpy(j,j-2,2);
+    j+=2;
+    i-=2;
+  );
+  i = 0;
+  loop(tabsz,
+    tab[i*2] != 10000 ? (
+      p = j = sx = sy = 0;
+      loop(sz,
+        v = src[(i+j-sz/2)*2];
+        v != 10000 ? (
+          p += filt[j];
+          sx += v * filt[j];
+          sy += src[(i+j-sz/2)*2 + 1] * filt[j];
+        );
+        j+=1;
+      );
+      tab[i*2] = sx/p;
+      tab[i*2+1] = sy/p;
+    );
+    i+=1;
+  );
+
+);
+
 function do_file(srcfn, destfn) local(fp fpout p lat lon skipping) (
   (fp = fopen(srcfn,"r")) > 0 ? (
     destfn < 0 || (fpout = fopen(destfn,"w")) > 0 ? (
@@ -100,6 +154,7 @@ function run() (
 
   gfx_update();
   c = gfx_getchar();
+  c == 'l' ? ( lowpass(); is_dirty = 1; );
   c >= 0 && c != 27 ? defer("run()");
 );
 
