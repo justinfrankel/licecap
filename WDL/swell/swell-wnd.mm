@@ -4636,6 +4636,24 @@ bool ListView_GetItem(HWND h, LVITEM *item)
   else
   {
     if (item->iItem <0 || item->iItem >= tv->ownermode_cnt) return false;
+
+    int mask = item->mask & (LVIF_PARAM|LVIF_TEXT);
+    if (mask & LVIF_TEXT)
+    {
+      if (!item->pszText || item->cchTextMax < 1) mask &= ~LVIF_TEXT;
+      else *item->pszText = 0;
+    }
+    if (mask)
+    {
+      NMLVDISPINFO nm={{(HWND)tv, (UINT_PTR)[tv tag], LVN_GETDISPINFO}};
+      nm.item.mask = mask;
+      nm.item.iItem = item->iItem;
+      nm.item.iSubItem = item->iSubItem;
+      nm.item.pszText = item->pszText;
+      nm.item.cchTextMax = item->cchTextMax;
+      SendMessage(GetParent(h),WM_NOTIFY,nm.hdr.idFrom,(LPARAM)&nm);
+      if (mask & LVIF_PARAM) item->lParam = nm.item.lParam;
+    }
   }
   if (item->mask & LVIF_STATE)
   {
