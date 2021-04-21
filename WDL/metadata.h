@@ -950,6 +950,17 @@ bool HandleMexMetadataRequest(const char *mexkey, char *buf, int buflen,
 {
   if (!mexkey || !mexkey[0] || !buf || !buflen || !metadata) return false;
 
+  if (strchr(mexkey, ':'))
+  {
+    const char *val=metadata->Get(mexkey);
+    if (val && val[0])
+    {
+      lstrcpyn(buf, val, buflen);
+      return true;
+    }
+    return false;
+  }
+
   buf[0]=0;
   int i=0;
   const char *key;
