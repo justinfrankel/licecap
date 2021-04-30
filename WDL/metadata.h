@@ -62,7 +62,7 @@ void InsertMetadataIncrKeyIfNeeded(WDL_StringKeyedArray<char*> *metadata,
   }
 }
 
-void XMLCompliantAppend(WDL_FastString *str, const char *txt)
+void XMLCompliantAppend(WDL_FastString *str, const char *txt, bool is_value)
 {
   if (str && txt) for (;;)
   {
@@ -73,6 +73,7 @@ void XMLCompliantAppend(WDL_FastString *str, const char *txt)
       case '<': str->Append("&lt;"); break;
       case '>': str->Append("&gt;"); break;
       case '&': str->Append("&amp;"); break;
+      case ' ': str->Append(is_value ? " " : "_"); break;
       default: str->Append(&c,1); break;
     }
   }
@@ -366,9 +367,9 @@ int PackIXMLChunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata)
         }
         else
         {
-          ixml.AppendFormatted(2048, "<%s>", elem);
-          XMLCompliantAppend(&ixml, val);
-          ixml.AppendFormatted(2048, "</%s>", elem);
+          ixml.AppendFormatted(2048, "<%s>", elem, false);
+          XMLCompliantAppend(&ixml, val, true);
+          ixml.AppendFormatted(2048, "</%s>", elem, false);
         }
       }
     }
@@ -386,20 +387,20 @@ int PackIXMLChunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata)
         int klen, vlen;
         ParseUserDefMetadata(key, val, &k, &v, &klen, &vlen);
         ixml.Append("<");
-        XMLCompliantAppend(&ixml, k);
+        XMLCompliantAppend(&ixml, k, false);
         ixml.Append(">");
-        XMLCompliantAppend(&ixml, v);
+        XMLCompliantAppend(&ixml, v, true);
         ixml.Append("</");
-        XMLCompliantAppend(&ixml, k);
+        XMLCompliantAppend(&ixml, k, false);
         ixml.Append(">");
       }
       else
       {
         if (has_user) { has_user=false; ixml.Append("</USER>"); }
 
-        ixml.AppendFormatted(2048, "<%s>", key);
-        XMLCompliantAppend(&ixml, val);
-        ixml.AppendFormatted(2048, "</%s>", key);
+        ixml.AppendFormatted(2048, "<%s>", key, false);
+        XMLCompliantAppend(&ixml, val, true);
+        ixml.AppendFormatted(2048, "</%s>", key, false);
       }
       // specs say no specific whitespace or newline needed
     }
