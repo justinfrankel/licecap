@@ -367,9 +367,13 @@ int PackIXMLChunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata)
         }
         else
         {
-          ixml.AppendFormatted(2048, "<%s>", elem, false);
+          ixml.Append("<");
+          XMLCompliantAppend(&ixml, elem, false);
+          ixml.Append(">");
           XMLCompliantAppend(&ixml, val, true);
-          ixml.AppendFormatted(2048, "</%s>", elem, false);
+          ixml.Append("</");
+          XMLCompliantAppend(&ixml, elem, false);
+          ixml.Append(">");
         }
       }
     }
@@ -398,9 +402,13 @@ int PackIXMLChunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata)
       {
         if (has_user) { has_user=false; ixml.Append("</USER>"); }
 
-        ixml.AppendFormatted(2048, "<%s>", key, false);
+        ixml.Append("<");
+        XMLCompliantAppend(&ixml, key, false);
+        ixml.Append(">");
         XMLCompliantAppend(&ixml, val, true);
-        ixml.AppendFormatted(2048, "</%s>", key, false);
+        ixml.Append("</");
+        XMLCompliantAppend(&ixml, key, false);
+        ixml.Append(">");
       }
       // specs say no specific whitespace or newline needed
     }
