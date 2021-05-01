@@ -112,6 +112,7 @@ typedef struct _codeHandleFunctionRec
   opcodeRec *opcodes;
 
   int startptr_size;  // 0=no code. -1 = needs calculation. >0 = size.
+  int startptr_base_size; // initially calculated size of root function
   int tmpspace_req;
     
   int num_params;

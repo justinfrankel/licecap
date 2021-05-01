@@ -1924,7 +1924,7 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
           &fn->rvMode,&fn->fpStackUsage,&fn->canHaveDenormalOutput);
       if (sz<0) return NULL;
 
-      fn->startptr_size = sz;
+      fn->startptr_base_size = fn->startptr_size = sz;
     }
 
     if (!wantCodeGenerated)
@@ -1938,17 +1938,19 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
       *fpStackUse = fn->fpStackUsage;
       if (canHaveDenormalOutput) *canHaveDenormalOutput=fn->canHaveDenormalOutput;
 
-      if (sz <= NSEEL_MAX_FUNCTION_SIZE_FOR_INLINE && !(ctx->optimizeDisableFlags&OPTFLAG_NO_INLINEFUNC))
+      if (fn->startptr_base_size <= NSEEL_MAX_FUNCTION_SIZE_FOR_INLINE &&
+          !(ctx->optimizeDisableFlags&OPTFLAG_NO_INLINEFUNC))
       {
         *isRaw = 1;
-        *endP = ((char *)1) + sz;
+        *endP = ((char *)1) + fn->startptr_base_size;
         return (char *)1;
       }
       *endP = (void*)nseel_asm_fcall_end;
       return (void*)nseel_asm_fcall;
     }
 
-    if (sz <= NSEEL_MAX_FUNCTION_SIZE_FOR_INLINE && !(ctx->optimizeDisableFlags&OPTFLAG_NO_INLINEFUNC))
+    if (fn->startptr_base_size <= NSEEL_MAX_FUNCTION_SIZE_FOR_INLINE &&
+        !(ctx->optimizeDisableFlags&OPTFLAG_NO_INLINEFUNC))
     {
       void *p=newTmpBlock(ctx,sz);
       fn->tmpspace_req=0;
@@ -1999,6 +2001,13 @@ static void *nseel_getEELFunctionAddress(compileContext *ctx,
     *fpStackUse = fn->fpStackUsage;
     if (canHaveDenormalOutput) *canHaveDenormalOutput= fn->canHaveDenormalOutput;
     *endP = (char*)fn->startptr + fn->startptr_size;
+    if (!wantCodeGenerated &&
+        fn->startptr_base_size <= NSEEL_MAX_FUNCTION_SIZE_FOR_INLINE &&
+        !(ctx->optimizeDisableFlags&OPTFLAG_NO_INLINEFUNC))
+    {
+      // report the correct maximum base length for the calculation pass
+      *endP = (char*)fn->startptr + fn->startptr_base_size;
+    }
     *isRaw=1;
     return fn->startptr;
   }
