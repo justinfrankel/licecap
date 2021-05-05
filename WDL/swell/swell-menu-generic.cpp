@@ -529,12 +529,13 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         {
           RECT cr;
           GetClientRect(hwnd,&cr);
-          HBRUSH br=CreateSolidBrush(g_swell_ctheme.menu_bg);
+          HBRUSH br = CreateSolidBrush(g_swell_ctheme.menu_bg);
           HBRUSH br2 = CreateSolidBrushAlpha(g_swell_ctheme.menu_scroll,0.5f);
           HBRUSH br3 = CreateSolidBrush(g_swell_ctheme.menu_scroll_arrow);
           HBRUSH br_submenu_arrow = CreateSolidBrush(g_swell_ctheme.menu_submenu_arrow);
-          HPEN pen=CreatePen(PS_SOLID,0,g_swell_ctheme.menu_shadow);
-          HPEN pen2=CreatePen(PS_SOLID,0,g_swell_ctheme.menu_hilight);
+          HBRUSH br_submenu_arrow_sel = CreateSolidBrush(g_swell_ctheme.menu_submenu_arrow_sel);
+          HPEN pen = CreatePen(PS_SOLID,0,g_swell_ctheme.menu_shadow);
+          HPEN pen2 = CreatePen(PS_SOLID,0,g_swell_ctheme.menu_hilight);
           HGDIOBJ oldbr = SelectObject(ps.hdc,br);
           HGDIOBJ oldpen = SelectObject(ps.hdc,pen2);
           Rectangle(ps.hdc,cr.left,cr.top,cr.right,cr.bottom);
@@ -587,6 +588,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             {
               HBRUSH brs=CreateSolidBrush(g_swell_ctheme.menu_bg_sel);
               RECT r2=r;
+              r2.left = cr.left;
               FillRect(ps.hdc,&r2,brs);
               DeleteObject(brs);
               SetTextColor(ps.hdc,g_swell_ctheme.menu_text_sel);
@@ -657,14 +659,26 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
                  {xp + sz,yp}
                };
                HGDIOBJ oldPen = SelectObject(ps.hdc,GetStockObject(NULL_PEN));
-               SelectObject(ps.hdc,br_submenu_arrow);
+               
+               if (x == menu->sel_vis && !dis)
+                 SelectObject(ps.hdc,br_submenu_arrow_sel);
+               else
+                 SelectObject(ps.hdc,br_submenu_arrow);
+
                Polygon(ps.hdc,pts,3);
 
                SelectObject(ps.hdc,oldPen);
+
+
             }
             if (inf->fState&MF_CHECKED)
             {
-              const int col = dis ? g_swell_ctheme.menu_text_disabled : g_swell_ctheme.menu_text;
+              int col;
+              if (x == menu->sel_vis && !dis)
+                col = g_swell_ctheme.menu_text_sel;
+              else
+                col = dis ? g_swell_ctheme.menu_text_disabled : g_swell_ctheme.menu_text;
+
               HPEN tpen = CreatePen(PS_SOLID,0, col);
               HBRUSH tbr = CreateSolidBrush(col);
               HGDIOBJ oldBrush = SelectObject(ps.hdc,tbr);
