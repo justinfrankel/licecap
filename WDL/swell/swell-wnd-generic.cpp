@@ -4659,6 +4659,7 @@ forceMouseMove:
         {
           RECT cr; 
           GetClientRect(hwnd,&cr); 
+          RECT rr = cr;
           HBRUSH bgbr = CreateSolidBrush(lvs->m_color_bg);
           FillRect(ps.hdc,&cr,bgbr);
           DeleteObject(bgbr);
@@ -4967,6 +4968,9 @@ forceMouseMove:
                   totalw,lvs->m_scroll_x);
             }
           }
+          Draw3DBox(ps.hdc,&rr,-1,
+            g_swell_ctheme.listview_hilight,
+            g_swell_ctheme.listview_shadow);
           DeleteObject(bgbr);
 
           EndPaint(hwnd,&ps);
@@ -5656,6 +5660,9 @@ forceMouseMove:
             DeleteObject(br);
 
             drawVerticalScrollbar(ps.hdc,cr,total_h,tvs->m_scroll_y);
+            Draw3DBox(ps.hdc,&cr,-1,
+              g_swell_ctheme.treeview_hilight,
+              g_swell_ctheme.treeview_shadow);
           }
 
           EndPaint(hwnd,&ps);
