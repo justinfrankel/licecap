@@ -669,7 +669,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
               HBRUSH tbr = CreateSolidBrush(col);
               HGDIOBJ oldBrush = SelectObject(ps.hdc,tbr);
               HGDIOBJ oldPen = SelectObject(ps.hdc,tpen);
-              const int sz = (wdl_min(lcol, r.bottom-r.top) - SWELL_UI_SCALE(6));
+              const int sz = (wdl_min(lcol, r.bottom-r.top) - SWELL_UI_SCALE(10));
               const int xo = SWELL_UI_SCALE(4), yo = (r.bottom+r.top)/2 - sz/2;
               if (inf->fType&MFT_RADIOCHECK)
               {
@@ -677,7 +677,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
               }
               else
               {
-                static const unsigned char coords[12] = { 128, 30, 108, 11, 48, 72, 48, 112, 0, 65, 20, 46, };
+                static const unsigned char coords[12] = { 0, 76, 12, 64, 40, 92, 40, 118, 116, 16, 128, 28, };
                 for (int pass=0;pass<2;pass++)
                 {
                   POINT pts[4];
