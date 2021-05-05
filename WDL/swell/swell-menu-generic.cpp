@@ -543,12 +543,6 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           int x;
           int ypos = top_margin;
 
-          MoveToEx(ps.hdc,cr.left+lcol-SWELL_UI_SCALE(4),cr.top,NULL);
-          LineTo(ps.hdc,cr.left+lcol-SWELL_UI_SCALE(4),cr.bottom);
-          SelectObject(ps.hdc,pen);
-          MoveToEx(ps.hdc,cr.left+lcol-SWELL_UI_SCALE(5),cr.top,NULL);
-          LineTo(ps.hdc,cr.left+lcol-SWELL_UI_SCALE(5),cr.bottom);
-
           hwnd->m_extra[1]=0;
           for (x=wdl_max(hwnd->m_extra[0],0); x < (menu->items.GetSize()); x++)
           {
