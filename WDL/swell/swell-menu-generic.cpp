@@ -409,7 +409,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
   static int lcol, rcol, mcol, top_margin, separator_ht, text_ht_pad, bitmap_ht_pad, scroll_margin, item_bm_pad;
   if (!lcol)
   {
-    lcol=SWELL_UI_SCALE(24); rcol=SWELL_UI_SCALE(12); mcol=SWELL_UI_SCALE(10);
+    lcol=SWELL_UI_SCALE(30); rcol=SWELL_UI_SCALE(18); mcol=SWELL_UI_SCALE(10);
     top_margin=SWELL_UI_SCALE(4); separator_ht=SWELL_UI_SCALE(8); 
     text_ht_pad=SWELL_UI_SCALE(4); bitmap_ht_pad=SWELL_UI_SCALE(4);
     scroll_margin=SWELL_UI_SCALE(10);
@@ -637,13 +637,14 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             else 
             {
               SelectObject(ps.hdc,pen2);
-              int y = r.top/2+r.bottom/2, right = r.right-rcol*3/2;
-              MoveToEx(ps.hdc,r.left,y,NULL);
+              int margin = rcol / 2;
+              int y = r.top/2+r.bottom/2, left = cr.left+margin, right = r.right-margin;
+              MoveToEx(ps.hdc,left,y,NULL);
               LineTo(ps.hdc,right,y);
               SelectObject(ps.hdc,pen);
 
               y++;
-              MoveToEx(ps.hdc,r.left,y,NULL);
+              MoveToEx(ps.hdc,left,y,NULL);
               LineTo(ps.hdc,right,y);
             }
             if (inf->hSubMenu) 
@@ -682,8 +683,8 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
                   POINT pts[4];
                   for (int i=0;i<4; i ++)
                   {
-                    pts[i].x = xo + ((int)coords[i*2+pass*4] * sz + 63) / 128;
-                    pts[i].y = yo + ((int)coords[i*2+pass*4+1] * sz + 63) / 128;
+                    pts[i].x = lcol/2 + sz * ((int)coords[i*2+pass*4] - 64) / 128;
+                    pts[i].y = (r.bottom+r.top)/2 + sz * ((int)coords[i*2+pass*4+1] - 64) / 128;
                   }
                   Polygon(ps.hdc,pts,4);
                 }
