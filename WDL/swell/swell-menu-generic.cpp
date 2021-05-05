@@ -649,7 +649,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             }
             if (inf->hSubMenu) 
             {
-               const int sz = (r.bottom-r.top)/4, xp = r.right - sz*2, yp = (r.top + r.bottom)/2;
+               const int sz = (r.bottom-r.top)/5, xp = r.right - rcol/2 - sz, yp = (r.top + r.bottom)/2;
 
                POINT pts[3] = {
                  {xp, yp-sz},
