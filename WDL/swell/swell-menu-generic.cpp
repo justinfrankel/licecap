@@ -1079,7 +1079,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
 
             RECT r;
             GetClientRect(hwnd,&r);
-            m_trackingPt.x=r.right - SWELL_UI_SCALE(3);
+            m_trackingPt.x=r.right;
             m_trackingPt.y=item_ypos;
             m_trackingPt2.x=r.left + lcol/4;
             m_trackingPt2.y=item_ypos;
