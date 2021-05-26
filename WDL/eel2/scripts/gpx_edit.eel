@@ -24,14 +24,27 @@ function scroll(amt) global() ( amt *= (this.max-this.min); this.max += amt; thi
 function zoom_view(sc) ( v_lon.zoom(sc); v_lat.zoom(sc); );
 function scroll_view(dx, dy) ( v_lat.scroll(-dy/gfx_h); v_lon.scroll(-dx/gfx_w); );
 
-function hit_test(x,y) global(tab tabsz circle_size gfx_w gfx_h v_lat.scale v_lon.scale) local(p hit) (
-  p = 0;
+function hit_test(x,y,p) global(tab tabsz circle_size gfx_w gfx_h v_lat.scale v_lon.scale) local(p hit) (
   hit = -1;
   while (p < tabsz && hit < 0) (
     sqr(v_lat.scale(tab[p*2+1])*gfx_h-y)+sqr(v_lon.scale(tab[p*2])*gfx_w-x) < circle_size*circle_size ? hit = p;
     p += 1;
   );
   hit
+);
+
+function linearize(p,sz, slon, slat, elon, elat, rev) local(x) global()
+(
+  rev ? ( x=slon; slon=elon; elon=x; x=slat; slat=elat; elat=x; );
+  elon = (elon - slon) / sz;
+  elat = (elat - slat) / sz;
+  loop(sz,
+    p[0] = slon;
+    p[1] = slat;
+    slon += elon;
+    slat += elat;
+    p += 2;
+  );
 );
 
 function make_lowpass(f filtsize filtpos) global() local(windowpos sincpos x)
@@ -111,10 +124,34 @@ function run() (
   mouse_wheel ? ( zoom_view(mouse_wheel < 0 ? 1.1 : 1/1.1); mouse_wheel = 0;);
   (mouse_cap&1)? (
     !(last_mouse_cap & 1) ? (
-      cap_mode = hit_test(mouse_x,mouse_y);
+      cap_mode >= 0 && (mouse_cap&4) ? (
+        tmp = hit_test(mouse_x,mouse_y,0);
+        tmp >= 0 ? (
+          tmp < cap_mode ? (
+            cap_cnt = cap_mode+cap_cnt - tmp;
+            cap_mode = tmp;
+          ) : (
+            cap_cnt = max(cap_mode+cap_cnt, tmp) - cap_mode;
+          );
+        ) : cap_mode = tmp;
+      ) : (
+        cap_mode = hit_test(mouse_x,mouse_y,0);
+        cap_mode >= 0 ? (
+          cap_cnt = 1;
+          while (hit_test(mouse_x,mouse_y,cap_mode+cap_cnt) >= 0) ( cap_cnt += 1; );
+        );
+      );
+      cap_start_lon = v_lon.unscale(mouse_x/gfx_w);
+      cap_start_lat = v_lat.unscale(mouse_y/gfx_h);
     ) : cap_mode >= 0 ? (
-      tab[cap_mode*2] = v_lon.unscale(mouse_x/gfx_w);
-      tab[cap_mode*2+1] = v_lat.unscale(mouse_y/gfx_h);
+      cap_cnt > 1 && (mouse_cap&4) ? (
+        linearize(tab + cap_mode*2,cap_cnt, cap_start_lon, cap_start_lat, 
+          v_lon.unscale(mouse_x/gfx_w), v_lat.unscale(mouse_y/gfx_h),
+          mouse_cap&8);
+      ) : (
+        tab[cap_mode*2] = v_lon.unscale(mouse_x/gfx_w);
+        tab[cap_mode*2+1] = v_lat.unscale(mouse_y/gfx_h);
+      );
       is_dirty = 1;
     ) : scroll_view(mouse_x-last_mouse_x,mouse_y-last_mouse_y);
   ) : (
@@ -139,7 +176,7 @@ function run() (
         gfx_line(v_lon.scale(llon)*gfx_w,v_lat.scale(llat)*gfx_h,x,y);
         dist += sqrt(sqr((p[0] - llon) * cos(llat*$pi/180.0)*69.172) + sqr((p[1] - llat)*60));
       );
-      gfx_set(0,1,0);
+      cap_mode == (p-tab)/2 ? gfx_set(1,0,1) : gfx_set(0,1,0);
       gfx_circle(x,y,circle_size);
       llon = p[0];
       llat = p[1];
