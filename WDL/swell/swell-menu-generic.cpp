@@ -554,7 +554,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           {
             if (ypos >= cr.bottom)
             {
-              hwnd->m_extra[1] = 1; // allow scrolling down
+              hwnd->m_extra[1] |= 1; // allow scrolling down
               break;
             }
             MENUITEMINFO *inf = menu->items.Get(x);
@@ -702,8 +702,10 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             }
             if ((r.top+ypos)/2 > cr.bottom)
             {
-              hwnd->m_extra[1] = 1; // allow scrolling down if last item was halfway off
+              hwnd->m_extra[1] |= 1; // allow scrolling down if last item was halfway off
             }
+            if (ypos > cr.bottom && x == menu->sel_vis)
+              hwnd->m_extra[1] |= 3;
           }
           if (x <= menu->sel_vis) hwnd->m_extra[1]|=2;
 
