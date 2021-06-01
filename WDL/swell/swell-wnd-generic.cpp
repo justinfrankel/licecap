@@ -3525,7 +3525,8 @@ popupMenu:
           hwnd->Retain();
           RECT r;
           GetWindowRect(hwnd,&r);
-          int a = TrackPopupMenu(menu,TPM_NONOTIFY|TPM_RETURNCMD|TPM_LEFTALIGN,r.left,r.bottom,0,hwnd,0);
+          RECT req_r = { 1<<30, 1<<30, 0, s->selidx };
+          int a = TrackPopupMenu(menu,TPM_NONOTIFY|TPM_RETURNCMD|TPM_LEFTALIGN,r.left,r.bottom,0,hwnd,&req_r);
           DestroyMenu(menu);
           if (hwnd->m_private_data && a>=100 && a < s->items.GetSize()+100)
           {

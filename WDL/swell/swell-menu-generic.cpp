@@ -1155,7 +1155,10 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
   }
 
 
-  hMenu->sel_vis=-1;
+  if (r && r->left == (1<<30) && r->top == (1<<30) && !r->right)
+    hMenu->sel_vis = r->bottom;
+  else
+    hMenu->sel_vis=-1;
   HWND hh=new HWND__(NULL,0,NULL,"menu",false,submenuWndProc,NULL, hwnd);
 
   submenuWndProc(hh,WM_CREATE,0,(LPARAM)hMenu);
