@@ -402,6 +402,7 @@ bool swell_isOSwindowmenu(SWELL_OSWINDOW osw)
 
 int menuBarNavigate(int dir); // -1 if no menu bar active, 0 if did nothing, 1 if navigated
 HWND GetFocusIncludeMenus(void);
+static DWORD swell_menu_ignore_mousemove_from;
 
 static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -1083,6 +1084,8 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
     return 0;
     case WM_MOUSEMOVE:
       {
+        if ((GetTickCount() - swell_menu_ignore_mousemove_from)<200) return 0;
+
         if (swell_delegate_menu_message(hwnd, lParam,uMsg, false))
           return 0;
 
@@ -1159,6 +1162,9 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
     hMenu->sel_vis = r->bottom;
   else
     hMenu->sel_vis=-1;
+
+  if (!resvd) swell_menu_ignore_mousemove_from = GetTickCount();
+
   HWND hh=new HWND__(NULL,0,NULL,"menu",false,submenuWndProc,NULL, hwnd);
 
   submenuWndProc(hh,WM_CREATE,0,(LPARAM)hMenu);
