@@ -2647,6 +2647,54 @@ void swell_scaling_init(bool no_auto_hidpi)
   #endif
 }
 
+BOOL EnumDisplayMonitors(HDC hdc,const LPRECT r,MONITORENUMPROC proc,LPARAM lParam)
+{
+  GdkScreen *defscr = gdk_screen_get_default();
+  const int nmon = gdk_screen_get_n_monitors(defscr);
+  for (int x = 0; x < nmon; x ++)
+  {
+    GdkRectangle rc={0,0,1024,1024};
+    gdk_screen_get_monitor_geometry(defscr,x,&rc);
+    RECT screen_rect, tmp = { rc.x, rc.y,rc.x+rc.width , rc.y+rc.height };
+    if (r)
+    {
+      if (!IntersectRect(&screen_rect,r,&tmp))
+        continue;
+    }
+    else
+    {
+      screen_rect = tmp;
+    }
+
+    if (!proc((HMONITOR)(INT_PTR) (x+1),hdc,&screen_rect,lParam)) break;
+  }
+  return TRUE;
+}
+BOOL GetMonitorInfo(HMONITOR hmon, void *inf)
+{
+  GdkScreen *defscr = gdk_screen_get_default();
+  const int nmon = gdk_screen_get_n_monitors(defscr);
+  const int monidx = ((int) (INT_PTR) hmon)-1;
+  if (monidx<0 || monidx >= nmon) return FALSE;
+
+  MONITORINFOEX *a = (MONITORINFOEX*)inf;
+  if (a->cbSize < sizeof(MONITORINFO)) return FALSE;
+  a->dwFlags = 0;
+  GdkRectangle rc={0,0,1024,1024};
+  gdk_screen_get_monitor_geometry(defscr,monidx,&rc);
+  RECT tmp = { rc.x, rc.y,rc.x+rc.width , rc.y+rc.height };
+  a->rcMonitor = a->rcWork = tmp;
+
+  if (a->cbSize > sizeof(MONITORINFO))
+  {
+    const int maxlen = (int) (a->cbSize - sizeof(MONITORINFO));
+    const char *s = gdk_screen_get_monitor_plug_name(defscr,monidx);
+    if (!s) return FALSE;
+    lstrcpyn_safe(a->szDevice,s,maxlen);
+  }
+
+  return TRUE;
+}
 
 #endif
 #endif

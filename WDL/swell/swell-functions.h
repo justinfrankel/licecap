@@ -1087,4 +1087,7 @@ SWELL_API_DEFINE(void, SWELL_SetClassName, (HWND, const char*)) // must pass a s
 
 SWELL_API_DEFINE(void, SWELL_DisableContextMenu, (HWND, bool))
 
+SWELL_API_DEFINE(BOOL, EnumDisplayMonitors, (HDC,const LPRECT,MONITORENUMPROC,LPARAM))
+SWELL_API_DEFINE(BOOL, GetMonitorInfo, (HMONITOR, void *))
+
 #endif // _WDL_SWELL_H_API_DEFINED_

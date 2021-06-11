@@ -1438,5 +1438,22 @@ typedef struct _COPYDATASTRUCT
   PVOID     lpData;
 } COPYDATASTRUCT, *PCOPYDATASTRUCT;
 
+typedef void *HMONITOR;
+
+typedef struct _MONITORINFO {
+  DWORD cbSize;
+  RECT rcMonitor, rcWork;
+  DWORD dwFlags;
+} MONITORINFO, *LPMONITORINFO;
+
+
+typedef struct _MONITORINFOEX {
+  DWORD cbSize;
+  RECT rcMonitor, rcWork;
+  DWORD dwFlags;
+  char szDevice[256];
+} MONITORINFOEX, *LPMONITORINFOEX;
+
+typedef BOOL (*MONITORENUMPROC)(HMONITOR,HDC,LPRECT,LPARAM);
 
 #endif //_WDL_SWELL_H_TYPES_DEFINED_
