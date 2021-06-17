@@ -16,10 +16,9 @@ void ChannelPinMapper::SetNPins(int nPins)
   m_nPins = nPins;
 }
 
-void ChannelPinMapper::SetNChannels(int nCh)
+void ChannelPinMapper::SetNChannels(int nCh, bool auto_passthru)
 {
-  int i;
-  for (i = m_nCh; i < nCh && i < m_nPins; ++i) {
+  if (auto_passthru) for (int i = m_nCh; i < nCh && i < m_nPins; ++i) {
     SetPin(i, i, true);
   }
   m_nCh = nCh;

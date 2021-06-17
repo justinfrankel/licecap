@@ -113,7 +113,7 @@ public:
   ~ChannelPinMapper() {}
 
   void SetNPins(int nPins);
-  void SetNChannels(int nCh);
+  void SetNChannels(int nCh, bool auto_passthru=true);
   // or ...
   void Init(const WDL_UINT64* pMapping, int nPins);
 
