@@ -2044,8 +2044,8 @@ LRESULT EEL_Editor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
           }
         }
 
-        // doubleclicking a function goes to it
-        if (!SHIFT_KEY_DOWN)
+        // ctrl+doubleclicking a function goes to it
+        if (CTRL_KEY_DOWN)
         {
           WDL_FastString *l=m_text.Get(m_curs_y);
           if (l)
