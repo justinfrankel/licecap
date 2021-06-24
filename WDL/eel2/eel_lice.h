@@ -255,11 +255,12 @@ public:
   EEL_F *m_gfx_r, *m_gfx_g, *m_gfx_b, *m_gfx_w, *m_gfx_h, *m_gfx_a, *m_gfx_x, *m_gfx_y, *m_gfx_mode, *m_gfx_clear, *m_gfx_texth,*m_gfx_dest, *m_gfx_a2;
   EEL_F *m_mouse_x, *m_mouse_y, *m_mouse_cap, *m_mouse_wheel, *m_mouse_hwheel;
   EEL_F *m_gfx_ext_retina;
+  EEL_F *m_gfx_ext_flags;
 
   NSEEL_VMCTX m_vmref;
   void *m_user_ctx;
 
-  int setup_frame(HWND hwnd, RECT r, int _mouse_x=0, int _mouse_y=0, int has_dpi=0); // mouse_x/y used only if hwnd is NULL
+  int setup_frame(HWND hwnd, RECT r, int _mouse_x=0, int _mouse_y=0, int has_dpi=0, int is_embedded=0); // mouse_x/y used only if hwnd is NULL
   void finish_draw();
 
   void gfx_lineto(EEL_F xpos, EEL_F ypos, EEL_F aaflag);
@@ -367,6 +368,7 @@ eel_lice_state::eel_lice_state(NSEEL_VMCTX vm, void *ctx, int image_slots, int f
   m_gfx_texth = NSEEL_VM_regvar(vm,"gfx_texth");
   m_gfx_dest = NSEEL_VM_regvar(vm,"gfx_dest");
   m_gfx_ext_retina = NSEEL_VM_regvar(vm,"gfx_ext_retina");
+  m_gfx_ext_flags=NSEEL_VM_regvar(vm,"gfx_ext_flags");
 
   m_mouse_x = NSEEL_VM_regvar(vm,"mouse_x");
   m_mouse_y = NSEEL_VM_regvar(vm,"mouse_y");
@@ -1814,7 +1816,7 @@ void eel_lice_state::gfx_drawnumber(EEL_F n, EEL_F ndigits)
                            getCurColor(),getCurMode(),(float)*m_gfx_a,DT_NOCLIP,NULL,NULL);
 }
 
-int eel_lice_state::setup_frame(HWND hwnd, RECT r, int _mouse_x, int _mouse_y, int has_dpi)
+int eel_lice_state::setup_frame(HWND hwnd, RECT r, int _mouse_x, int _mouse_y, int has_dpi, int is_embedded)
 {
   int use_w = r.right - r.left;
   int use_h = r.bottom - r.top;
@@ -1825,8 +1827,12 @@ int eel_lice_state::setup_frame(HWND hwnd, RECT r, int _mouse_x, int _mouse_y, i
     GetCursorPos(&pt);
     ScreenToClient(hwnd,&pt);
   }
+
   *m_mouse_x=pt.x-r.left;
   *m_mouse_y=pt.y-r.top;
+
+  *m_gfx_ext_flags = is_embedded ? 1 : 0;
+
   if (has_dpi>0 && *m_gfx_ext_retina > 0.0)
   {
     *m_gfx_ext_retina = has_dpi/256.0;
@@ -2935,6 +2941,7 @@ static const char *eel_lice_function_reference =
   "\4gfx_dest - destination for drawing operations, -1 is main framebuffer, set to 0.." EEL_LICE_DOC_MAXHANDLE " to have drawing operations go to an offscreen buffer (or loaded image).\n"
   "\4gfx_texth - the (READ-ONLY) height of a line of text in the current font. Do not modify this variable.\n"
   "\4gfx_ext_retina - to support hidpi/retina, callers should set to 1.0 on initialization, will be updated to 2.0 if high resolution display is supported, and if so gfx_w/gfx_h/etc will be doubled.\n"
+  "\4gfx_ext_flags - &1 if context is JSFX embedded in TCP or MCP.\n"
   "\4mouse_x - current X coordinate of the mouse relative to the graphics window.\n"
   "\4mouse_y - current Y coordinate of the mouse relative to the graphics window.\n"
   "\4mouse_wheel - wheel position, will change typically by 120 or a multiple thereof, the caller should clear the state to 0 after reading it.\n"
