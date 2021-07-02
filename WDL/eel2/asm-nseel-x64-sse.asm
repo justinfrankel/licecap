@@ -526,7 +526,7 @@ db 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90
     cvttsd2si rcx, xmm0
     cvttsd2si rax, xmm1
     xor rdx, rdx
-    cmp rax, 0
+    cmp rcx, 0
     je label_1  ;  skip devide, set return to 0
     div rcx
 label_1:
