@@ -17,6 +17,7 @@
 #include "../eel2/ns-eel-int.h"
 
 int g_eel_editor_max_vis_suggestions = 50;
+int g_eel_editor_flags;
 
 EEL_Editor::EEL_Editor(void *cursesCtx) : WDL_CursesEditor(cursesCtx)
 {
@@ -2045,7 +2046,7 @@ LRESULT EEL_Editor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
         }
 
         // ctrl+doubleclicking a function goes to it
-        if (CTRL_KEY_DOWN)
+        if (!(g_eel_editor_flags&1) != !CTRL_KEY_DOWN)
         {
           WDL_FastString *l=m_text.Get(m_curs_y);
           if (l)

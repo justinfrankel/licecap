@@ -76,6 +76,8 @@ class suggested_matchlist {
 
 
 extern int g_eel_editor_max_vis_suggestions;
+extern int g_eel_editor_flags; // &1=doubleclick function name defaults to jump
+
 // add EEL syntax highlighting and paren matching, hooks for watch/etc
 class EEL_Editor : public WDL_CursesEditor
 {
