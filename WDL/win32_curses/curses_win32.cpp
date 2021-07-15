@@ -215,7 +215,7 @@ static LRESULT xlateKey(int msg, WPARAM wParam, LPARAM lParam)
       case VK_CONTROL: break;
     
       default:
-        if(GetAsyncKeyState(VK_CONTROL)&0x8000)
+        if ((GetAsyncKeyState(VK_CONTROL)&0x8000) && !(GetAsyncKeyState(VK_MENU)&0x8000))
         {
           if (wParam>='a' && wParam<='z') 
           {
