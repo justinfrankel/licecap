@@ -4751,7 +4751,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
       const char *p = expr;
       const char *tok1 = nseel_simple_tokenizer(&p,endptr,&tmplen,NULL);
       const char *funcname = nseel_simple_tokenizer(&p,endptr,&funcname_len,NULL);
-      if (tok1 && funcname && tmplen == 8 && !strnicmp(tok1,"function",8) && (isalpha(funcname[0]) || funcname[0] == '_'))
+      if (tok1 && funcname && tmplen == 8 && !strnicmp(tok1,"function",8) && (isalpha((unsigned char)funcname[0]) || funcname[0] == '_'))
       {
         int had_parms_locals=0;
         if (funcname_len > sizeof(is_fname)-1) funcname_len=sizeof(is_fname)-1;
@@ -4805,7 +4805,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
               goto had_error;
             }
 
-            if (isalpha(*tok1) || *tok1 == '_' || *tok1 == '#') 
+            if (isalpha((unsigned char)*tok1) || *tok1 == '_' || *tok1 == '#')
             {
               maxcnt++;
               if (p < endptr && *p == '*')
@@ -4845,7 +4845,7 @@ NSEEL_CODEHANDLE NSEEL_code_compile_ex(NSEEL_VMCTX _ctx, const char *_expression
               while (NULL != (tok1 = nseel_simple_tokenizer(&p,endptr,&tmplen,NULL)))
               {
                 if (tok1[0] == ')') break;
-                if (isalpha(*tok1) || *tok1 == '_' || *tok1 == '#') 
+                if (isalpha((unsigned char)*tok1) || *tok1 == '_' || *tok1 == '#')
                 {
                   char *newstr;
                   int l = tmplen;
@@ -5076,13 +5076,13 @@ had_error:
           int x=0, right_amt_nospace=0, left_amt_nospace=0;
           while (x < 32 && p-x > _expression && p[-x] != '\r' && p[-x] != '\n') 
           {
-            if (!isspace(p[-x])) left_amt_nospace=x;
+            if (!isspace((unsigned char)p[-x])) left_amt_nospace=x;
             x++;
           }
           x=0;
           while (x < 60 && p[x] && p[x] != '\r' && p[x] != '\n') 
           {
-            if (!isspace(p[x])) right_amt_nospace=x;
+            if (!isspace((unsigned char)p[x])) right_amt_nospace=x;
             x++;
           }
 
