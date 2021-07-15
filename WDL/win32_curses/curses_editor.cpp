@@ -1446,11 +1446,11 @@ void WDL_CursesEditor::runSearch(bool backwards, bool replaceAll)
   {
     char elbuf[50];
     const int numlines = m_text.GetSize();
-    for (int y = 0; y <= numlines; y ++)
+    if (numlines) for (int y = 0; y <= numlines; y ++)
     {
       int line = m_curs_y + (backwards ? -y : y), wrapflag=0;
-      while (line >= numlines) { line -= numlines; wrapflag = 1; }
-      while (line < 0) { line += numlines; wrapflag = 1; }
+      if (line >= numlines) { line -= numlines; wrapflag = 1; }
+      else if (line < 0) { line += numlines; wrapflag = 1; }
 
       WDL_FastString *tl = m_text.Get(line);
       if (WDL_NOT_NORMALLY(!tl)) continue;
