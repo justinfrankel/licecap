@@ -10,12 +10,13 @@ WDL_HASSTRINGS_EXPORT bool hasStrings_isNonWordChar(int c)
   // treat as whitespace when searching for " foo "
   switch (c)
   {
+    case 0:
+    case 1:
     case ' ':
     case '\t':
     case '.':
     case '/':
     case '\\':
-
       return true;
 
     default:
