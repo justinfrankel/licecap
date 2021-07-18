@@ -7,6 +7,8 @@
 // if onlySec_name is set, only loads/returns section in question and does not update global state.
 WDL_AssocArray<WDL_UINT64, char *> *WDL_LoadLanguagePack(const char *buf, const char *onlySec_name);
 
+WDL_AssocArray<WDL_UINT64, char *> *WDL_GetLangpackSection(const char *sec);
+
 #define LOCALIZE_FLAG_VERIFY_FMTS 1 // verifies translated format-string (%d should match %d, etc)
 #define LOCALIZE_FLAG_NOCACHE 2     // must use this if the string passed is not a persistent static string, or if in another thread
 #define LOCALIZE_FLAG_PAIR 4        // one \0 in string needed -- this is not doublenull terminated but just a special case

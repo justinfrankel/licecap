@@ -946,6 +946,11 @@ void WDL_fgets_as_utf8(char *linebuf, int linebuf_size, FILE *fp, int *format_fl
   }
 }
 
+WDL_AssocArray<WDL_UINT64, char *> *WDL_GetLangpackSection(const char *sec)
+{
+  return g_translations.Get(sec);
+}
+
 WDL_AssocArray<WDL_UINT64, char *> *WDL_LoadLanguagePack(const char *fn, const char *onlySec_name)
 {
   WDL_AssocArray<WDL_UINT64, char *> *rv=NULL;
