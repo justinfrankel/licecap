@@ -126,7 +126,9 @@ WDL_HASSTRINGS_EXPORT bool WDL_hasStringsEx(const char *name, const LineParser *
             break;
           }
         }
-        bool use_cmp_func = cmp_func != NULL;
+
+        bool use_cmp_func = cmp_func != NULL && !(stack[stacktop]&1);
+
         if (!wc_left && !wc_right && *n)
         {
           switch (lp->gettoken_quotingchar(x))
