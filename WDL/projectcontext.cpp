@@ -258,7 +258,13 @@ int ProjectContextFormatString(char *outbuf, size_t outbuf_size, const char *fmt
       case 's':
       {
         const char *str=va_arg(va,const char *);
-        const char qc = outbuf_size >= 3 && c != 's' ? getConfigStringQuoteChar(str) : ' ';
+        bool prefer_quoteless = true;
+        if (c == 'p' && *fmt == '~') // %p~ to bias towards "string" (legacy)
+        {
+          prefer_quoteless = false;
+          fmt++;
+        }
+        const char qc = outbuf_size >= 3 && c != 's' ? getConfigStringQuoteChar(str, prefer_quoteless) : ' ';
         
         if (qc != ' ')
         {
@@ -1243,7 +1249,7 @@ void cfg_encode_textblock2(ProjectStateContext *ctx, const char *txt) // preserv
   }
 }
 
-char getConfigStringQuoteChar(const char *p)
+char getConfigStringQuoteChar(const char *p, bool prefer_quoteless)
 {
   if (!p || !*p) return '"';
 
@@ -1257,9 +1263,10 @@ char getConfigStringQuoteChar(const char *p)
     else if (c=='`') flags|=4;
     else if (c == ' ' || c == '\t' || c == '\n' || c == '\r') flags |= 8;
   }
-#ifndef PROJECTCONTEXT_USE_QUOTES_WHEN_NO_SPACES
-  if (!(flags & 8) && fc != '"' && fc != '\'' && fc != '`' && fc != '#' && fc != ';') return ' ';
-#endif
+  if (prefer_quoteless || flags == 7)
+  {
+    if (!(flags & 8) && fc != '"' && fc != '\'' && fc != '`' && fc != '#' && fc != ';') return ' ';
+  }
 
   if (!(flags & 1)) return '"';
   if (!(flags & 2)) return '\'';
