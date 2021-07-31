@@ -2614,6 +2614,14 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
 #endif
         const int mask = hadAltAdj ? ~256 : ~0;
 
+#ifdef _WIN32
+        if (!a && (uMsg == WM_KEYUP || uMsg == WM_SYSKEYUP))
+        {
+          // not ideal, doesn't properly support all modifiers but better than nothing
+          a = (int)MapVirtualKey((UINT)wParam,2/*MAPVK_VK_TO_CHAR*/);
+        }
+#endif
+
         if (a & mask)
         {
           int a_no_alt = (a&mask);
