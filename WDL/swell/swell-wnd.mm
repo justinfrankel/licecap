@@ -1712,6 +1712,9 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL("Button")
 
 @end
 
+
+NSFont *SWELL_GetNSFont(HGDIOBJ__ *obj);
+
 LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
   if (WDL_NOT_NORMALLY(!hwnd)) return 0;
@@ -1817,6 +1820,12 @@ LRESULT SendMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         // not implemented, because it requires replacing obj within its parent window
         // instead caller explicitly destroy the edit control and create a new one with ES_PASSWORD
       }
+      return 0;
+    }
+    else if (msg == WM_SETFONT && ([obj isKindOfClass:[NSTextField class]]))
+    {
+      NSFont *font = SWELL_GetNSFont((HGDIOBJ__*)wParam);
+      if (font) [obj setFont:font];
       return 0;
     }
     else
@@ -3376,51 +3385,8 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL("Edit")
       
     case WM_SETFONT:
     {
-      HGDIOBJ__* obj = (HGDIOBJ__*)wParam;
-      if (obj && obj->type == TYPE_FONT)
-      {
-        if (obj->ct_FontRef)
-        {
-          [self setFont:(NSFont *)obj->ct_FontRef];
-        }
-#ifdef SWELL_ATSUI_TEXT_SUPPORT
-        else if (obj->atsui_font_style)
-        {
-          ATSUFontID fontid = kATSUInvalidFontID;      
-          Fixed fsize = 0;          
-          Boolean isbold = NO;
-          Boolean isital = NO;
-          Boolean isunder = NO;          
-          if (ATSUGetAttribute(obj->atsui_font_style, kATSUFontTag, sizeof(ATSUFontID), &fontid, 0) == noErr &&
-              ATSUGetAttribute(obj->atsui_font_style, kATSUSizeTag, sizeof(Fixed), &fsize, 0) == noErr && fsize &&
-              ATSUGetAttribute(obj->atsui_font_style, kATSUQDBoldfaceTag, sizeof(Boolean), &isbold, 0) == noErr && 
-              ATSUGetAttribute(obj->atsui_font_style, kATSUQDItalicTag, sizeof(Boolean), &isital, 0) == noErr &&
-              ATSUGetAttribute(obj->atsui_font_style, kATSUQDUnderlineTag, sizeof(Boolean), &isunder, 0) == noErr)
-          {
-            char name[255];
-            name[0]=0;
-            ByteCount namelen=0;
-            if (ATSUFindFontName(fontid, kFontFullName, (FontPlatformCode)kFontNoPlatform, kFontNoScriptCode, kFontNoLanguageCode, sizeof(name), name, &namelen, 0) == noErr && name[0] && namelen)
-            {
-              namelen /= 2;
-              int i;
-              for (i = 0; i < namelen; ++i) name[i] = name[2*i];
-              name[namelen]=0;
-
-              // todo bold/ital/underline
-              NSString* str = (NSString*)SWELL_CStringToCFString(name);
-              CGFloat sz = Fix2Long(fsize);
-              NSFont* font = [NSFont fontWithName:str size:sz];
-              [str release];
-              if (font) 
-              {
-                [self setFont:font];
-              }
-            }
-          }            
-        }
-#endif
-      }
+      NSFont *font = SWELL_GetNSFont((HGDIOBJ__*)wParam);
+      if (font) [self setFont:font];
     }
     return 0;
   }

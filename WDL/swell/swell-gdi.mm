@@ -1218,6 +1218,48 @@ int GetGlyphIndicesW(HDC ctx, wchar_t *buf, int len, unsigned short *indices, in
 }
 
 
+NSFont *SWELL_GetNSFont(HGDIOBJ__ *obj)
+{
+  if (HGDIOBJ_VALID(obj,TYPE_FONT))
+  {
+    if (obj->ct_FontRef) return (NSFont *)obj->ct_FontRef;
+#ifdef SWELL_ATSUI_TEXT_SUPPORT
+    else if (obj->atsui_font_style)
+    {
+      ATSUFontID fontid = kATSUInvalidFontID;
+      Fixed fsize = 0;
+      Boolean isbold = NO;
+      Boolean isital = NO;
+      Boolean isunder = NO;
+      if (ATSUGetAttribute(obj->atsui_font_style, kATSUFontTag, sizeof(ATSUFontID), &fontid, 0) == noErr &&
+          ATSUGetAttribute(obj->atsui_font_style, kATSUSizeTag, sizeof(Fixed), &fsize, 0) == noErr && fsize &&
+          ATSUGetAttribute(obj->atsui_font_style, kATSUQDBoldfaceTag, sizeof(Boolean), &isbold, 0) == noErr &&
+          ATSUGetAttribute(obj->atsui_font_style, kATSUQDItalicTag, sizeof(Boolean), &isital, 0) == noErr &&
+          ATSUGetAttribute(obj->atsui_font_style, kATSUQDUnderlineTag, sizeof(Boolean), &isunder, 0) == noErr)
+      {
+        char name[255];
+        name[0]=0;
+        ByteCount namelen=0;
+        if (ATSUFindFontName(fontid, kFontFullName, (FontPlatformCode)kFontNoPlatform, kFontNoScriptCode, kFontNoLanguageCode, sizeof(name), name, &namelen, 0) == noErr && name[0] && namelen)
+        {
+          namelen /= 2;
+          int i;
+          for (i = 0; i < namelen; ++i) name[i] = name[2*i];
+          name[namelen]=0;
+
+          // todo bold/ital/underline
+          NSString* str = (NSString*)SWELL_CStringToCFString(name);
+          CGFloat sz = Fix2Long(fsize);
+          NSFont* font = [NSFont fontWithName:str size:sz];
+          [str release];
+          return font;
+        }
+      }
+    }
+#endif
+  }
+  return NULL;
+}
 
 
 void SetBkColor(HDC ctx, int col)
