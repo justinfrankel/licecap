@@ -511,12 +511,14 @@ int PackXMPChunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata)
     }
   }
 
+#define XMP_MARKER_RESOLUTION "1000000" // keep in sync with metadata.cpp:UpdateAutomaticMetadata()
+
   static const char *track_hdr=
     "<xmpDM:Tracks>"
       "<rdf:Bag>"
         "<rdf:li rdf:parseType=\"Resource\">"
           "<xmpDM:trackType>Cue</xmpDM:trackType>"
-          "<xmpDM:frameRate>f1000</xmpDM:frameRate>"
+          "<xmpDM:frameRate>f" XMP_MARKER_RESOLUTION "</xmpDM:frameRate>"
           "<xmpDM:markers>"
             "<rdf:Seq>";
   static const char *track_ftr=
@@ -536,17 +538,17 @@ int PackXMPChunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata)
 
     const char *sep1=strchr(val, ':');
     if (WDL_NOT_NORMALLY(!sep1)) break;
-    int startms=atoi(val);
-    int endms=atoi(sep1+1);
-    if (WDL_NOT_NORMALLY(startms < 0 || endms < startms)) break;
+    double st=atof(val);
+    double et=atof(sep1+1);
+    if (WDL_NOT_NORMALLY(st < 0.0 || et < st)) break;
     const char *sep2=strchr(sep1+1, ':');
     const char *name = sep2 ? sep2+1 : ""; // might need to make this xml compliant?
 
     if (!cnt++) xmp.Append(track_hdr);
 
     xmp.Append("<rdf:li rdf:parseType=\"Resource\">");
-    xmp.AppendFormatted(1024, "<xmpDM:startTime>%d</xmpDM:startTime>", startms);
-    if (endms > startms) xmp.AppendFormatted(1024, "<xmpDM:duration>%d</xmpDM:duration>", endms-startms);
+    xmp.AppendFormatted(1024, "<xmpDM:startTime>%.0f</xmpDM:startTime>", st);
+    if (et > st) xmp.AppendFormatted(1024, "<xmpDM:duration>%.0f</xmpDM:duration>", et-st);
     if (name[0]) xmp.AppendFormatted(1024, "<xmpDM:name>%s</xmpDM:name>", name);
     xmp.Append("</rdf:li>");
   }
