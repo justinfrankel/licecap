@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-g -DWDL_FFT_REALSIZE=8  -Wall -Wno-unused-function -Wno-multichar -Wno-unused-result -Wshadow
+CFLAGS=-g -DWDL_FFT_REALSIZE=8  -Wall -Wno-unused-function -Wno-multichar -Wno-unused-result -Wshadow -Wtype-limits
 LFLAGS=
 CXX=g++
 
