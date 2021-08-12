@@ -441,14 +441,14 @@ int PackXMPChunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata)
 
   int olen=hb->GetSize();
 
-  const char *xmp_hdr=
+  static const char *xmp_hdr=
     "<?xpacket begin=\"\xEF\xBB\xBF\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>"
     "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\">"
       "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">"
         "<rdf:Description"
         " xmlns:dc=\"http://purl.org/dc/elements/1.1/\""
         " xmlns:xmpDM=\"http://ns.adobe.com/xmp/1.0/DynamicMedia/\""; // unclosed
-  const char *xmp_ftr=
+  static const char *xmp_ftr=
         "</rdf:Description>"
       "</rdf:RDF>"
     "</x:xmpmeta>"
@@ -473,6 +473,8 @@ int PackXMPChunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata)
           !strncmp(key, "dm/", 3) ? "xmpDM" : NULL;
         if (prefix && key[3])
         {
+          if (!strcmp(key, "dm/markers")) continue;
+
           if (!strcmp(key, "dc/description") || !strcmp(key, "dc/title"))
           {
             // elements
@@ -508,6 +510,48 @@ int PackXMPChunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata)
       }
     }
   }
+
+  static const char *track_hdr=
+    "<xmpDM:Tracks>"
+      "<rdf:Bag>"
+        "<rdf:li rdf:parseType=\"Resource\">"
+          "<xmpDM:trackType>Cue</xmpDM:trackType>"
+          "<xmpDM:frameRate>f1000</xmpDM:frameRate>"
+          "<xmpDM:markers>"
+            "<rdf:Seq>";
+  static const char *track_ftr=
+            "</rdf:Seq>"
+          "</xmpDM:markers>"
+        "</rdf:li>"
+      "</rdf:Bag>"
+    "</xmpDM:Tracks>";
+
+  char buf[128];
+  int cnt=0;
+  for (int i=0; i < 1000; ++i)
+  {
+    snprintf(buf, sizeof(buf), "XMP:MARK%03d", i);
+    const char *val=metadata->Get(buf);
+    if (!val || !val[0]) break;
+
+    const char *sep1=strchr(val, ':');
+    if (WDL_NOT_NORMALLY(!sep1)) break;
+    int startms=atoi(val);
+    int endms=atoi(sep1+1);
+    if (WDL_NOT_NORMALLY(startms < 0 || endms < startms)) break;
+    const char *sep2=strchr(sep1+1, ':');
+    const char *name = sep2 ? sep2+1 : ""; // might need to make this xml compliant?
+
+    if (!cnt++) xmp.Append(track_hdr);
+
+    xmp.Append("<rdf:li rdf:parseType=\"Resource\">");
+    xmp.AppendFormatted(1024, "<xmpDM:startTime>%d</xmpDM:startTime>", startms);
+    if (endms > startms) xmp.AppendFormatted(1024, "<xmpDM:duration>%d</xmpDM:duration>", endms-startms);
+    if (name[0]) xmp.AppendFormatted(1024, "<xmpDM:name>%s</xmpDM:name>", name);
+    xmp.Append("</rdf:li>");
+  }
+  if (cnt) xmp.Append(track_ftr);
+
   xmp.Append(xmp_ftr);
 
   int len=xmp.GetLength()+1; // nul-terminate just in case
