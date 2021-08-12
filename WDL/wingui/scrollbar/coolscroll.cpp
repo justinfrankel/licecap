@@ -3623,14 +3623,14 @@ int  WINAPI CoolSB_SetScrollInfo (HWND hwnd, int fnBar, LPSCROLLINFO lpsi, BOOL 
   if(lpsi->fMask & SIF_PAGE)
   {
     UINT t = (UINT)(mysi->nMax - mysi->nMin + 1);
-    mysi->nPage = wdl_min(wdl_max(0, lpsi->nPage), t);
+    mysi->nPage = wdl_min(lpsi->nPage,t);
   }
 
   //The nPos member must specify a value between nMin and nMax - wdl_max(nPage - 1, 0).
   if(lpsi->fMask & SIF_POS)
   {
     mysi->nPos = wdl_max(lpsi->nPos, mysi->nMin);
-    mysi->nPos = wdl_min((UINT)mysi->nPos, mysi->nMax - wdl_max(mysi->nPage - 1, 0));
+    mysi->nPos = wdl_min(mysi->nPos, mysi->nMax - wdl_max((int) mysi->nPage - 1, 0));
   }
 
   sbar = GetScrollBarFromHwnd(hwnd, fnBar);
@@ -3691,7 +3691,7 @@ int WINAPI CoolSB_SetScrollPos(HWND hwnd, int nBar, int nPos, BOOL fRedraw)
   //validate and set the scollbar position
   oldpos = mysi->nPos;
   mysi->nPos = wdl_max(nPos, mysi->nMin);
-  mysi->nPos = wdl_min((UINT)mysi->nPos, mysi->nMax - wdl_max(mysi->nPage - 1, 0));
+  mysi->nPos = wdl_min(mysi->nPos, mysi->nMax - wdl_max((int)mysi->nPage - 1, 0));
 
   if(fRedraw && !CoolSB_IsThumbTracking(hwnd))
     RedrawNonClient(hwnd, FALSE);
