@@ -1564,6 +1564,10 @@ HDC BeginPaint(HWND hwnd, PAINTSTRUCT *ps)
 // paint hwnd into bmout, where bmout points at bmout_xpos,bmout_ypos in window coordinates
 void SWELL_internalLICEpaint(HWND hwnd, LICE_IBitmap *bmout, int bmout_xpos, int bmout_ypos, bool forceref)
 {
+#ifdef _DEBUG
+  extern int g_swell_in_paint;
+  g_swell_in_paint++;
+#endif
   // todo: check to see if any children completely intersect clip region, if so then we don't need to render ourselves
   // todo: opaque flag for windows? (to disable above behavior)
   // todo: implement/use per-window backing store.
@@ -1683,6 +1687,9 @@ void SWELL_internalLICEpaint(HWND hwnd, LICE_IBitmap *bmout, int bmout_xpos, int
     }
   }
   if (okToClearChild) hwnd->m_child_invalidated=false;
+#ifdef _DEBUG
+  g_swell_in_paint--;
+#endif
 }
 
 HBITMAP CreateBitmap(int width, int height, int numplanes, int bitsperpixel, unsigned char* bits)

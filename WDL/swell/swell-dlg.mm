@@ -474,6 +474,10 @@ static SWELL_DialogResourceIndex *resById(SWELL_DialogResourceIndex *reshead, co
 
 static void DoPaintStuff(WNDPROC wndproc, HWND hwnd, HDC hdc, NSRect *modrect, bool isMetal)
 {
+#ifdef _DEBUG
+  extern int g_swell_in_paint;
+  g_swell_in_paint++;
+#endif
   RECT r;
   GetWindowRect(hwnd,&r);
   if (r.top>r.bottom) { int tmp=r.top; r.top=r.bottom; r.bottom=tmp; }
@@ -501,6 +505,9 @@ static void DoPaintStuff(WNDPROC wndproc, HWND hwnd, HDC hdc, NSRect *modrect, b
     if (a) SWELL_PopClipRegion(hdc);
   }
   if (isMetal) wndproc(hwnd,WM_NCPAINT,(WPARAM)1,0);
+#ifdef _DEBUG
+  g_swell_in_paint--;
+#endif
 }
 
 

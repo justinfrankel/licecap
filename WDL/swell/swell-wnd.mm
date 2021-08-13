@@ -5350,8 +5350,16 @@ static void InvalidateSuperViews(NSView *view)
   }
 }
            
+#ifdef _DEBUG
+int g_swell_in_paint;
+#endif
+
 BOOL InvalidateRect(HWND hwnd, const RECT *r, int eraseBk)
 { 
+#ifdef _DEBUG
+  WDL_ASSERT(!g_swell_in_paint); // not forbidden, but bad form to call InvalidateRect() from within a WM_PAINT
+#endif
+
   if (WDL_NOT_NORMALLY(!hwnd)) return FALSE;
   id view=(id)hwnd;
   if ([view isKindOfClass:[NSWindow class]]) view=[view contentView];
