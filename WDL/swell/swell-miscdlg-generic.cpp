@@ -160,7 +160,8 @@ public:
     void format_date(char *buf, int bufsz)
     {
       *buf=0;
-      if (date > 0 && date < WDL_INT64_CONST(0x793406fff))
+      const WDL_INT64 date64 = (WDL_INT64) date;
+      if (date64 > 0 && date64 < WDL_INT64_CONST(0x793406fff))
       {
         struct tm *a=localtime(&date);
         if (a) strftime(buf,bufsz,"%c",a);
