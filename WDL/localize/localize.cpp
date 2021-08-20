@@ -1087,4 +1087,20 @@ WDL_AssocArray<WDL_UINT64, char *> *WDL_LoadLanguagePack(const char *fn, const c
   return rv;
 }
 
+void WDL_SetLangpackFallbackEntry(const char *src_sec, WDL_UINT64 src_v, const char *dest_sec, WDL_UINT64 dest_v)
+{
+  WDL_AssocArray<WDL_UINT64, char *> *sec = g_translations.Get(src_sec);
+  char *v = sec ? sec->Get(src_v) : NULL;
+  if (!v) return;
+  sec = g_translations.Get(dest_sec);
+  if (!sec)
+  {
+    sec = new WDL_AssocArray<WDL_UINT64, char *>(uint64cmpfunc);
+    g_translations.Insert(dest_sec,sec);
+  }
+  else if (sec->Get(dest_v)) return;
+
+  sec->Insert(dest_v,v);
+}
+
 

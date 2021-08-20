@@ -9,6 +9,8 @@ WDL_AssocArray<WDL_UINT64, char *> *WDL_LoadLanguagePack(const char *buf, const 
 
 WDL_AssocArray<WDL_UINT64, char *> *WDL_GetLangpackSection(const char *sec);
 
+void WDL_SetLangpackFallbackEntry(const char *src_sec, WDL_UINT64 src_v, const char *dest_sec, WDL_UINT64 dest_v);
+
 #define LOCALIZE_FLAG_VERIFY_FMTS 1 // verifies translated format-string (%d should match %d, etc)
 #define LOCALIZE_FLAG_NOCACHE 2     // must use this if the string passed is not a persistent static string, or if in another thread
 #define LOCALIZE_FLAG_PAIR 4        // one \0 in string needed -- this is not doublenull terminated but just a special case
