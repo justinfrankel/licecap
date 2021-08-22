@@ -421,64 +421,43 @@ private:
   static int _cmpstr(const char *s1, const char *s2, bool case_sensitive)
   {
     // this also exists as WDL_strcmp_logical in wdlcstring.h
-    char lastNonZeroChar=0;
-    // last matching character, updated if not 0. this allows us to track whether
-    // we are inside of a number with the same leading digits
 
     for (;;)
     {
       char c1=*s1++, c2=*s2++;
       if (!c1) return c1-c2;
       
-      if (c1!=c2)
+      if (c1 >= '0' && c1 <= '9' && c2 >= '0' && c2 <= '9')
       {
-        if (c1 >= '0' && c1 <= '9' && c2 >= '0' && c2 <= '9')
+        int lzdiff=0, len1=0, len2=0;
+
+        // lzdiff = lz2-lz1, more leading 0s = earlier in list
+        while (c1 == '0') { c1=*s1++; lzdiff--; }
+        while (c1 >= '0' && c1 <= '9') { c1=*s1++; len1++; }
+        while (c2 == '0') { c2=*s2++; lzdiff++; }
+        while (c2 >= '0' && c2 <= '9') { c2=*s2++; len2++; }
+
+        if (len1 != len2) return len1-len2;
+
+        s1-=len1+1;
+        s2-=len1+1;
+        while (len1--)
         {
-          int lzdiff=0, cnt=0;
-          if (lastNonZeroChar < '1' || lastNonZeroChar > '9')
-          {
-            while (c1 == '0') { c1=*s1++; lzdiff--; }
-            while (c2 == '0') { c2=*s2++; lzdiff++; } // lzdiff = lz2-lz1, more leading 0s = earlier in list
-          }
-
-          for (;;)
-          {
-            if (c1 >= '0' && c1 <= '9')
-            {
-              if (c2 < '0' || c2 > '9') return 1;
-
-              c1=s1[cnt];
-              c2=s2[cnt++];
-            }
-            else
-            {
-              if (c2 >= '0' && c2 <= '9') return -1;
-              break;
-            }
-          }
-
-          s1--;
-          s2--;
-        
-          while (cnt--)
-          {
-            const int d = *s1++ - *s2++;
-            if (d) return d;
-          }
-
-          if (lzdiff) return lzdiff;
+          const int d = *s1++ - *s2++;
+          if (d) return d;
         }
-        else
-        {
-          if (!case_sensitive)
-          {
-            if (c1>='a' && c1<='z') c1+='A'-'a';
-            if (c2>='a' && c2<='z') c2+='A'-'a';
-          }
-          if (c1 != c2) return c1-c2;
-        }
+
+        if (lzdiff) return lzdiff;
       }
-      else if (c1 != '0') lastNonZeroChar=c1;
+      else if (c1 != c2)
+      {
+        if (!case_sensitive)
+        {
+          if (c1>='a' && c1<='z') c1+='A'-'a';
+          if (c2>='a' && c2<='z') c2+='A'-'a';
+        }
+        if (c1 != c2) return c1-c2;
+      }
     }
   }
 };
