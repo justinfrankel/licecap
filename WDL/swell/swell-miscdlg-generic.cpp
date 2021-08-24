@@ -489,7 +489,14 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
             SendMessage(extlist,CB_SETITEMDATA,a,(LPARAM)p);
             p += strlen(p)+1;
           }
-          SendMessage(extlist,CB_SETCURSEL,0,0);
+
+          int sel = 0;
+          if (parms->initialfile && *parms->initialfile && *parms->initialfile != '.')
+          {
+            sel = ext_valid_for_extlist(WDL_get_fileext(parms->initialfile), parms->extlist);
+            if (sel<0) sel=0;
+          }
+          SendMessage(extlist,CB_SETCURSEL,sel,0);
         }
 
         SWELL_MakeLabel(-1,parms->mode == BrowseFile_State::OPENDIR ? "Directory: " : "File:",IDC_LABEL, 0,0,0,0, 0); 
