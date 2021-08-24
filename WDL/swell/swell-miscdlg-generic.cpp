@@ -362,6 +362,35 @@ static void preprocess_user_path(char *buf, int bufsz)
   }
 }
 
+static int ext_valid_for_extlist(const char *thisext, const char *extlist)
+{
+  if (!thisext || *thisext != '.' || !extlist) return -1;
+  int txlen = (int)strlen(thisext), witem = 0;
+  while (*extlist)
+  {
+    while (*extlist) extlist++; // description
+    extlist++;
+
+    while (*extlist)
+    {
+      while (*extlist == ' ' || *extlist == ';') extlist++;
+      if (*extlist == '*')
+      {
+        if (!strnicmp(extlist+1,thisext,txlen) &&
+            (extlist[1+txlen] == ';' ||extlist[1+txlen] == 0))
+          return witem;
+      }
+      while (*extlist && *extlist != ';') extlist++;
+      if (*extlist) extlist++;
+    }
+
+    while (*extlist) extlist++;
+    extlist++;
+    witem++;
+  }
+  return -1;
+}
+
 static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
   enum { IDC_EDIT=0x100, IDC_LABEL, IDC_CHILD, IDC_DIR, IDC_LIST, IDC_EXT, IDC_PARENTBUTTON, IDC_FILTER, ID_SHOW_HIDDEN };
@@ -843,15 +872,23 @@ treatAsDir:
                    if (buf[strlen(buf)-1] == '/') goto treatAsDir;
 
                    const char *extlist = parms->extlist;
-                   if (extlist && *extlist && WDL_get_fileext(buf)[0] != '.')
+                   if (extlist && *extlist && ext_valid_for_extlist(WDL_get_fileext(buf),extlist) < 0)
                    {
-                      const char *erd = extlist+strlen(extlist)+1;
-                      if (*erd == '*' && erd[1] == '.') // add default extension
-                      {
-                        const char *a = (erd+=1);
-                        while (*erd && *erd != ';') erd++;
-                        if (erd > a+1) snprintf_append(buf,sizeof(buf),"%.*s",(int)(erd-a),a);
-                      }
+                     const char *erd = extlist+strlen(extlist)+1;
+                     LRESULT combo_sel;
+                     HWND combo = GetDlgItem(hwnd, IDC_EXT);
+                     if (combo && (combo_sel=SendMessage(combo,CB_GETCURSEL,0,0)) != CB_ERR)
+                     {
+                       const char *filt = (const char *)SendMessage(combo,CB_GETITEMDATA,combo_sel,0);
+                       if (filt && *filt == '*' && filt[1] == '.' && filt[2] && filt[2] != '*') erd = filt;
+                     }
+
+                     if (*erd == '*' && erd[1] == '.' && erd[2] && erd[2] != '*') // add default extension
+                     {
+                       const char *a = (erd+=1);
+                       while (*erd && *erd != ';') erd++;
+                       if (erd > a+1) snprintf_append(buf,sizeof(buf),"%.*s",(int)(erd-a),a);
+                     }
                    }
                    if (!stat(buf,&st))
                    {
