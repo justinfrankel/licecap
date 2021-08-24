@@ -593,6 +593,7 @@ get_dir:
             SendMessage(combo,CB_SETCURSEL,0,0);
           } 
         break;
+        case IDC_EXT:
         case 1:
         {
           BrowseFile_State *parms = (BrowseFile_State *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
@@ -606,8 +607,31 @@ get_dir:
             HWND ext = GetDlgItem(hwnd,IDC_EXT);
             if (ext)
             {
-              LRESULT a = SendMessage(ext,CB_GETCURSEL,0,0);
-              if (a != CB_ERR) filt = (const char *)SendMessage(ext,CB_GETITEMDATA,a,0);
+              LRESULT aidx = SendMessage(ext,CB_GETCURSEL,0,0);
+              if (aidx != CB_ERR)
+              {
+                filt = (const char *)SendMessage(ext,CB_GETITEMDATA,aidx,0);
+                if (wParam == IDC_EXT && parms->extlist && *parms->extlist)
+                {
+                  GetDlgItemText(hwnd,IDC_EDIT,buf,sizeof(buf));
+                  const int aidx2 = ext_valid_for_extlist(WDL_get_fileext(buf),parms->extlist);
+                  if (aidx2>=0 && aidx2 != aidx)
+                  {
+                    const char *erd = filt;
+                    if (*erd == '*' && erd[1] == '.' && erd[2] && erd[2] != '*')
+                    {
+                      const char *a = (erd+=1);
+                      while (*erd && *erd != ';') erd++;
+                      if (erd > a+1)
+                      {
+                        WDL_remove_fileext(buf);
+                        snprintf_append(buf,sizeof(buf),"%.*s",(int)(erd-a),a);
+                        SetDlgItemText(hwnd,IDC_EDIT,buf);
+                      }
+                    }
+                  }
+                }
+              }
             }
 
             GetDlgItemText(hwnd,IDC_DIR,buf,sizeof(buf));
@@ -712,7 +736,7 @@ get_dir:
         case IDC_EXT:
           if (HIWORD(wParam) == CBN_SELCHANGE)
           {
-            SendMessage(hwnd,WM_UPD,1,0);
+            SendMessage(hwnd,WM_UPD,IDC_EXT,0);
           }
         return 0;
         case IDC_PARENTBUTTON:
