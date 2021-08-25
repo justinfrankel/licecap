@@ -614,8 +614,8 @@ get_dir:
                 if (wParam == IDC_EXT && parms->extlist && *parms->extlist)
                 {
                   GetDlgItemText(hwnd,IDC_EDIT,buf,sizeof(buf));
-                  const int aidx2 = ext_valid_for_extlist(WDL_get_fileext(buf),parms->extlist);
-                  if (aidx2>=0 && aidx2 != aidx)
+
+                  if (buf[0])
                   {
                     const char *erd = filt;
                     if (*erd == '*' && erd[1] == '.' && erd[2] && erd[2] != '*')
@@ -624,9 +624,22 @@ get_dir:
                       while (*erd && *erd != ';') erd++;
                       if (erd > a+1)
                       {
-                        WDL_remove_fileext(buf);
-                        snprintf_append(buf,sizeof(buf),"%.*s",(int)(erd-a),a);
-                        SetDlgItemText(hwnd,IDC_EDIT,buf);
+                        if (ext_valid_for_extlist(WDL_get_fileext(buf),parms->extlist)>=0)
+                        {
+                          WDL_remove_fileext(buf);
+                        }
+                        else
+                        {
+                          char *p = buf;
+                          while (*p) p++;
+                          while (p > buf && (p[-1] == ' ' || p[-1] == '.' || p[-1] == '/' || p[-1] == '\\')) p--;
+                          *p=0;
+                        }
+                        if (buf[0])
+                        {
+                          snprintf_append(buf,sizeof(buf),"%.*s",(int)(erd-a),a);
+                          SetDlgItemText(hwnd,IDC_EDIT,buf);
+                        }
                       }
                     }
                   }
