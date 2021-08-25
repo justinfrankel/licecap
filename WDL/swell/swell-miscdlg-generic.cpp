@@ -491,7 +491,7 @@ static LRESULT WINAPI swellFileSelectProc(HWND hwnd, UINT uMsg, WPARAM wParam, L
           }
 
           int sel = 0;
-          if (parms->initialfile && *parms->initialfile && *parms->initialfile != '.')
+          if (parms->initialfile && *parms->initialfile)
           {
             sel = ext_valid_for_extlist(WDL_get_fileext(parms->initialfile), parms->extlist);
             if (sel<0) sel=0;
