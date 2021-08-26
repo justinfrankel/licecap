@@ -1968,6 +1968,12 @@ bridgeState::~bridgeState()
   filter_windows.DeletePtr(this); 
   if (w) 
   {
+    if (!need_reparent)
+    {
+      // if this window is a child of another window, it will get destroyed by the hierarchy unless it is fully
+      // released (we could do g_object_unref() again here, but reparenting feels safer in this context)
+      gdk_window_reparent(w,NULL,0,0);
+    }
     g_object_unref(G_OBJECT(w));
     XDestroyWindow(native_disp,native_w);
   }
