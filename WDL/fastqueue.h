@@ -231,6 +231,32 @@ public:
     return pos;
   }
 
+  void UnAdd(int len)
+  {
+    len=wdl_clamp(len, 0, m_avail);
+    if (!len) return;
+    m_avail -= len;
+    while (fqBuf *qb=m_queue.Get(m_queue.GetSize()-1))
+    {
+      if (qb->used > len)
+      {
+        qb->used -= len;
+        break;
+      }
+      len -= qb->used;
+      if (m_maxemptieskeep < 0 || m_empties.GetSize() < m_maxemptieskeep)
+      {
+        m_empties.Add(qb);
+      }
+      else
+      {
+        free(qb);
+      }
+      m_queue.Delete(m_queue.GetSize()-1);
+      if (!len) break;
+    }
+  }
+
 private:
 
   WDL_PtrList<fqBuf> m_queue, m_empties;
