@@ -29,6 +29,7 @@ static WDL_STATICFUNC_UNUSED char WDL_filename_filterchar(char p, char repl='_',
 {
   if (p == '?'  || 
       p == '*'  ||
+      (p > 0 && p <= 0x1f) ||
       p == ':'  ||
       p == '\"' ||
       p == '|'  ||
