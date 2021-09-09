@@ -163,7 +163,7 @@ class WDL_VirtualStaticText : public WDL_VWnd
     void SetFont(LICE_IFont *font, LICE_IFont *vfont=NULL) { m_font=font; m_vfont=vfont; }
     LICE_IFont *GetFont(bool vfont=false) { return vfont?m_vfont:m_font; }
     void SetAlign(int align) { m_align=align; } // -1=left,0=center,1=right
-    void SetText(const char *text);
+    void SetText(const char *text, bool redraw=true);
     void SetBorder(bool bor) { m_wantborder=bor; }
     const char *GetText() { return m_text.Get(); }
     void SetColors(int fg=0, int bg=0, bool tint=false) { m_fg=fg; m_bg=bg; m_dotint=tint; }

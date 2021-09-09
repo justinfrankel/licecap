@@ -732,12 +732,12 @@ WDL_VirtualStaticText::~WDL_VirtualStaticText()
 {
 }
 
-void WDL_VirtualStaticText::SetText(const char *text) 
+void WDL_VirtualStaticText::SetText(const char *text, bool redraw)
 { 
   if (strcmp(m_text.Get(),text?text:""))
   {
     m_text.Set(text?text:"");
-    if (m_font) RequestRedraw(NULL); 
+    if (redraw && m_font) RequestRedraw(NULL); 
   }
 }
 
