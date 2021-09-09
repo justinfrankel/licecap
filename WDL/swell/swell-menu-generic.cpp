@@ -803,7 +803,15 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           const bool ymatch = curM.y >= tr.bottom-scroll_margin && curM.y < tr.bottom+scroll_margin;
           if (hwnd->m_extra[2] && (hwnd->m_extra[1] || ymatch))
           {
-            hwnd->m_extra[0]=++xFirst;
+            if (hwnd->m_extra[1] && menu->sel_vis > 0)
+            {
+              const int li = menu->items.GetSize() - (int)hwnd->m_extra[2];
+              const int incr = (menu->sel_vis - li)/2 + 2;
+              xFirst += wdl_max(incr,1);
+            }
+            else
+              xFirst++;
+            hwnd->m_extra[0]=xFirst;
             hwnd->m_extra[1]=hwnd->m_extra[2]=0;
             if (ymatch) menu->sel_vis=-1;
             InvalidateRect(hwnd,NULL,FALSE);
