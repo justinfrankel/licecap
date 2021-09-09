@@ -257,6 +257,58 @@ public:
     }
   }
 
+  void *PushFront(const void *buf, int len)
+  {
+    fqBuf *qb=NULL;
+    if (m_offs && m_queue.GetSize())
+    {
+      qb=m_queue.Get(0);
+      const int sz=wdl_min(m_offs, len);
+      if (!buf)
+      {
+        memset(qb->data+m_offs-sz, 0, sz);
+      }
+      else if (buf != WDL_FASTQUEUE_ADD_NOZEROBUF)
+      {
+        memcpy(qb->data+m_offs-sz, (unsigned char*)buf+len-sz, sz);
+      }
+      m_offs -= sz;
+      len -= sz;
+      m_avail += sz;
+    }
+    if (len)
+    {
+      const int esz=m_empties.GetSize()-1;
+      qb=m_empties.Get(esz);
+      m_empties.Delete(esz);
+      if (qb && qb->alloc_size < len)
+      {
+        free(qb);
+        qb=NULL;
+      }
+      if (!qb)
+      {
+        const int sz = len < m_bsize ? m_bsize : len;
+        qb=(fqBuf*)malloc(sz+sizeof(fqBuf)-sizeof(qb->data));
+        if (!qb) return NULL;
+        qb->alloc_size=sz;
+      }
+      if (!buf)
+      {
+        memset(qb->data+qb->alloc_size-len, 0, len);
+      }
+      else if (buf != WDL_FASTQUEUE_ADD_NOZEROBUF)
+      {
+        memcpy(qb->data+qb->alloc_size-len, (unsigned char*)buf, len);
+      }
+      qb->used=qb->alloc_size;
+      m_queue.Insert(0, qb);
+      m_offs=qb->used-len;
+      m_avail += len;
+    }
+    return qb ? qb->data+m_offs : NULL;
+  }
+
 private:
 
   WDL_PtrList<fqBuf> m_queue, m_empties;
