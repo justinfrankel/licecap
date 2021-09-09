@@ -819,6 +819,36 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
     break;
     case WM_KEYUP:
     return 1;
+    case WM_MOUSEWHEEL:
+      {
+        RECT tr;
+        GetWindowRect(hwnd,&tr);
+
+        POINT curM;
+        GetCursorPos(&curM);
+        const bool xmatch = (curM.x >= tr.left && curM.x < tr.right);
+        const bool ymatch = curM.y >= tr.bottom-scroll_margin && curM.y < tr.bottom+scroll_margin;
+        if (!xmatch || !ymatch) // if mouse is over scroll area, ignore
+        {
+          int amt = ((short)HIWORD(wParam))/-40;
+          const int xFirst = wdl_max(hwnd->m_extra[0],0);
+          if (amt > hwnd->m_extra[2]) amt = (int) hwnd->m_extra[2];
+          if (amt < 0 ? xFirst > 0 : amt > 0)
+          {
+            hwnd->m_extra[0]=wdl_max(xFirst+amt,0);
+            if (amt>0)
+            {
+              hwnd->m_extra[2] -= amt;
+              if (hwnd->m_extra[2]<0) hwnd->m_extra[2]=0;
+            }
+            HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+            menu->sel_vis=-1; // clear selection
+            InvalidateRect(hwnd,NULL,FALSE);
+          }
+        }
+      }
+    return 1;
+
     case WM_KEYDOWN:
 
       if (wParam >= VK_SPACE && wParam < 0x80)
