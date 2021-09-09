@@ -409,7 +409,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
   static int lcol, rcol, mcol, top_margin, separator_ht, text_ht_pad, bitmap_ht_pad, scroll_margin, item_bm_pad;
   if (!lcol)
   {
-    lcol=SWELL_UI_SCALE(24); rcol=SWELL_UI_SCALE(12); mcol=SWELL_UI_SCALE(10);
+    lcol=SWELL_UI_SCALE(30); rcol=SWELL_UI_SCALE(18); mcol=SWELL_UI_SCALE(10);
     top_margin=SWELL_UI_SCALE(4); separator_ht=SWELL_UI_SCALE(8); 
     text_ht_pad=SWELL_UI_SCALE(4); bitmap_ht_pad=SWELL_UI_SCALE(4);
     scroll_margin=SWELL_UI_SCALE(10);
@@ -529,12 +529,13 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         {
           RECT cr;
           GetClientRect(hwnd,&cr);
-          HBRUSH br=CreateSolidBrush(g_swell_ctheme.menu_bg);
+          HBRUSH br = CreateSolidBrush(g_swell_ctheme.menu_bg);
           HBRUSH br2 = CreateSolidBrushAlpha(g_swell_ctheme.menu_scroll,0.5f);
           HBRUSH br3 = CreateSolidBrush(g_swell_ctheme.menu_scroll_arrow);
           HBRUSH br_submenu_arrow = CreateSolidBrush(g_swell_ctheme.menu_submenu_arrow);
-          HPEN pen=CreatePen(PS_SOLID,0,g_swell_ctheme.menu_shadow);
-          HPEN pen2=CreatePen(PS_SOLID,0,g_swell_ctheme.menu_hilight);
+          HBRUSH br_submenu_arrow_sel = CreateSolidBrush(g_swell_ctheme.menu_submenu_arrow_sel);
+          HPEN pen = CreatePen(PS_SOLID,0,g_swell_ctheme.menu_shadow);
+          HPEN pen2 = CreatePen(PS_SOLID,0,g_swell_ctheme.menu_hilight);
           HGDIOBJ oldbr = SelectObject(ps.hdc,br);
           HGDIOBJ oldpen = SelectObject(ps.hdc,pen2);
           Rectangle(ps.hdc,cr.left,cr.top,cr.right,cr.bottom);
@@ -542,12 +543,6 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
           int x;
           int ypos = top_margin;
-
-          MoveToEx(ps.hdc,cr.left+lcol-SWELL_UI_SCALE(4),cr.top,NULL);
-          LineTo(ps.hdc,cr.left+lcol-SWELL_UI_SCALE(4),cr.bottom);
-          SelectObject(ps.hdc,pen);
-          MoveToEx(ps.hdc,cr.left+lcol-SWELL_UI_SCALE(5),cr.top,NULL);
-          LineTo(ps.hdc,cr.left+lcol-SWELL_UI_SCALE(5),cr.bottom);
 
           hwnd->m_extra[1]=0;
           for (x=wdl_max(hwnd->m_extra[0],0); x < (menu->items.GetSize()); x++)
@@ -593,6 +588,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             {
               HBRUSH brs=CreateSolidBrush(g_swell_ctheme.menu_bg_sel);
               RECT r2=r;
+              r2.left = cr.left;
               FillRect(ps.hdc,&r2,brs);
               DeleteObject(brs);
               SetTextColor(ps.hdc,g_swell_ctheme.menu_text_sel);
@@ -643,18 +639,19 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             else 
             {
               SelectObject(ps.hdc,pen2);
-              int y = r.top/2+r.bottom/2, right = r.right-rcol*3/2;
-              MoveToEx(ps.hdc,r.left,y,NULL);
+              int margin = rcol / 2;
+              int y = r.top/2+r.bottom/2, left = cr.left+margin, right = r.right-margin;
+              MoveToEx(ps.hdc,left,y,NULL);
               LineTo(ps.hdc,right,y);
               SelectObject(ps.hdc,pen);
 
               y++;
-              MoveToEx(ps.hdc,r.left,y,NULL);
+              MoveToEx(ps.hdc,left,y,NULL);
               LineTo(ps.hdc,right,y);
             }
             if (inf->hSubMenu) 
             {
-               const int sz = (r.bottom-r.top)/4, xp = r.right - sz*2, yp = (r.top + r.bottom)/2;
+               const int sz = (r.bottom-r.top)/5, xp = r.right - rcol/2 - sz, yp = (r.top + r.bottom)/2;
 
                POINT pts[3] = {
                  {xp, yp-sz},
@@ -662,19 +659,31 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
                  {xp + sz,yp}
                };
                HGDIOBJ oldPen = SelectObject(ps.hdc,GetStockObject(NULL_PEN));
-               SelectObject(ps.hdc,br_submenu_arrow);
+               
+               if (x == menu->sel_vis && !dis)
+                 SelectObject(ps.hdc,br_submenu_arrow_sel);
+               else
+                 SelectObject(ps.hdc,br_submenu_arrow);
+
                Polygon(ps.hdc,pts,3);
 
                SelectObject(ps.hdc,oldPen);
+
+
             }
             if (inf->fState&MF_CHECKED)
             {
-              const int col = dis ? g_swell_ctheme.menu_text_disabled : g_swell_ctheme.menu_text;
+              int col;
+              if (x == menu->sel_vis && !dis)
+                col = g_swell_ctheme.menu_text_sel;
+              else
+                col = dis ? g_swell_ctheme.menu_text_disabled : g_swell_ctheme.menu_text;
+
               HPEN tpen = CreatePen(PS_SOLID,0, col);
               HBRUSH tbr = CreateSolidBrush(col);
               HGDIOBJ oldBrush = SelectObject(ps.hdc,tbr);
               HGDIOBJ oldPen = SelectObject(ps.hdc,tpen);
-              const int sz = (wdl_min(lcol, r.bottom-r.top) - SWELL_UI_SCALE(6));
+              const int sz = (wdl_min(lcol, r.bottom-r.top) - SWELL_UI_SCALE(10));
               const int xo = SWELL_UI_SCALE(4), yo = (r.bottom+r.top)/2 - sz/2;
               if (inf->fType&MFT_RADIOCHECK)
               {
@@ -682,14 +691,14 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
               }
               else
               {
-                static const unsigned char coords[12] = { 128, 30, 108, 11, 48, 72, 48, 112, 0, 65, 20, 46, };
+                static const unsigned char coords[12] = { 0, 76, 12, 64, 40, 92, 40, 118, 116, 16, 128, 28, };
                 for (int pass=0;pass<2;pass++)
                 {
                   POINT pts[4];
                   for (int i=0;i<4; i ++)
                   {
-                    pts[i].x = xo + ((int)coords[i*2+pass*4] * sz + 63) / 128;
-                    pts[i].y = yo + ((int)coords[i*2+pass*4+1] * sz + 63) / 128;
+                    pts[i].x = lcol/2 + sz * ((int)coords[i*2+pass*4] - 64) / 128;
+                    pts[i].y = (r.bottom+r.top)/2 + sz * ((int)coords[i*2+pass*4+1] - 64) / 128;
                   }
                   Polygon(ps.hdc,pts,4);
                 }
@@ -1070,9 +1079,9 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
 
             RECT r;
             GetClientRect(hwnd,&r);
-            m_trackingPt.x=r.right - SWELL_UI_SCALE(3);
+            m_trackingPt.x=r.right;
             m_trackingPt.y=item_ypos;
-            m_trackingPt2.x=r.left + lcol/4;
+            m_trackingPt2.x=r.left;
             m_trackingPt2.y=item_ypos;
             ClientToScreen(hwnd,&m_trackingPt);
             ClientToScreen(hwnd,&m_trackingPt2);

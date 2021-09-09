@@ -4659,6 +4659,7 @@ forceMouseMove:
         {
           RECT cr; 
           GetClientRect(hwnd,&cr); 
+          RECT rr = cr;
           HBRUSH bgbr = CreateSolidBrush(lvs->m_color_bg);
           FillRect(ps.hdc,&cr,bgbr);
           DeleteObject(bgbr);
@@ -4967,6 +4968,9 @@ forceMouseMove:
                   totalw,lvs->m_scroll_x);
             }
           }
+          Draw3DBox(ps.hdc,&rr,-1,
+            g_swell_ctheme.listview_hilight,
+            g_swell_ctheme.listview_shadow);
           DeleteObject(bgbr);
 
           EndPaint(hwnd,&ps);
@@ -5656,6 +5660,9 @@ forceMouseMove:
             DeleteObject(br);
 
             drawVerticalScrollbar(ps.hdc,cr,total_h,tvs->m_scroll_y);
+            Draw3DBox(ps.hdc,&cr,-1,
+              g_swell_ctheme.treeview_hilight,
+              g_swell_ctheme.treeview_shadow);
           }
 
           EndPaint(hwnd,&ps);
@@ -7010,7 +7017,7 @@ static int menuBarHitTest(HWND hwnd, int mousex, int mousey, RECT *rOut, int for
   {
     HDC dc = GetWindowDC(hwnd);
 
-    int x,xpos=r.left + g_swell_ctheme.menubar_margin_width;
+    int x,xpos=r.left;
     HMENU__ *menu = (HMENU__*)hwnd->m_menu;
     HGDIOBJ oldfont = dc ? SelectObject(dc,menubar_font) : NULL;
     const int n=menu->items.GetSize();
@@ -7207,8 +7214,12 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
               cr.bottom = r.bottom;
               if (!dis && menu->sel_vis == x)
               {
+                RECT crb = {0};
+                crb.left = cr.left, crb.right=cr.right, crb.top=cr.top, crb.bottom=cr.bottom;
+                crb.left = crb.left - g_swell_ctheme.menubar_margin_width;
+                crb.right = crb.right + g_swell_ctheme.menubar_margin_width;
                 HBRUSH br = CreateSolidBrush(g_swell_ctheme.menubar_bg_sel);
-                FillRect(dc,&cr,br);
+                FillRect(dc,&crb,br);
                 DeleteObject(br);
                 SetTextColor(dc,g_swell_ctheme.menubar_text_sel);
               }
