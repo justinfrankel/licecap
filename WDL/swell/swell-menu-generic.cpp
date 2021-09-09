@@ -811,6 +811,13 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
     case WM_KEYUP:
     return 1;
     case WM_KEYDOWN:
+
+      if (wParam >= VK_SPACE && wParam < 0x80)
+      {
+        // ignore mousemoves immediately after most keys
+        swell_menu_ignore_mousemove_from = GetTickCount();
+      }
+
       if (wParam == VK_ESCAPE || wParam == VK_LEFT)
       {
         HWND l = m_trackingMenus.Get(m_trackingMenus.Find(hwnd)-1);

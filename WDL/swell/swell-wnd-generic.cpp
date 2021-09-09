@@ -7101,7 +7101,7 @@ int menuBarNavigate(int dir) // -1 if no menu bar active, 0 if did nothing, 1 if
 }
 
 RECT g_trackpopup_yroot;
-static void runMenuBar(HWND hwnd, HMENU__ *menu, int x, const RECT *use_r)
+static void runMenuBar(HWND hwnd, HMENU__ *menu, int x, const RECT *use_r, int flag)
 {
   menu->Retain();
   MENUITEMINFO *inf = menu->items.Get(x);
@@ -7121,7 +7121,7 @@ static void runMenuBar(HWND hwnd, HMENU__ *menu, int x, const RECT *use_r)
   for (;;)
   {
     InvalidateRect(hwnd,&mbr,FALSE);
-    if (TrackPopupMenu(inf->hSubMenu,0,r.left,r.bottom,0xbeef,hwnd,NULL) || menu->sel_vis == x) break;
+    if (TrackPopupMenu(inf->hSubMenu,0,r.left,r.bottom,flag,hwnd,NULL) || menu->sel_vis == x) break;
 
     x = menu->sel_vis;
     inf = menu->items.Get(x);
@@ -7289,7 +7289,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             { 
               if (msg == WM_NCLBUTTONDOWN) 
               {
-                runMenuBar(hwnd,menu,x,&r);
+                runMenuBar(hwnd,menu,x,&r,0xbeef);
               }
             }
             else if (msg == WM_NCLBUTTONUP)
@@ -7345,7 +7345,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                   RECT r;
                   if (menuBarHitTest(hwnd,0,0,&r,x,-1)>=0)
                   {
-                    runMenuBar(hwnd,menu,x,&r);
+                    runMenuBar(hwnd,menu,x,&r,0);
                   }
                 }
                 else
