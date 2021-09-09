@@ -7008,7 +7008,10 @@ static bool wantRightAlignedMenuBarItem(const char *p)
   return c > 0 && c != '&' && !isalnum(c);
 }
 
-static int menuBarHitTest(HWND hwnd, int mousex, int mousey, RECT *rOut, int forceItem)
+#define MENUBAR_SELECTED_ITEM_XPAD \
+   wdl_min(g_swell_ctheme.menubar_spacing_width,g_swell_ctheme.menubar_margin_width)
+
+static int menuBarHitTest(HWND hwnd, int mousex, int mousey, RECT *rOut, int forceItem, int expandedItem)
 {
   int rv=-1;
   RECT r;
@@ -7017,7 +7020,8 @@ static int menuBarHitTest(HWND hwnd, int mousex, int mousey, RECT *rOut, int for
   {
     HDC dc = GetWindowDC(hwnd);
 
-    int x,xpos=r.left;
+    const int xselpad = MENUBAR_SELECTED_ITEM_XPAD, xpad=g_swell_ctheme.menubar_spacing_width;
+    int x,xpos=r.left + g_swell_ctheme.menubar_margin_width;
     HMENU__ *menu = (HMENU__*)hwnd->m_menu;
     HGDIOBJ oldfont = dc ? SelectObject(dc,menubar_font) : NULL;
     const int n=menu->items.GetSize();
@@ -7035,11 +7039,15 @@ static int menuBarHitTest(HWND hwnd, int mousex, int mousey, RECT *rOut, int for
           cr.right = r.right - g_swell_ctheme.menubar_margin_width - xpos;
         }
 
-        if (forceItem>=0 ? forceItem == x : (mousex >=xpos && mousex< xpos + cr.right + g_swell_ctheme.menubar_spacing_width))
+        if (forceItem >=0 ? forceItem == x :
+            expandedItem < 0 ? (mousex >= xpos - xpad && mousex < xpos + cr.right + (xpad+1)*3/4) :
+            x == expandedItem ? (mousex >= xpos - xselpad && mousex < xpos + cr.right + xselpad) :
+            mousex >= xpos && mousex < xpos + cr.right + xpad - (x == expandedItem-1 ? xselpad : 0)
+           )
         {
           if (!dis) 
           {
-            rOut->left = xpos;
+            rOut->left = xpos - xselpad;
             rOut->right = xpos + cr.right;
             rOut->top = r.top;
             rOut->bottom = r.top + g_swell_ctheme.menubar_height;
@@ -7048,7 +7056,7 @@ static int menuBarHitTest(HWND hwnd, int mousex, int mousey, RECT *rOut, int for
           break;
         }
 
-        xpos+=cr.right+g_swell_ctheme.menubar_spacing_width;
+        xpos+=cr.right+xpad;
       }
     }
     
@@ -7076,7 +7084,7 @@ int menuBarNavigate(int dir) // -1 if no menu bar active, 0 if did nothing, 1 if
   if (!g_menubar_active || !g_menubar_active->m_menu) return -1;
   HMENU__ *menu = (HMENU__*)g_menubar_active->m_menu;
   RECT r;
-  const int x = menuBarHitTest(g_menubar_active,0,0,&r,menu->sel_vis + dir);
+  const int x = menuBarHitTest(g_menubar_active,0,0,&r,menu->sel_vis + dir, -1);
   if (x>=0)
   {
     MENUITEMINFO *inf = menu->items.Get(x);
@@ -7142,7 +7150,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
         HMENU__ *menu = (HMENU__*)hwnd->m_menu;
         RECT r;
-        const int x = menuBarHitTest(hwnd,GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam),&r,-1);
+        const int x = menuBarHitTest(hwnd,GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam),&r,-1, menu->sel_vis);
         if (x>=0 && x != menu->sel_vis)
         {
           MENUITEMINFO *inf = menu->items.Get(x);
@@ -7215,8 +7223,8 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
               if (!dis && menu->sel_vis == x)
               {
                 RECT crb = cr;
-                crb.left -= g_swell_ctheme.menubar_margin_width;
-                crb.right += g_swell_ctheme.menubar_margin_width;
+                crb.left -= MENUBAR_SELECTED_ITEM_XPAD;
+                crb.right += MENUBAR_SELECTED_ITEM_XPAD;
                 HBRUSH br = CreateSolidBrush(g_swell_ctheme.menubar_bg_sel);
                 FillRect(dc,&crb,br);
                 DeleteObject(br);
@@ -7270,7 +7278,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
           }
         }
         RECT r;
-        const int x = menuBarHitTest(hwnd,GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam),&r,-1);
+        const int x = menuBarHitTest(hwnd,GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam),&r,-1,-1);
         if (x>=0)
         {
           HMENU__ *menu = (HMENU__*)hwnd->m_menu;
@@ -7335,7 +7343,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 if (inf->hSubMenu)
                 {
                   RECT r;
-                  if (menuBarHitTest(hwnd,0,0,&r,x)>=0)
+                  if (menuBarHitTest(hwnd,0,0,&r,x,-1)>=0)
                   {
                     runMenuBar(hwnd,menu,x,&r);
                   }
