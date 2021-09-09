@@ -514,7 +514,8 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         SetWindowPos(hwnd,NULL,tr.left,tr.top,tr.right-tr.left,tr.bottom-tr.top,SWP_NOZORDER);
 
         hwnd->m_extra[0] = 0; // Y scroll offset
-        hwnd->m_extra[1] = 0; // &1=allow scroll flag (set from paint), &2=force scroll down (if sel_vis is offscreen positive)
+        hwnd->m_extra[1] = 0; // is currently autoscrolling to sel_vis
+        hwnd->m_extra[2] = 0; // remaining items out of view, if any
       }
 
       ShowWindow(hwnd,SW_SHOW);
@@ -541,18 +542,22 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           Rectangle(ps.hdc,cr.left,cr.top,cr.right,cr.bottom);
           SetBkMode(ps.hdc,TRANSPARENT);
           HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
-          int x;
           int ypos = top_margin;
 
-          hwnd->m_extra[1]=0;
-          for (x=wdl_max(hwnd->m_extra[0],0); x < (menu->items.GetSize()); x++)
+          int extra_left = 0;
+          bool want_autoscroll_down = false;
+          const int ni = menu->items.GetSize();
+          int x;
+          for (x=wdl_max((int)hwnd->m_extra[0],0); x < ni; x++)
           {
             if (ypos >= cr.bottom)
             {
-              hwnd->m_extra[1] |= 1; // allow scrolling down
+              extra_left = ni-x;
               break;
             }
             MENUITEMINFO *inf = menu->items.Get(x);
+            if (WDL_NOT_NORMALLY(!inf)) break;
+
             RECT r={lcol,ypos,cr.right, };
             bool dis = !!(inf->fState & MF_GRAYED);
             BITMAP bm={16,16}, bm2={0,};
@@ -711,12 +716,16 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             }
             if ((r.top+ypos)/2 > cr.bottom)
             {
-              hwnd->m_extra[1] |= 1; // allow scrolling down if last item was halfway off
+              extra_left = ni-x;
             }
             if (ypos > cr.bottom && x == menu->sel_vis)
-              hwnd->m_extra[1] |= 3;
+            {
+              want_autoscroll_down = true;
+              extra_left = ni-x;
+            }
           }
-          if (x <= menu->sel_vis) hwnd->m_extra[1]|=2;
+          hwnd->m_extra[1] = want_autoscroll_down || x <= menu->sel_vis;
+          hwnd->m_extra[2] = extra_left;
 
 
           // lower scroll indicator
@@ -726,7 +735,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           POINT pts[3];
           const int smm = SWELL_UI_SCALE(2);
           const int smh = scroll_margin-smm*2;
-          if (hwnd->m_extra[1]&1)
+          if (extra_left>0)
           {
             RECT fr = {cr.left, cr.bottom-scroll_margin, cr.right,cr.bottom};
             FillRect(ps.hdc,&fr,br2);
@@ -787,15 +796,15 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         POINT curM;
         GetCursorPos(&curM);
         const bool xmatch = (curM.x >= tr.left && curM.x < tr.right);
-        if (xmatch || (hwnd->m_extra[1]&3)==3)
+        if (xmatch || (hwnd->m_extra[1] && hwnd->m_extra[2]))
         {
           HMENU__ *menu = (HMENU__*)GetWindowLongPtr(hwnd,GWLP_USERDATA);
           int xFirst = wdl_max(hwnd->m_extra[0],0);
           const bool ymatch = curM.y >= tr.bottom-scroll_margin && curM.y < tr.bottom+scroll_margin;
-          if ((hwnd->m_extra[1]&1) && ((hwnd->m_extra[1]&2) || ymatch))
+          if (hwnd->m_extra[2] && (hwnd->m_extra[1] || ymatch))
           {
             hwnd->m_extra[0]=++xFirst;
-            hwnd->m_extra[1]=0;
+            hwnd->m_extra[1]=hwnd->m_extra[2]=0;
             if (ymatch) menu->sel_vis=-1;
             InvalidateRect(hwnd,NULL,FALSE);
           }
