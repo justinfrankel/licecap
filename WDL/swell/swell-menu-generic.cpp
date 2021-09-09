@@ -659,7 +659,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
                  {xp + sz,yp}
                };
                HGDIOBJ oldPen = SelectObject(ps.hdc,GetStockObject(NULL_PEN));
-               
+
                if (x == menu->sel_vis && !dis)
                  SelectObject(ps.hdc,br_submenu_arrow_sel);
                else
@@ -753,6 +753,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
           DeleteObject(br2);
           DeleteObject(br3);
           DeleteObject(br_submenu_arrow);
+          DeleteObject(br_submenu_arrow_sel);
           DeleteObject(pen);
           DeleteObject(pen2);
           EndPaint(hwnd,&ps); 

@@ -7214,10 +7214,9 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
               cr.bottom = r.bottom;
               if (!dis && menu->sel_vis == x)
               {
-                RECT crb = {0};
-                crb.left = cr.left, crb.right=cr.right, crb.top=cr.top, crb.bottom=cr.bottom;
-                crb.left = crb.left - g_swell_ctheme.menubar_margin_width;
-                crb.right = crb.right + g_swell_ctheme.menubar_margin_width;
+                RECT crb = cr;
+                crb.left -= g_swell_ctheme.menubar_margin_width;
+                crb.right += g_swell_ctheme.menubar_margin_width;
                 HBRUSH br = CreateSolidBrush(g_swell_ctheme.menubar_bg_sel);
                 FillRect(dc,&crb,br);
                 DeleteObject(br);
