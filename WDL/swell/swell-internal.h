@@ -1232,6 +1232,7 @@ static void __listview_mergesort_internal(void *base, size_t nmemb, size_t size,
   fd(menubar_bg, RGB(192,192,192), menu_bg) \
   fd(menubar_bg_inactive, RGB(192,192,192), menubar_bg) \
   fd(menubar_text, RGB(0,0,0), menu_text) \
+  fd(menubar_text_inactive, RGB(0,0,0), menubar_text) \
   fd(menubar_text_disabled, RGB(224,224,224), menu_text_disabled) \
   fd(menubar_bg_sel, RGB(0,0,0), menu_bg_sel) \
   fd(menubar_text_sel, RGB(224,224,224), menu_text_sel) \

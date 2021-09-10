@@ -169,7 +169,8 @@ static void on_activate(guint32 ftime)
   s_last_desktop=0;
   s_force_window_time = 0;
 
-#define WANTS_INACTIVE_MENUBAR() (g_swell_ctheme.menubar_bg != g_swell_ctheme.menubar_bg_inactive)
+#define WANTS_INACTIVE_MENUBAR() (g_swell_ctheme.menubar_bg != g_swell_ctheme.menubar_bg_inactive || \
+                                  g_swell_ctheme.menubar_text != g_swell_ctheme.menubar_text_inactive)
 
   if (WANTS_INACTIVE_MENUBAR())
   {

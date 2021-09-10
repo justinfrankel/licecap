@@ -7187,9 +7187,9 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
           r.bottom -= r.top; r.top=0;
           if (r.bottom>g_swell_ctheme.menubar_height) r.bottom=g_swell_ctheme.menubar_height;
 
+          const bool isactive = !swell_app_is_inactive && (g_menubar_active==hwnd || SWELL_focused_oswindow == hwnd->m_oswindow);
           {
-            const bool active = !swell_app_is_inactive && (g_menubar_active==hwnd || SWELL_focused_oswindow == hwnd->m_oswindow);
-            HBRUSH br=CreateSolidBrush(active ? g_swell_ctheme.menubar_bg : g_swell_ctheme.menubar_bg_inactive);
+            HBRUSH br=CreateSolidBrush(isactive ? g_swell_ctheme.menubar_bg : g_swell_ctheme.menubar_bg_inactive);
             FillRect(dc,&r,br);
             DeleteObject(br);
           }
@@ -7232,6 +7232,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 SetTextColor(dc,g_swell_ctheme.menubar_text_sel);
               }
               else SetTextColor(dc,
+                 !isactive ? g_swell_ctheme.menubar_text_inactive :
                  dis ? g_swell_ctheme.menubar_text_disabled :
                    g_swell_ctheme.menubar_text);
 
