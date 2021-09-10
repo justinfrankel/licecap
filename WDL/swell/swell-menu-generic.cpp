@@ -1229,7 +1229,7 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
   else
     hMenu->sel_vis=-1;
 
-  if (!resvd) swell_menu_ignore_mousemove_from = GetTickCount();
+  if (!resvd || resvd == 0xbeee) swell_menu_ignore_mousemove_from = GetTickCount();
 
   HWND hh=new HWND__(NULL,0,NULL,"menu",false,submenuWndProc,NULL, hwnd);
 
@@ -1265,7 +1265,7 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
 
   if (flags & TPM_RETURNCMD) return m_trackingRet>0?m_trackingRet:0;
 
-  return resvd!=0xbeef || m_trackingRet>0;
+  return (resvd|1)!=0xbeef || m_trackingRet>0;
 }
 
 

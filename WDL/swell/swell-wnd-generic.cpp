@@ -7345,7 +7345,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                   RECT r;
                   if (menuBarHitTest(hwnd,0,0,&r,x,-1)>=0)
                   {
-                    runMenuBar(hwnd,menu,x,&r,0);
+                    runMenuBar(hwnd,menu,x,&r,0xbeee);
                   }
                 }
                 else
