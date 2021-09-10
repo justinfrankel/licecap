@@ -486,7 +486,7 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             g_trackpopup_yroot.bottom > vp.top && 
             g_trackpopup_yroot.top < vp.bottom)
         {
-          if (vp.bottom - g_trackpopup_yroot.bottom < g_trackpopup_yroot.top - vp.top)
+          if (vp.bottom - g_trackpopup_yroot.bottom < ht*5/4 + 32)
             vp.bottom = g_trackpopup_yroot.top;
           else
             vp.top = g_trackpopup_yroot.bottom;
