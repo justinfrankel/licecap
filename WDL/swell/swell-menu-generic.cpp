@@ -486,10 +486,11 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             g_trackpopup_yroot.bottom > vp.top && 
             g_trackpopup_yroot.top < vp.bottom)
         {
-          if (vp.bottom - g_trackpopup_yroot.bottom < wdl_min(g_trackpopup_yroot.top - vp.top,ht*5/4+32))
+          const int req_h = ht*9/8+32;
+          if (vp.bottom - g_trackpopup_yroot.bottom < req_h && g_trackpopup_yroot.top - vp.top >= req_h)
+          {
             vp.bottom = g_trackpopup_yroot.top;
-          else
-            vp.top = g_trackpopup_yroot.bottom;
+          }
         }
 
         if (tr.bottom > vp.bottom) { tr.top += vp.bottom-tr.bottom; tr.bottom=vp.bottom; }
