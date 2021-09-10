@@ -7188,7 +7188,8 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
           if (r.bottom>g_swell_ctheme.menubar_height) r.bottom=g_swell_ctheme.menubar_height;
 
           {
-            HBRUSH br=CreateSolidBrush(g_swell_ctheme.menubar_bg);
+            const bool active = !swell_app_is_inactive && (g_menubar_active==hwnd || SWELL_focused_oswindow == hwnd->m_oswindow);
+            HBRUSH br=CreateSolidBrush(active ? g_swell_ctheme.menubar_bg : g_swell_ctheme.menubar_bg_inactive);
             FillRect(dc,&r,br);
             DeleteObject(br);
           }

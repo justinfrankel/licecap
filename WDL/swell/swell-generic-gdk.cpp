@@ -168,13 +168,41 @@ static void on_activate(guint32 ftime)
   }
   s_last_desktop=0;
   s_force_window_time = 0;
+
+#define WANTS_INACTIVE_MENUBAR() (g_swell_ctheme.menubar_bg != g_swell_ctheme.menubar_bg_inactive)
+
+  if (WANTS_INACTIVE_MENUBAR())
+  {
+    HWND lf = swell_oswindow_to_hwnd(SWELL_focused_oswindow);
+    if (lf) DrawMenuBar(lf);
+  }
+
+}
+
+static void set_focused_oswindow(SWELL_OSWINDOW w)
+{
+  if (SWELL_focused_oswindow==w) return;
+
+  if (WANTS_INACTIVE_MENUBAR())
+  {
+    HWND lf = swell_oswindow_to_hwnd(SWELL_focused_oswindow);
+    if (lf) DrawMenuBar(lf);
+
+    SWELL_focused_oswindow=w;
+
+    lf = swell_oswindow_to_hwnd(w);
+    if (lf) DrawMenuBar(lf);
+  }
+  else
+    SWELL_focused_oswindow=w;
+
 }
 
 void swell_gdk_reactivate_app(void)
 {
   if (swell_app_is_inactive)
   {
-    SWELL_focused_oswindow=NULL;
+    set_focused_oswindow(NULL);
     on_activate(GDK_CURRENT_TIME);
   }
 }
@@ -184,6 +212,7 @@ static void on_deactivate()
   swell_app_is_inactive=true;
   HWND lf = swell_oswindow_to_hwnd(SWELL_focused_oswindow);
   s_last_desktop = lf && lf->m_oswindow ? _gdk_x11_window_get_desktop(lf->m_oswindow)+1 : 0;
+  if (lf && WANTS_INACTIVE_MENUBAR()) DrawMenuBar(lf);
 
   HWND h = SWELL_topwindows; 
   while (h)
@@ -239,7 +268,7 @@ void swell_oswindow_focus(HWND hwnd)
 {
   if (!hwnd)
   {
-    SWELL_focused_oswindow = NULL;
+    set_focused_oswindow(NULL);
     return;
   }
 
@@ -249,7 +278,7 @@ void swell_oswindow_focus(HWND hwnd)
     gdk_window_raise(hwnd->m_oswindow);
     if (hwnd->m_oswindow != SWELL_focused_oswindow)
     {
-      SWELL_focused_oswindow = hwnd->m_oswindow;
+      set_focused_oswindow(hwnd->m_oswindow);
       gdk_window_focus(hwnd->m_oswindow,GDK_CURRENT_TIME);
     }
   }
@@ -1145,7 +1174,7 @@ static void OnButtonEvent(GdkEventButton *b)
     // this should not be necessary, focus is sent via separate events
     // (the only time I've ever seen this is when launching a popup menu via the mousedown handler, on the mouseup
     // the menu has not yet been focused but the mouse event goes to the popup menu)
-    SWELL_focused_oswindow = hwnd->m_oswindow;
+    set_focused_oswindow(hwnd->m_oswindow);
   }
 
 
@@ -1396,7 +1425,7 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             if (swell_ignore_focus_oswindow != fc->window || 
                 (GetTickCount()-swell_ignore_focus_oswindow_until) < 0x10000000)
             {
-              SWELL_focused_oswindow = fc->window;
+              set_focused_oswindow(fc->window);
             }
             if (swell_app_is_inactive)
             {
