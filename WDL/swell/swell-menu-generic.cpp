@@ -593,7 +593,8 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
             {
               HBRUSH brs=CreateSolidBrush(g_swell_ctheme.menu_bg_sel);
               RECT r2=r;
-              r2.left = cr.left;
+              r2.left = cr.left + 1;
+              r2.right = r2.right - 1;
               FillRect(ps.hdc,&r2,brs);
               DeleteObject(brs);
               SetTextColor(ps.hdc,g_swell_ctheme.menu_text_sel);
