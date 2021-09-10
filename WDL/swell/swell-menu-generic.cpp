@@ -1264,6 +1264,8 @@ int TrackPopupMenu(HMENU hMenu, int flags, int xpos, int ypos, int resvd, HWND h
   swell_ignore_focus_oswindow = NULL;
   hMenu->Release();
 
+  m_trackingPar = NULL;
+
   if (flags & TPM_RETURNCMD) return m_trackingRet>0?m_trackingRet:0;
 
   return (resvd|1)!=0xbeef || m_trackingRet>0;
