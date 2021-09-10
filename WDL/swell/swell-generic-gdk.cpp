@@ -147,6 +147,22 @@ static int s_last_desktop;
 static UINT_PTR s_deactivate_timer;
 static guint32 s_force_window_time;
 
+static void update_menubar_activations()
+{
+  if (g_swell_ctheme.menubar_bg == g_swell_ctheme.menubar_bg_inactive &&
+      g_swell_ctheme.menubar_text == g_swell_ctheme.menubar_text_inactive) return;
+
+  HWND h = SWELL_topwindows;
+  while (h)
+  {
+    if (h->m_oswindow && h->m_menu)
+    {
+      DrawMenuBar(h);
+    }
+    h=h->m_next;
+  }
+}
+
 static void on_activate(guint32 ftime)
 {
   s_force_window_time = ftime;
@@ -169,41 +185,15 @@ static void on_activate(guint32 ftime)
   s_last_desktop=0;
   s_force_window_time = 0;
 
-#define WANTS_INACTIVE_MENUBAR() (g_swell_ctheme.menubar_bg != g_swell_ctheme.menubar_bg_inactive || \
-                                  g_swell_ctheme.menubar_text != g_swell_ctheme.menubar_text_inactive)
-
-  if (WANTS_INACTIVE_MENUBAR())
-  {
-    HWND lf = swell_oswindow_to_hwnd(SWELL_focused_oswindow);
-    if (lf) DrawMenuBar(lf);
-  }
-
-}
-
-static void set_focused_oswindow(SWELL_OSWINDOW w)
-{
-  if (SWELL_focused_oswindow==w) return;
-
-  if (WANTS_INACTIVE_MENUBAR())
-  {
-    HWND lf = swell_oswindow_to_hwnd(SWELL_focused_oswindow);
-    if (lf) DrawMenuBar(lf);
-
-    SWELL_focused_oswindow=w;
-
-    lf = swell_oswindow_to_hwnd(w);
-    if (lf) DrawMenuBar(lf);
-  }
-  else
-    SWELL_focused_oswindow=w;
-
+  update_menubar_activations();
 }
 
 void swell_gdk_reactivate_app(void)
 {
   if (swell_app_is_inactive)
   {
-    set_focused_oswindow(NULL);
+    SWELL_focused_oswindow=NULL;
+    update_menubar_activations();
     on_activate(GDK_CURRENT_TIME);
   }
 }
@@ -213,7 +203,6 @@ static void on_deactivate()
   swell_app_is_inactive=true;
   HWND lf = swell_oswindow_to_hwnd(SWELL_focused_oswindow);
   s_last_desktop = lf && lf->m_oswindow ? _gdk_x11_window_get_desktop(lf->m_oswindow)+1 : 0;
-  if (lf && WANTS_INACTIVE_MENUBAR()) DrawMenuBar(lf);
 
   HWND h = SWELL_topwindows; 
   while (h)
@@ -229,6 +218,7 @@ static void on_deactivate()
     h=h->m_next;
   }
   DestroyPopupMenus();
+  update_menubar_activations();
 }
 
 void swell_oswindow_destroy(HWND hwnd)
@@ -269,7 +259,8 @@ void swell_oswindow_focus(HWND hwnd)
 {
   if (!hwnd)
   {
-    set_focused_oswindow(NULL);
+    SWELL_focused_oswindow = NULL;
+    update_menubar_activations();
     return;
   }
 
@@ -279,8 +270,9 @@ void swell_oswindow_focus(HWND hwnd)
     gdk_window_raise(hwnd->m_oswindow);
     if (hwnd->m_oswindow != SWELL_focused_oswindow)
     {
-      set_focused_oswindow(hwnd->m_oswindow);
+      SWELL_focused_oswindow = hwnd->m_oswindow;
       gdk_window_focus(hwnd->m_oswindow,GDK_CURRENT_TIME);
+      update_menubar_activations();
     }
   }
 }
@@ -1175,7 +1167,8 @@ static void OnButtonEvent(GdkEventButton *b)
     // this should not be necessary, focus is sent via separate events
     // (the only time I've ever seen this is when launching a popup menu via the mousedown handler, on the mouseup
     // the menu has not yet been focused but the mouse event goes to the popup menu)
-    set_focused_oswindow(hwnd->m_oswindow);
+    SWELL_focused_oswindow = hwnd->m_oswindow;
+    update_menubar_activations();
   }
 
 
@@ -1426,7 +1419,8 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
             if (swell_ignore_focus_oswindow != fc->window || 
                 (GetTickCount()-swell_ignore_focus_oswindow_until) < 0x10000000)
             {
-              set_focused_oswindow(fc->window);
+              SWELL_focused_oswindow = fc->window;
+              update_menubar_activations();
             }
             if (swell_app_is_inactive)
             {
