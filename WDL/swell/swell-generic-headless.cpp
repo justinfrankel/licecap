@@ -310,6 +310,7 @@ int SWELL_KeyToASCII(int wParam, int lParam, int *newflags)
   return 0;
 }
 
+int swell_is_app_inactive() { return 0; }
 
 #endif
 #endif

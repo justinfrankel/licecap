@@ -50,7 +50,6 @@ static bool swell_is_virtkey_char(int c)
   return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
 }
 
-bool swell_app_is_inactive;
 HWND__ *SWELL_topwindows;
 HWND swell_oswindow_to_hwnd(SWELL_OSWINDOW w)
 {
@@ -530,7 +529,7 @@ int IsChild(HWND hwndParent, HWND hwndChild)
 
 HWND GetFocusIncludeMenus()
 {
-  HWND h = swell_app_is_inactive ? NULL : swell_oswindow_to_hwnd(SWELL_focused_oswindow);
+  HWND h = swell_is_app_inactive()>0 ? NULL : swell_oswindow_to_hwnd(SWELL_focused_oswindow);
   while (h) 
   {
     HWND fc = h->m_focused_child;
@@ -1185,7 +1184,7 @@ static void paintDialogBackground(HWND hwnd, const RECT *r, HDC hdc)
 
 static bool fast_has_focus(HWND hwnd)
 {
-  if (!hwnd || !SWELL_focused_oswindow || swell_app_is_inactive) return false;
+  if (!hwnd || !SWELL_focused_oswindow || swell_is_app_inactive()>0) return false;
   HWND par;
   while ((par=hwnd->m_parent)!=NULL && par->m_focused_child==hwnd)
   {
@@ -7188,7 +7187,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
           if (r.bottom>g_swell_ctheme.menubar_height) r.bottom=g_swell_ctheme.menubar_height;
 
           bool isactive = false;
-          if (!swell_app_is_inactive)
+          if (swell_is_app_inactive() == 0) // draw as inactive if maybe inactive
           {
             HWND foc = GetFocus();
             if (foc && (foc == hwnd || IsChild(hwnd,foc))) isactive = true;

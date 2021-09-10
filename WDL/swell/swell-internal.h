@@ -961,7 +961,8 @@ extern const char *g_swell_appname;
 extern SWELL_OSWINDOW SWELL_focused_oswindow; // top level window which has focus (might not map to a HWND__!)
 extern HWND swell_captured_window;
 extern HWND SWELL_topwindows; // front of list = most recently active
-extern bool swell_app_is_inactive;
+
+int swell_is_app_inactive(); // returns >0 if definitely inactive, -1 if maybe
 
 #ifdef _DEBUG
 void VALIDATE_HWND_LIST(HWND list, HWND par);

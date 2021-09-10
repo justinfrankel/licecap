@@ -146,6 +146,12 @@ static void swell_gdkEventHandler(GdkEvent *event, gpointer data);
 static int s_last_desktop;
 static UINT_PTR s_deactivate_timer;
 static guint32 s_force_window_time;
+static bool swell_app_is_inactive;
+
+int swell_is_app_inactive()
+{
+  return swell_app_is_inactive ? 1 : s_deactivate_timer!=0 ? -1 : 0;
+}
 
 static void update_menubar_activations()
 {
@@ -193,7 +199,6 @@ void swell_gdk_reactivate_app(void)
   if (swell_app_is_inactive)
   {
     SWELL_focused_oswindow=NULL;
-    update_menubar_activations();
     on_activate(GDK_CURRENT_TIME);
   }
 }
@@ -218,7 +223,6 @@ static void on_deactivate()
     h=h->m_next;
   }
   DestroyPopupMenus();
-  update_menubar_activations();
 }
 
 void swell_oswindow_destroy(HWND hwnd)
@@ -1392,6 +1396,8 @@ static void deactivateTimer(HWND hwnd, UINT uMsg, UINT_PTR tm, DWORD dwt)
   GdkWindow *window = gdk_screen_get_active_window(gdk_screen_get_default());
   if (!is_our_oswindow(window))
     on_deactivate();
+
+  update_menubar_activations();
 }
 
 extern SWELL_OSWINDOW swell_ignore_focus_oswindow;
@@ -1406,11 +1412,13 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
   {
     case GDK_FOCUS_CHANGE:
         {
+          bool do_menus = false;
           GdkEventFocus *fc = (GdkEventFocus *)evt;
           if (s_deactivate_timer) 
           {
             KillTimer(NULL,s_deactivate_timer);
             s_deactivate_timer=0;
+            do_menus = true;
           }
           if (fc->in && is_our_oswindow(fc->window))
           {
@@ -1430,7 +1438,10 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
           else if (!swell_app_is_inactive)
           {
             s_deactivate_timer = SetTimer(NULL,0,200,deactivateTimer);
+            do_menus = true;
           }
+          if (do_menus)
+            update_menubar_activations();
         }
     break;
     case GDK_SELECTION_REQUEST:
