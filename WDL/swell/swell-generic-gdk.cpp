@@ -115,6 +115,7 @@ static int gdk_options;
 #define OPTION_OWNED_TASKLIST 2
 #define OPTION_BORDERLESS_OVERRIDEREDIRECT 4
 #define OPTION_BORDERLESS_DIALOG 8
+#define OPTION_ALLOW_MAYBE_INACTIVE 16
 
 static HWND s_ddrop_hwnd;
 static POINT s_ddrop_pt;
@@ -150,7 +151,7 @@ static bool swell_app_is_inactive;
 
 int swell_is_app_inactive()
 {
-  return swell_app_is_inactive ? 1 : s_deactivate_timer!=0 ? -1 : 0;
+  return swell_app_is_inactive ? 1 : (gdk_options&OPTION_ALLOW_MAYBE_INACTIVE) && s_deactivate_timer!=0 ? -1 : 0;
 }
 
 static void update_menubar_activations()
@@ -467,6 +468,9 @@ static void init_options()
 
     if (swell_gdk_option("gdk_owned_windows_in_tasklist", "auto (default is 0)",0))
       gdk_options|=OPTION_OWNED_TASKLIST;
+
+    if (swell_gdk_option("gdk_instant_menubar_inactivation", "auto (default is 0)",0))
+      gdk_options|=OPTION_ALLOW_MAYBE_INACTIVE;
 
     switch (swell_gdk_option("gdk_borderless_window_mode", "auto (default is 1=dialog hint. 2=override redirect. 0=normal hint)", 1))
     {
@@ -1438,7 +1442,8 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
           else if (!swell_app_is_inactive)
           {
             s_deactivate_timer = SetTimer(NULL,0,200,deactivateTimer);
-            do_menus = true;
+            if (gdk_options & OPTION_ALLOW_MAYBE_INACTIVE)
+              do_menus = true;
           }
           if (do_menus)
             update_menubar_activations();
