@@ -1678,8 +1678,14 @@ void SWELL_GetViewPort(RECT *r, const RECT *sourcerect, bool wantWork)
            (sourcerect->left+sourcerect->right)/2,
            (sourcerect->top+sourcerect->bottom)/2) : 0;
     GdkRectangle rc={0,0,1024,1024};
-    gdk_screen_get_monitor_geometry(defscr,idx,&rc);
-    r->left=rc.x; r->top = rc.y;
+#if SWELL_TARGET_GDK != 2
+    if (wantWork)
+      gdk_screen_get_monitor_workarea(defscr,idx,&rc);
+    else
+#endif
+      gdk_screen_get_monitor_geometry(defscr,idx,&rc);
+    r->left=rc.x;
+    r->top = rc.y;
     r->right=rc.x+rc.width;
     r->bottom=rc.y+rc.height;
     return;
