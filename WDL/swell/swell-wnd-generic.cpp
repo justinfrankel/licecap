@@ -3689,6 +3689,37 @@ popupMenu:
         InvalidateRect(hwnd,NULL,FALSE);
       }
     return 0;
+    case WM_MOUSEWHEEL:
+      // pass modified mousewheel to parent (not sure if we need to do this but other controls do...)
+      if ((GetAsyncKeyState(VK_CONTROL)&0x8000) || (GetAsyncKeyState(VK_MENU)&0x8000)) break;
+
+      if (s)
+      {
+        int amt = ((short)HIWORD(wParam));
+        if (GetAsyncKeyState(VK_SHIFT)&0x8000)
+        {
+          if (amt<0) amt=-1;
+          else if (amt>0) amt=1;
+        }
+        else
+          amt /= 120;
+
+        if (amt)
+        {
+          int nv = s->selidx + amt;
+          if (nv>=s->items.GetSize()) nv=s->items.GetSize()-1;
+          if (nv < 0) nv=0;
+          if (nv != s->selidx && s->items.Get(nv))
+          {
+            s->selidx=nv;
+            SetWindowText(hwnd,s->items.Get(nv)->desc);
+            InvalidateRect(hwnd,NULL,FALSE);
+            SendMessage(GetParent(hwnd),WM_COMMAND,(GetWindowLong(hwnd,GWL_ID)&0xffff) | (CBN_SELCHANGE<<16),(LPARAM)hwnd);
+          }
+        }
+      }
+
+    return 0;
   }
   return DefWindowProc(hwnd,msg,wParam,lParam);
 }
