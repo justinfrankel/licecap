@@ -469,8 +469,15 @@ static void init_options()
     if (swell_gdk_option("gdk_owned_windows_in_tasklist", "auto (default is 0)",0))
       gdk_options|=OPTION_OWNED_TASKLIST;
 
-    if (swell_gdk_option("gdk_instant_menubar_inactivation", "auto (default is 0)",0))
-      gdk_options|=OPTION_ALLOW_MAYBE_INACTIVE;
+    switch (swell_gdk_option("gdk_instant_menubar_inactivation", "auto (default is 1 if on Wayland, otherwise 0)",-1))
+    {
+      case -1:
+        if (getenv("WAYLAND_DISPLAY") == NULL) break;
+        // fall through
+      case 1:
+        gdk_options|=OPTION_ALLOW_MAYBE_INACTIVE;
+      break;
+    }
 
     switch (swell_gdk_option("gdk_borderless_window_mode", "auto (default is 1=dialog hint. 2=override redirect. 0=normal hint)", 1))
     {
