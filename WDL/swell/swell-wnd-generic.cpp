@@ -5917,19 +5917,20 @@ void SWELL_RegisterCustomControlCreator(SWELL_ControlCreatorProc proc)
   if (WDL_NOT_NORMALLY(!proc)) return;
   
   ccprocrec *p=m_ccprocs;
-  while (p && p->next)
+  if (p) for (;;)
   {
     if (p->proc == proc)
     {
       p->cnt++;
       return;
     }
+    if (!p->next) break;
     p=p->next;
   }
   ccprocrec *ent = (ccprocrec*)malloc(sizeof(ccprocrec));
   ent->proc=proc;
   ent->cnt=1;
-  ent->next=0;
+  ent->next=NULL;
   
   if (p) p->next=ent;
   else m_ccprocs=ent;
