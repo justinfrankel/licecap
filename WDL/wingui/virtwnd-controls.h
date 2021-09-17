@@ -108,7 +108,7 @@ class WDL_VirtualIconButton : public WDL_VWnd
     void SetVMargins(int t, int b) { m_margin_t=t; m_margin_b=b; };
 
     // if icon config is set, check state == 1 will swap the up and down image
-    void SetCheckState(char state); // -1 = no checkbox, 0=unchecked, 1=checked. -10= checked for accessibility/GetCheckState() but does not affect drawing
+    void SetCheckState(char state, bool redraw=true); // -1 = no checkbox, 0=unchecked, 1=checked. -10= checked for accessibility/GetCheckState() but does not affect drawing
     char GetCheckState() { return m_checkstate == -10 ? 1 : m_checkstate; }
     
     WDL_VirtualIconButton_SkinConfig* GetIcon() { return m_iconCfg; } // note button does not own m_iconCfg

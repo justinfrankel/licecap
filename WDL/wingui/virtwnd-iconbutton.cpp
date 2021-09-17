@@ -79,12 +79,12 @@ void WDL_VirtualIconButton::SetTextLabel(const char *text, int align, LICE_IFont
   if (!m_iconCfg || m_forcetext) RequestRedraw(NULL); 
 } 
 
-void WDL_VirtualIconButton::SetCheckState(char state)
+void WDL_VirtualIconButton::SetCheckState(char state, bool redraw)
 {
   if (state != m_checkstate)
   {
     m_checkstate=state;
-    RequestRedraw(NULL);
+    if (redraw) RequestRedraw(NULL);
   }
 }
 
