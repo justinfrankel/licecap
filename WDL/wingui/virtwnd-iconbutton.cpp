@@ -662,7 +662,7 @@ void WDL_VirtualComboBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin
     if (m_font && m_items.Get(m_curitem)&&m_items.Get(m_curitem)[0])
     {
       RECT tr=r;
-      tr.left+=2;
+      tr.left+=3;
       tr.right-=16;
       m_font->SetTextColor(tcol);
       if (m_align == 0)
@@ -690,7 +690,7 @@ void WDL_VirtualComboBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin
       int a=(bs/4)&~1;
 
       LICE_Line(drawbm,l,r.top,l,r.bottom-1,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
-      LICE_Line(drawbm,l-1,r.top,l-1,r.bottom-1,pencol2,1.0f,LICE_BLIT_MODE_COPY,false);
+      if (pencol2!=pencol) LICE_Line(drawbm,l-1,r.top,l-1,r.bottom-1,pencol2,1.0f,LICE_BLIT_MODE_COPY,false);
 
       LICE_Line(drawbm,l+bs/2-a,r.top+bs/2-a/2,
                        l+bs/2,r.top+bs/2+a/2,tcol,1.0f,LICE_BLIT_MODE_COPY,true);
