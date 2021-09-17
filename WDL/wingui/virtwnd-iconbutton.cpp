@@ -328,6 +328,7 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
     if (m_checkstate>=0 && !m_iconCfg)
     {
       RECT tr=r2;
+      tr.left+=2;
       int sz=tr.bottom-tr.top;
       int adj = 2*rscale/WDL_VWND_SCALEBASE;
       r2.left+=sz+adj;
