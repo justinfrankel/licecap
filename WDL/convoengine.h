@@ -34,7 +34,6 @@
 #include "fastqueue.h"
 #include "fft.h"
 
-#define WDL_CONVO_MAX_IMPULSE_NCH 2
 #define WDL_CONVO_MAX_PROC_NCH 2
 
 //#define WDL_CONVO_WANT_FULLPRECISION_IMPULSE_STORAGE // define this for slowerness with -138dB error difference in resulting output (+-1 LSB at 24 bit)
@@ -56,21 +55,33 @@ WDL_CONVO_IMPULSEBUFCPLXf;
 class WDL_ImpulseBuffer
 {
 public:
-  WDL_ImpulseBuffer() { samplerate=44100.0; m_nch=1; }
-  ~WDL_ImpulseBuffer() { }
+  WDL_ImpulseBuffer()
+  {
+    samplerate=44100.0;
+    impulses.list.Add(new WDL_TypedBuf<WDL_FFT_REAL>);
+  }
+  ~WDL_ImpulseBuffer()
+  {
+    impulses.list.Empty(true);
+  }
 
-  int GetLength() { return impulses[0].GetSize(); }
+  int GetLength() { return impulses.list.GetSize() ? impulses[0].GetSize() : 0; }
   int SetLength(int samples); // resizes/clears all channels accordingly, returns actual size set (can be 0 if error)
   void SetNumChannels(int usench); // handles allocating/converting/etc
-  int GetNumChannels() { return m_nch; }
-
+  int GetNumChannels() { return impulses.list.GetSize(); }
 
   double samplerate;
-  WDL_TypedBuf<WDL_FFT_REAL> impulses[WDL_CONVO_MAX_IMPULSE_NCH];
+  struct  {
+    WDL_PtrList<WDL_TypedBuf<WDL_FFT_REAL>  > list;
 
-private:
-  int m_nch;
+    WDL_TypedBuf<WDL_FFT_REAL> &operator[](size_t i) const { return *list.Get(i); }
+  } impulses;
 
+};
+
+struct WDL_Convolution_ImpChannelInfo {
+  WDL_TypedBuf<WDL_CONVO_IMPULSEBUFf> imp;
+  WDL_TypedBuf<char> zflag;
 };
 
 class WDL_ConvolutionEngine
@@ -93,12 +104,10 @@ public:
   void Advance(int len);
 
 private:
-  WDL_TypedBuf<WDL_CONVO_IMPULSEBUFf> m_impulse[WDL_CONVO_MAX_IMPULSE_NCH]; // FFT'd data blocks per channel
-  WDL_TypedBuf<char> m_impulse_zflag[WDL_CONVO_MAX_IMPULSE_NCH]; // FFT'd data blocks per channel
+  WDL_PtrList<WDL_Convolution_ImpChannelInfo> m_impdata;
 
-  int m_impulse_nch;
-  int m_fft_size;
   int m_impulse_len;
+  int m_fft_size;
   int m_proc_nch;
 
   WDL_Queue m_samplesout[WDL_CONVO_MAX_PROC_NCH];
