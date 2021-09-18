@@ -136,7 +136,7 @@ public:
 #ifdef WDLCONVO_ZL_ACCOUNTING
   int m_zl_fftcnt;//removeme (testing of benchmarks)
 #endif
-  void AddSilenceToOutput(int len, int nch);
+  void AddSilenceToOutput(int len);
 
 } WDL_FIXALIGN;
 

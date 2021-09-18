@@ -455,9 +455,9 @@ void WDL_ConvolutionEngine::Add(WDL_FFT_REAL **bufs, int len, int nch)
   }
 }
 
-void WDL_ConvolutionEngine::AddSilenceToOutput(int len, int nch)
+void WDL_ConvolutionEngine::AddSilenceToOutput(int len)
 {  
-  for (int ch = 0; ch < nch && ch < m_proc_nch; ch++)
+  for (int ch = 0; ch < m_proc_nch; ch++)
   {
     WDL_Convolution_ProcChannelInfo *pinf = m_proc.Get(ch);
     memset(pinf->samplesout.Add(NULL,len*sizeof(WDL_FFT_REAL)),0,len*sizeof(WDL_FFT_REAL));
@@ -834,7 +834,7 @@ void WDL_ConvolutionEngine_Div::Add(WDL_FFT_REAL **bufs, int len, int nch)
 
     eng->Add(bufs,len,nch);
 
-    if (ns) eng->AddSilenceToOutput(eng->m_zl_delaypos,nch); // add silence to output (to delay output to its correct time)
+    if (ns) eng->AddSilenceToOutput(eng->m_zl_delaypos); // add silence to output (to delay output to its correct time)
 
   }
 }
