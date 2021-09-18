@@ -158,10 +158,9 @@ public:
 private:
   WDL_PtrList<WDL_ConvolutionEngine> m_engines;
 
-  WDL_Queue m_samplesout[WDL_CONVO_MAX_PROC_NCH];
-  WDL_FFT_REAL *m_get_tmpptrs[WDL_CONVO_MAX_PROC_NCH];
+  WDL_PtrList<WDL_Queue> m_sout;
+  WDL_TypedBuf<WDL_FFT_REAL *> m_get_tmpptrs;
 
-  int m_proc_nch;
   bool m_need_feedsilence;
 
 } WDL_FIXALIGN;

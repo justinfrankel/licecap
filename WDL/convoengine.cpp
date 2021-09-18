@@ -710,7 +710,7 @@ void WDL_ConvolutionEngine::Advance(int len)
 WDL_ConvolutionEngine_Div::WDL_ConvolutionEngine_Div()
 {
   timingInit();
-  m_proc_nch=2;
+  for (int x = 0; x < 2; x ++) m_sout.Add(new WDL_Queue);
   m_need_feedsilence=true;
 }
 
@@ -796,9 +796,9 @@ void WDL_ConvolutionEngine_Div::Reset()
     WDL_ConvolutionEngine *eng=m_engines.Get(x);
     eng->Reset();
   }
-  for (x = 0; x < WDL_CONVO_MAX_PROC_NCH; x ++)
+  for (x = 0; x < m_sout.GetSize(); x ++)
   {
-    m_samplesout[x].Clear();
+    m_sout.Get(x)->Clear();
   }
 
   m_need_feedsilence=true;
@@ -808,11 +808,15 @@ WDL_ConvolutionEngine_Div::~WDL_ConvolutionEngine_Div()
 {
   timingPrint();
   m_engines.Empty(true);
+  m_sout.Empty(true);
 }
 
 void WDL_ConvolutionEngine_Div::Add(WDL_FFT_REAL **bufs, int len, int nch)
 {
-  m_proc_nch=nch;
+  while (m_sout.GetSize() < nch)
+    m_sout.Add(new WDL_Queue);
+  while (m_sout.GetSize() > nch)
+    m_sout.Delete(m_sout.GetSize()-1,true);
 
   bool ns=m_need_feedsilence;
   m_need_feedsilence=false;
@@ -837,21 +841,20 @@ void WDL_ConvolutionEngine_Div::Add(WDL_FFT_REAL **bufs, int len, int nch)
 }
 WDL_FFT_REAL **WDL_ConvolutionEngine_Div::Get() 
 {
-  int x;
-  for (x = 0; x < m_proc_nch; x ++)
-  {
-    m_get_tmpptrs[x]=(WDL_FFT_REAL *)m_samplesout[x].Get();
-  }
-  return m_get_tmpptrs;
+  WDL_FFT_REAL **ret = m_get_tmpptrs.ResizeOK(m_sout.GetSize(),false);
+  if (WDL_NORMALLY(ret))
+    for (int x = 0; x < m_sout.GetSize(); x ++) ret[x]=(WDL_FFT_REAL *)m_sout.Get(x)->Get();
+  return ret;
 }
 
 void WDL_ConvolutionEngine_Div::Advance(int len)
 {
   int x;
-  for (x = 0; x < m_proc_nch; x ++)
+  for (x = 0; x < m_sout.GetSize(); x ++)
   {
-    m_samplesout[x].Advance(len*sizeof(WDL_FFT_REAL));
-    m_samplesout[x].Compact();
+    WDL_Queue *q = m_sout.Get(x);
+    q->Advance(len*sizeof(WDL_FFT_REAL));
+    q->Compact();
   }
 }
 
@@ -904,10 +907,11 @@ int WDL_ConvolutionEngine_Div::Avail(int wantSamples)
 #endif
   if (wantSamples>0)
   {
-    WDL_FFT_REAL *tp[WDL_CONVO_MAX_PROC_NCH];
-    for (x =0; x < m_proc_nch; x ++)
+    const int add_sz = wantSamples*sizeof(WDL_FFT_REAL);
+    for (x =0; x < m_sout.GetSize(); x ++)
     {
-      memset(tp[x]=(WDL_FFT_REAL*)m_samplesout[x].Add(NULL,wantSamples*sizeof(WDL_FFT_REAL)),0,wantSamples*sizeof(WDL_FFT_REAL));
+      void *add = m_sout.Get(x)->Add(NULL,add_sz);
+      if (WDL_NORMALLY(add != NULL)) memset(add,0,add_sz);
     }
 
     for (x = 0; x < m_engines.GetSize(); x ++)
@@ -919,12 +923,17 @@ int WDL_ConvolutionEngine_Div::Avail(int wantSamples)
       if (p)
       {
         int i;
-        for (i =0; i < m_proc_nch; i ++)
+        for (i =0; i < m_sout.GetSize(); i ++)
         {
-          WDL_FFT_REAL *o=tp[i];
-          WDL_FFT_REAL *in=p[i];
-          int j=wantSamples;
-          while (j-->0) *o++ += *in++;
+          WDL_Queue *q = m_sout.Get(i);
+          const int qsz = q->Available();
+          if (WDL_NORMALLY(qsz >= add_sz))
+          {
+            WDL_FFT_REAL *o=(WDL_FFT_REAL *)((char *)q->Get() + qsz - add_sz);
+            const WDL_FFT_REAL *in=p[i];
+            int j=wantSamples;
+            while (j-->0) *o++ += *in++;
+          }
         }
       }
       eng->Advance(wantSamples);
@@ -932,7 +941,8 @@ int WDL_ConvolutionEngine_Div::Avail(int wantSamples)
   }
   timingLeave(1);
 
-  int av=m_samplesout[0].Available()/sizeof(WDL_FFT_REAL);
+  WDL_Queue *q0 = m_sout.Get(0);
+  int av=WDL_NORMALLY(q0 != NULL) ? (int) (q0->Available()/sizeof(WDL_FFT_REAL)) : 0;
   return av>wso ? wso : av;
 }
 
