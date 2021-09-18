@@ -108,7 +108,7 @@ private:
   int m_hist_pos[WDL_CONVO_MAX_PROC_NCH];
 
   WDL_TypedBuf<WDL_FFT_REAL> m_samplehist[WDL_CONVO_MAX_PROC_NCH]; // FFT'd sample blocks per channel
-  WDL_TypedBuf<char> m_samplehist_zflag[WDL_CONVO_MAX_IMPULSE_NCH];
+  WDL_TypedBuf<char> m_samplehist_zflag[WDL_CONVO_MAX_PROC_NCH];
   WDL_TypedBuf<WDL_FFT_REAL> m_overlaphist[WDL_CONVO_MAX_PROC_NCH]; 
   WDL_TypedBuf<WDL_FFT_REAL> m_combinebuf;
 
