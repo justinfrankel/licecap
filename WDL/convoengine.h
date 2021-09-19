@@ -34,8 +34,6 @@
 #include "fastqueue.h"
 #include "fft.h"
 
-#define WDL_CONVO_MAX_PROC_NCH 2
-
 //#define WDL_CONVO_WANT_FULLPRECISION_IMPULSE_STORAGE // define this for slowerness with -138dB error difference in resulting output (+-1 LSB at 24 bit)
 
 #ifdef WDL_CONVO_WANT_FULLPRECISION_IMPULSE_STORAGE 
@@ -84,6 +82,18 @@ struct WDL_Convolution_ImpChannelInfo {
   WDL_TypedBuf<char> zflag;
 };
 
+struct WDL_Convolution_ProcChannelInfo {
+  WDL_Queue samplesout;
+  WDL_Queue samplesin2;
+  WDL_FastQueue samplesin;
+
+  WDL_TypedBuf<WDL_FFT_REAL> samplehist; // FFT'd sample blocks per channel
+  WDL_TypedBuf<char> samplehist_zflag;
+  WDL_TypedBuf<WDL_FFT_REAL> overlaphist;
+
+  int hist_pos;
+};
+
 class WDL_ConvolutionEngine
 {
 public:
@@ -108,20 +118,13 @@ private:
 
   int m_impulse_len;
   int m_fft_size;
+
   int m_proc_nch;
+  WDL_PtrList<WDL_Convolution_ProcChannelInfo> m_proc;
 
-  WDL_Queue m_samplesout[WDL_CONVO_MAX_PROC_NCH];
-  WDL_Queue m_samplesin2[WDL_CONVO_MAX_PROC_NCH];
-  WDL_FastQueue m_samplesin[WDL_CONVO_MAX_PROC_NCH];
 
-  int m_hist_pos[WDL_CONVO_MAX_PROC_NCH];
-
-  WDL_TypedBuf<WDL_FFT_REAL> m_samplehist[WDL_CONVO_MAX_PROC_NCH]; // FFT'd sample blocks per channel
-  WDL_TypedBuf<char> m_samplehist_zflag[WDL_CONVO_MAX_PROC_NCH];
-  WDL_TypedBuf<WDL_FFT_REAL> m_overlaphist[WDL_CONVO_MAX_PROC_NCH]; 
   WDL_TypedBuf<WDL_FFT_REAL> m_combinebuf;
-
-  WDL_FFT_REAL *m_get_tmpptrs[WDL_CONVO_MAX_PROC_NCH];
+  WDL_TypedBuf<WDL_FFT_REAL *> m_get_tmpptrs;
 
 public:
 
