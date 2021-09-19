@@ -77,23 +77,6 @@ public:
 
 };
 
-struct WDL_Convolution_ImpChannelInfo {
-  WDL_TypedBuf<WDL_CONVO_IMPULSEBUFf> imp;
-  WDL_TypedBuf<char> zflag;
-};
-
-struct WDL_Convolution_ProcChannelInfo {
-  WDL_Queue samplesout;
-  WDL_Queue samplesin2;
-  WDL_FastQueue samplesin;
-
-  WDL_TypedBuf<WDL_FFT_REAL> samplehist; // FFT'd sample blocks per channel
-  WDL_TypedBuf<char> samplehist_zflag;
-  WDL_TypedBuf<WDL_FFT_REAL> overlaphist;
-
-  int hist_pos;
-};
-
 class WDL_ConvolutionEngine
 {
 public:
@@ -114,13 +97,32 @@ public:
   void Advance(int len);
 
 private:
-  WDL_PtrList<WDL_Convolution_ImpChannelInfo> m_impdata;
+
+  struct ImpChannelInfo {
+    WDL_TypedBuf<WDL_CONVO_IMPULSEBUFf> imp;
+    WDL_TypedBuf<char> zflag;
+  };
+
+  struct ProcChannelInfo {
+    WDL_Queue samplesout;
+    WDL_Queue samplesin2;
+    WDL_FastQueue samplesin;
+
+    WDL_TypedBuf<WDL_FFT_REAL> samplehist; // FFT'd sample blocks per channel
+    WDL_TypedBuf<char> samplehist_zflag;
+    WDL_TypedBuf<WDL_FFT_REAL> overlaphist;
+
+    int hist_pos;
+  };
+
+
+  WDL_PtrList<ImpChannelInfo> m_impdata;
 
   int m_impulse_len;
   int m_fft_size;
 
   int m_proc_nch;
-  WDL_PtrList<WDL_Convolution_ProcChannelInfo> m_proc;
+  WDL_PtrList<ProcChannelInfo> m_proc;
 
 
   WDL_TypedBuf<WDL_FFT_REAL> m_combinebuf;
