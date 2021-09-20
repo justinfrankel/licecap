@@ -2338,12 +2338,12 @@ start_over: // when an opcode changed substantially in optimization, goto here t
                   else
                   {
                     double d = 1.0/dvalue;
-
-                    WDL_DenormalDoubleAccess *p = (WDL_DenormalDoubleAccess*)&d;
+                    WDL_UINT64 w;
+                    memcpy(&w,&d,sizeof(d));
                     // allow conversion to multiply if reciprocal is exact
                     // we could also just look to see if the last few digits of the mantissa were 0, which would probably be good
                     // enough, but if the user really wants it they should do * (1/x) instead to force precalculation of reciprocal.
-                    if (!p->w.lw && !(p->w.hw & 0xfffff)) 
+                    if (!(w & WDL_UINT64_CONST(0xfffffffffffff)))
                     {
                       op->fntype = FN_MULTIPLY;
                       op->parms.parms[1]->parms.dv.directValue = d;
