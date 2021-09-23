@@ -1044,7 +1044,7 @@ int WDL_ImpulseBuffer::SetLength(int samples)
 }
 
 
-void WDL_ImpulseBuffer::SetNumChannels(int usench)
+void WDL_ImpulseBuffer::SetNumChannels(int usench, bool duplicateExisting)
 {
   if (usench<1) usench=1;
 
@@ -1057,7 +1057,7 @@ void WDL_ImpulseBuffer::SetNumChannels(int usench)
     const int len = SetLength(GetLength());
 
     int x,ax=0;
-    if (len>0 && old_nch>0) for(x=old_nch;x<usench;x++) 
+    if (duplicateExisting && len>0 && old_nch>0) for(x=old_nch;x<usench;x++)
     {
       memcpy(impulses[x].Get(),impulses[ax].Get(),len*sizeof(WDL_FFT_REAL)); // duplicate channels
       if (++ax>=old_nch) ax=0;

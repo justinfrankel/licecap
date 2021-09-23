@@ -65,7 +65,7 @@ public:
 
   int GetLength() { return impulses.list.GetSize() ? impulses[0].GetSize() : 0; }
   int SetLength(int samples); // resizes/clears all channels accordingly, returns actual size set (can be 0 if error)
-  void SetNumChannels(int usench); // handles allocating/converting/etc
+  void SetNumChannels(int usench, bool duplicateExisting=true); // handles allocating/converting/etc
   int GetNumChannels() { return impulses.list.GetSize(); }
 
   double samplerate;
