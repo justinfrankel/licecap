@@ -1298,4 +1298,34 @@ HFONT SWELL_GetDefaultFont(void);
 
 #endif
 
+
+static WDL_STATICFUNC_UNUSED int ext_valid_for_extlist(const char *thisext, const char *extlist)
+{
+  if (!thisext || *thisext != '.' || !extlist) return -1;
+  int txlen = (int)strlen(thisext), witem = 0;
+  while (*extlist)
+  {
+    while (*extlist) extlist++; // description
+    extlist++;
+
+    while (*extlist)
+    {
+      while (*extlist == ' ' || *extlist == ';') extlist++;
+      if (*extlist == '*')
+      {
+        if (!strnicmp(extlist+1,thisext,txlen) &&
+            (extlist[1+txlen] == ';' ||extlist[1+txlen] == 0))
+          return witem;
+      }
+      while (*extlist && *extlist != ';') extlist++;
+      if (*extlist) extlist++;
+    }
+
+    while (*extlist) extlist++;
+    extlist++;
+    witem++;
+  }
+  return -1;
+}
+
 #endif
