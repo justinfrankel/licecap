@@ -31,6 +31,7 @@
 #include "swell-dlggen.h"
 #include "../wdlcstring.h"
 #import <Cocoa/Cocoa.h>
+#include "swell-internal.h"
 
 struct swell_autoarp {
   swell_autoarp() { pool = [[NSAutoreleasePool alloc] init]; }
@@ -255,6 +256,10 @@ bool BrowseForSaveFile(const char *text, const char *initialdir, const char *ini
   {
     char s[2048];
     lstrcpyn_safe(s,initialfile,sizeof(s));
+
+    if (ext_valid_for_extlist(WDL_get_fileext(initialfile),extlist)>=0)
+      WDL_remove_fileext(s);
+
     char *p=s;
     while (*p) p++;
     while (p >= s && *p != '/') p--;
