@@ -72,7 +72,12 @@ public:
   struct  {
     WDL_PtrList<WDL_TypedBuf<WDL_FFT_REAL>  > list;
 
-    WDL_TypedBuf<WDL_FFT_REAL> &operator[](size_t i) const { return *list.Get(i); }
+    WDL_TypedBuf<WDL_FFT_REAL> &operator[](size_t i) const
+    {
+      WDL_TypedBuf<WDL_FFT_REAL> *p = list.Get(i);
+      if (WDL_NORMALLY(p != NULL)) return *p;
+      return *list.Get(0); // if for some reason an out of range index was passed, return first item rather than crash
+    }
   } impulses;
 
 };
