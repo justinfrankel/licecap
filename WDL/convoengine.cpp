@@ -588,6 +588,9 @@ int WDL_ConvolutionEngine::Avail(int want)
 
         // save a valid copy in sample hist incase we switch from mono to stereo
         if (++pinf2->hist_pos >= nblocks) pinf2->hist_pos=0;
+        if (pinf2->samplehist_zflag.GetSize()==nblocks)
+          pinf2->samplehist_zflag.Get()[pinf2->hist_pos] = nonzflag ? 1 : 0;
+
         WDL_FFT_REAL *optr2 = pinf2->samplehist.Get()+pinf2->hist_pos*m_fft_size*2;
         memcpy(optr2,optr,m_fft_size*2*sizeof(WDL_FFT_REAL));
       }
