@@ -1792,7 +1792,7 @@ void swell_oswindow_postresize(HWND hwnd, RECT f)
         if (l->m_oswindow && l->m_owner == hwnd && l->m_visible)
         {
           gdk_window_set_transient_for(l->m_oswindow,hwnd->m_oswindow);
-          gdk_window_show(l->m_oswindow);
+          gdk_window_show_unraised(l->m_oswindow);
         }
         l = l->m_next;
       }
