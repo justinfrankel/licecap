@@ -489,6 +489,43 @@ static void init_options()
   
 }
 
+static void swell_hide_owned_windows_transient(HWND hwnd)
+{
+  if ((gdk_options&OPTION_KEEP_OWNED_ABOVE) && hwnd->m_owned_list)
+  {
+    HWND l = SWELL_topwindows;
+    while (l)
+    {
+      if (l->m_oswindow && l->m_owner == hwnd && l->m_visible)
+        gdk_window_hide(l->m_oswindow);
+      l = l->m_next;
+    }
+  }
+}
+
+static void swell_set_owned_windows_transient(HWND hwnd, bool do_create)
+{
+  if ((gdk_options&OPTION_KEEP_OWNED_ABOVE) && hwnd->m_owned_list)
+  {
+    HWND l = SWELL_topwindows;
+    while (l)
+    {
+      if (l->m_owner == hwnd && l->m_visible)
+      {
+        if (l->m_oswindow)
+        {
+          gdk_window_set_transient_for(l->m_oswindow,hwnd->m_oswindow);
+          gdk_window_show_unraised(l->m_oswindow);
+        }
+        else if (do_create) swell_oswindow_manage(l,false);
+      }
+      l = l->m_next;
+    }
+  }
+}
+
+
+
 bool IsModalDialogBox(HWND);
 
 void swell_oswindow_manage(HWND hwnd, bool wantfocus)
@@ -1641,17 +1678,7 @@ void swell_oswindow_update_style(HWND hwnd, LONG oldstyle)
   const LONG val = hwnd->m_style, ret = oldstyle;
   if (hwnd->m_oswindow && ((ret^val)& WS_CAPTION))
   {
-    // fixes gnome/kde owned-above on to/from fullscreen (hide any owned windows until re-show)
-    if ((gdk_options&OPTION_KEEP_OWNED_ABOVE) && hwnd->m_owned_list)
-    {
-      HWND l = SWELL_topwindows;
-      while (l)
-      {
-        if (l->m_oswindow && l->m_owner == hwnd && l->m_visible)
-          gdk_window_hide(l->m_oswindow);
-        l = l->m_next;
-      }
-    }
+    swell_hide_owned_windows_transient(hwnd);
 
     gdk_window_hide(hwnd->m_oswindow);
     if (val & WS_CAPTION)
@@ -1783,20 +1810,7 @@ void swell_oswindow_postresize(HWND hwnd, RECT f)
     swell_oswindow_resize(hwnd->m_oswindow,3,f); // fixes xfce
     hwnd->m_oswindow_private &= ~PRIVATE_NEEDSHOW;
 
-    // fixes gnome/kde owned-above on to/from fullscreen (re-show owned windows once this window is restored)
-    if ((gdk_options&OPTION_KEEP_OWNED_ABOVE) && hwnd->m_owned_list)
-    {
-      HWND l = SWELL_topwindows;
-      while (l)
-      {
-        if (l->m_oswindow && l->m_owner == hwnd && l->m_visible)
-        {
-          gdk_window_set_transient_for(l->m_oswindow,hwnd->m_oswindow);
-          gdk_window_show_unraised(l->m_oswindow);
-        }
-        l = l->m_next;
-      }
-    }
+    swell_set_owned_windows_transient(hwnd,false);
   }
 }
 
