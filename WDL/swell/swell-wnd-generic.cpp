@@ -8362,16 +8362,6 @@ void SWELL_GenerateDialogFromList(const void *_list, int listsz)
   }
 }
 
-int swell_fullscreenWindow(HWND hwnd, BOOL fs)
-{
-  if (WDL_NORMALLY(hwnd))
-  {
-    hwnd->m_oswindow_fullscreen = fs;
-    return 1;
-  }
-  return 0;
-}
-
 void SWELL_SetClassName(HWND hwnd, const char *p)
 {
   if (WDL_NORMALLY(hwnd))

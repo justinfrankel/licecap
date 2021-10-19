@@ -1087,6 +1087,9 @@ void GetTempPath(int bufsz, char *buf)
 const char *g_swell_appname;
 char *g_swell_defini;
 const char *g_swell_fontpangram;
+#ifdef SWELL_TARGET_GDK
+bool swell_gdk_want_owner_fullscreen(void);
+#endif
 
 void *SWELL_ExtendedAPI(const char *key, void *v)
 {
@@ -1180,16 +1183,20 @@ void *SWELL_ExtendedAPI(const char *key, void *v)
   {
     g_swell_fontpangram = (const char *)v;
   }
-#ifndef SWELL_TARGET_OSX
-#ifndef SWELL_EXTRA_MINIMAL
-  else if (!strcmp(key,"FULLSCREEN") || !strcmp(key,"-FULLSCREEN"))
-  {
-    int swell_fullscreenWindow(HWND, BOOL);
-    return (void*)(INT_PTR)swell_fullscreenWindow((HWND)v, key[0] != '-');
-  }
-#endif
-#endif
 #ifdef SWELL_TARGET_GDK
+  else if (!strcmp(key,"-FULLSCREEN"))
+  {
+    HWND h = (HWND)v;
+    if (!h || !h->m_oswindow_fullscreen) return NULL;
+    h->m_oswindow_fullscreen = 0;
+    return h;
+  }
+  else if (!strcmp(key,"FULLSCREEN") || (!strcmp(key,"oFULLSCREEN") && swell_gdk_want_owner_fullscreen()))
+  {
+    HWND h = (HWND)v;
+    if (h) h->m_oswindow_fullscreen = 1;
+    return h;
+  }
   else if (!strcmp(key,"activate_app"))
   {
     void swell_gdk_reactivate_app(void);
