@@ -1,3 +1,6 @@
+#ifndef WDL_NO_DEFINE_MINMAX
+#define WDL_NO_DEFINE_MINMAX
+#endif
 #include "lice.h"
 #include <stdio.h>
 #include <math.h>

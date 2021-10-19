@@ -5,6 +5,9 @@
   See lice.h for license and other information
 */
 
+#ifndef WDL_NO_DEFINE_MINMAX
+#define WDL_NO_DEFINE_MINMAX
+#endif
 #include "../lice.h"
 #include "../../plush2/plush.h"
 #include "../../MersenneTwister.h"

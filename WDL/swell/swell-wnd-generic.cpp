@@ -23,6 +23,9 @@
 
 #ifndef SWELL_PROVIDED_BY_APP
 
+#ifndef WDL_NO_DEFINE_MINMAX
+#define WDL_NO_DEFINE_MINMAX
+#endif
 #include "swell.h"
 
 #define SWELL_INTERNAL_MERGESORT_IMPL
