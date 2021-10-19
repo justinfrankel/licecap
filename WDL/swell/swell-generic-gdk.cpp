@@ -541,6 +541,7 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
     {
       RECT r;
       GetWindowRect(hwnd,&r);
+      swell_hide_owned_windows_transient(hwnd);
       swell_oswindow_destroy(hwnd);
       hwnd->m_position = r;
     }
@@ -674,16 +675,7 @@ void swell_oswindow_manage(HWND hwnd, bool wantfocus)
             swell_oswindow_resize(hwnd->m_oswindow,hwnd->m_has_had_position?3:2,r);
           }
 
-          if ((gdk_options&OPTION_KEEP_OWNED_ABOVE) && hwnd->m_owned_list)
-          {
-            HWND l = SWELL_topwindows;
-            while (l)  
-            {
-              if (!l->m_oswindow && l->m_owner == hwnd && l->m_visible)
-                swell_oswindow_manage(l,false);
-              l = l->m_next;
-            }
-          }
+          swell_set_owned_windows_transient(hwnd, true);
         }
       }
     }
