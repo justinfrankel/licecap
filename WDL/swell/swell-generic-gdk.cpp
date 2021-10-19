@@ -507,19 +507,22 @@ static void swell_set_owned_windows_transient(HWND hwnd, bool do_create)
 {
   if ((gdk_options&OPTION_KEEP_OWNED_ABOVE) && hwnd->m_owned_list)
   {
+    WDL_PtrList<void> raiselist;
     HWND l = SWELL_topwindows;
     while (l)
     {
       if (l->m_owner == hwnd && l->m_visible)
       {
-        if (l->m_oswindow)
-        {
-          gdk_window_set_transient_for(l->m_oswindow,hwnd->m_oswindow);
-          gdk_window_show_unraised(l->m_oswindow);
-        }
+        if (l->m_oswindow) raiselist.Add(l->m_oswindow);
         else if (do_create) swell_oswindow_manage(l,false);
       }
       l = l->m_next;
+    }
+    for (int x = raiselist.GetSize()-1; x>=0; x--)
+    {
+      SWELL_OSWINDOW r = (SWELL_OSWINDOW)raiselist.Get(x);
+      gdk_window_set_transient_for(r,hwnd->m_oswindow);
+      gdk_window_show_unraised(r);
     }
   }
 }
