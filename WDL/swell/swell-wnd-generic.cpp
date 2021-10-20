@@ -91,7 +91,7 @@ HWND__::HWND__(HWND par, int wID, const RECT *wndr, const char *label, bool visi
   m_israised=false;
   m_has_had_position=false;
   m_oswindow_private=0;
-  m_oswindow_fullscreen=false;
+  m_oswindow_fullscreen=0;
 
      m_classname = "unknown";
      m_wndproc=wndproc?wndproc:dlgproc?(WNDPROC)SwellDialogDefaultWindowProc:(WNDPROC)DefWindowProc;

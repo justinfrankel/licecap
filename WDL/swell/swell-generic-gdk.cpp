@@ -117,6 +117,7 @@ static int gdk_options;
 #define OPTION_BORDERLESS_DIALOG 8
 #define OPTION_ALLOW_MAYBE_INACTIVE 16
 #define OPTION_FULLSCREEN_FOR_OWNER_WINDOWS 32
+#define OPTION_FULLSCREEN_DYNAMIC 64
 
 static HWND s_ddrop_hwnd;
 static POINT s_ddrop_pt;
@@ -203,11 +204,6 @@ void swell_gdk_reactivate_app(void)
     SWELL_focused_oswindow=NULL;
     on_activate(GDK_CURRENT_TIME);
   }
-}
-
-bool swell_gdk_want_owner_fullscreen(void)
-{
-  return (gdk_options & OPTION_FULLSCREEN_FOR_OWNER_WINDOWS)==OPTION_FULLSCREEN_FOR_OWNER_WINDOWS;
 }
 
 static void on_deactivate()
@@ -490,17 +486,25 @@ static void init_options()
       default: break;
     }
 
+    const char *wmname = gdk_x11_screen_get_window_manager_name(gdk_screen_get_default());
     switch (swell_gdk_option("gdk_fullscreen_for_owner_windows", "auto (default is 1 on kwin, otherwise 0)",-1))
     {
       case -1:
-        {
-          const char *wmname = gdk_x11_screen_get_window_manager_name(gdk_screen_get_default());
-          if (!wmname || strnicmp(wmname,"KWin",4)) break;
-        }
+        if (!wmname || strnicmp(wmname,"KWin",4)) break;
         // fall through
       case 1:
         gdk_options |= OPTION_FULLSCREEN_FOR_OWNER_WINDOWS;
       break;
+    }
+    switch (swell_gdk_option("gdk_fullscreen_dynamic","auto (default is 1 on kwin, otherwise 0)",-1))
+    {
+      case -1:
+        if (!wmname || strnicmp(wmname,"KWin",4)) break;
+        // fall through
+      case 1:
+        gdk_options |= OPTION_FULLSCREEN_DYNAMIC;
+      break;
+
     }
   }
   
@@ -1683,6 +1687,34 @@ void SWELL_RunEvents()
     }
 #endif
   }
+}
+
+bool swell_gdk_set_fullscreen(HWND hwnd, int fs) // fs=2 if window might have owned children
+{
+  if (!hwnd) return false;
+  if (fs==2 && (gdk_options & OPTION_FULLSCREEN_FOR_OWNER_WINDOWS)!=OPTION_FULLSCREEN_FOR_OWNER_WINDOWS) return false;
+
+  const int stylemask = WS_BORDER|WS_CAPTION|WS_THICKFRAME;
+  if (!hwnd->m_oswindow || !(gdk_options & OPTION_FULLSCREEN_DYNAMIC))
+  {
+    hwnd->m_oswindow_fullscreen = fs ? WS_VISIBLE | (hwnd->m_style & stylemask) : 0;
+    return true; // request caller hide/show
+  }
+
+  // OPTION_FULLSCREEN_DYNAMIC and window exists, modify state
+  if (fs)
+  {
+    hwnd->m_oswindow_fullscreen = WS_VISIBLE | (hwnd->m_style & stylemask);
+    hwnd->m_style &= ~stylemask;
+    gdk_window_fullscreen(hwnd->m_oswindow);
+  }
+  else
+  {
+    hwnd->m_style |= (hwnd->m_oswindow_fullscreen & stylemask);
+    hwnd->m_oswindow_fullscreen = 0;
+    gdk_window_unfullscreen(hwnd->m_oswindow);
+  }
+  return false;
 }
 
 void swell_oswindow_update_style(HWND hwnd, LONG oldstyle)

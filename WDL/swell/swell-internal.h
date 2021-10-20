@@ -848,7 +848,7 @@ struct HWND__
 
   bool m_israised;
   bool m_has_had_position;
-  bool m_oswindow_fullscreen;
+  int m_oswindow_fullscreen; // may contain preserved style flags
 
   int m_refcnt; 
   int m_oswindow_private; // private state for generic-gtk or whatever
