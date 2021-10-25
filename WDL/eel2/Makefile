@@ -147,6 +147,15 @@ asm-nseel-x64.o: a2x64.php asm-nseel-x86-gcc.c
 endif
 CXXFLAGS=$(CFLAGS)
 
+ifeq ($(CXX),g++)
+  GCC_VER := $(shell $(CXX) --version|head -n 1| sed 's/.* \([0-9][0-9]*\)[.][0-9.]*/\1/' )
+  GCC_GT_10 := $(shell [ "$(GCC_VER)" -gt 10 ] && echo true )
+  ifeq ($(GCC_GT_10),true)
+    CXXFLAGS += -std=c++03
+  endif
+endif
+
+
 
 %.o : %.mm
 	$(CXX) $(CXXFLAGS) -c -o $@ $^
