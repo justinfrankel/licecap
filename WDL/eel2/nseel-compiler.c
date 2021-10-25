@@ -5073,28 +5073,23 @@ had_error:
         else
         {
           const char *p = _expression + byteoffs;
-          int x=0, right_amt_nospace=0, left_amt_nospace=0;
-          while (x < 32 && p-x > _expression && p[-x] != '\r' && p[-x] != '\n') 
+          int x=1, right_amt_nospace=0, left_amt_nospace=0;
+          while (x < 32 && p-x >= _expression && p[-x] != '\r' && p[-x] != '\n')
           {
             if (!isspace((unsigned char)p[-x])) left_amt_nospace=x;
             x++;
           }
           x=0;
-          while (x < 60 && p[x] && p[x] != '\r' && p[x] != '\n') 
+          while (x < 60 && p[x] && p[x] != '\r' && p[x] != '\n')
           {
-            if (!isspace((unsigned char)p[x])) right_amt_nospace=x;
+            if (!isspace((unsigned char)p[x])) right_amt_nospace=x+1;
             x++;
           }
 
-          if (right_amt_nospace<1) right_amt_nospace=1;
-
           // display left_amt >>>> right_amt_nospace
-          if (left_amt_nospace > 0)
-            snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"%d: %.200s'%.*s <!> %.*s'",linenumber+lineoffs,cur_err,
-              left_amt_nospace,p-left_amt_nospace,
-              right_amt_nospace,p);
-          else
-            snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"%d: %.200s'%.*s'",linenumber+lineoffs,cur_err,right_amt_nospace,p);
+          snprintf(ctx->last_error_string,sizeof(ctx->last_error_string),"%d: %.200s'%.*s <!> %.*s'",linenumber+lineoffs,cur_err,
+            left_amt_nospace, p-left_amt_nospace,
+            right_amt_nospace ? right_amt_nospace : 5,right_amt_nospace ? p : "<eol>");
         }
       }
 
