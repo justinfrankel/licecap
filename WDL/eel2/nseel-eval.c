@@ -321,7 +321,20 @@ in_string:
       }
       else if (rv == '$' && toklen > 1)
       {
-        *output = nseel_translate(scctx,tok,toklen);
+        if (tok[1] == '~')
+        {
+          int x;
+          for (x = 2; x < toklen; x ++)
+            if (tok[x] < '0' || tok[x] > '9')
+            {
+              tok += x;
+              break;
+            }
+
+          if (x<toklen || toklen == 2) toklen = 0;
+        }
+
+        *output = toklen > 1 ? nseel_translate(scctx,tok,toklen) : NULL;
         if (*output) rv=VALUE;
       }
       else if (rv == '<')
