@@ -208,7 +208,7 @@ in_comment:
 
     }
   }
-  else if (isalnum((unsigned char)*p) || *p == '_' || *p == '#' || *p == '$')
+  else if (isalnum((unsigned char)*p) || *p == '_' || *p == '#' || *p == '$' || (*p == '.' && p < endptr-1 && p[1] >= '0' && p[1] <= '9'))
   {
     if (*p == '$' && p < endptr-1 && p[1] == '~') p++;
     p++;
