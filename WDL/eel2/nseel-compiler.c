@@ -5797,11 +5797,11 @@ opcodeRec *nseel_translate(compileContext *ctx, const char *tmp, size_t tmplen) 
       return nseel_createCompiledValue(ctx,(EEL_F)((((WDL_INT64)1) << v) - 1));
     }
     else if (!tmplen ? !stricmp(tmp,"$E") : (tmplen == 2 && !strnicmp(tmp,"$E",2)))
-      return nseel_createCompiledValue(ctx,(EEL_F)2.71828183);
+      return nseel_createCompiledValue(ctx,(EEL_F)2.718281828459045);
     else if (!tmplen ? !stricmp(tmp, "$PI") : (tmplen == 3 && !strnicmp(tmp, "$PI", 3)))
       return nseel_createCompiledValue(ctx,(EEL_F)3.141592653589793);
     else if (!tmplen ? !stricmp(tmp, "$PHI") : (tmplen == 4 && !strnicmp(tmp, "$PHI", 4)))
-      return nseel_createCompiledValue(ctx,(EEL_F)1.61803399);      
+      return nseel_createCompiledValue(ctx,(EEL_F)1.6180339887498948);
     else if ((!tmplen || tmplen == 4) && tmp[1] == '\'' && tmp[2] && tmp[3] == '\'')
       return nseel_createCompiledValue(ctx,(EEL_F)tmp[2]);      
     else return NULL;
