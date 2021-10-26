@@ -1595,6 +1595,12 @@ void WDL_VirtualWnd_ScaledBlitBG(LICE_IBitmap *dest,
 
   int __sc = (int) dest->Extended(LICE_EXT_GET_ADVISORY_SCALING,NULL);
   if (__sc < 1) __sc=256;
+  else if (__sc>256 && ((((left_margin+right_margin)*__sc)>>8) > destw || (((top_margin+bottom_margin)*__sc)>>8) > desth))
+  {
+    // do not dpi-scale margins if they would exceed destination size
+    __sc=256;
+  }
+
   const int lm = (left_margin*__sc)>>8, 
             rm = (right_margin*__sc)>>8, 
             lmod = (left_margin_out*__sc)>>8, 
