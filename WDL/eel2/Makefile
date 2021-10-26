@@ -26,6 +26,8 @@ ifeq ($(ARCH), aarch64)
 endif
 
 ifeq ($(UNAME_S),Darwin)
+  CC=clang
+  CXX=clang++
   CFLAGS += -arch $(ARCH)
 endif
 
