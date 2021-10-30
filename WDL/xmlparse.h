@@ -294,21 +294,16 @@ class wdl_xml_parser {
       return true;
     }
 
-    bool skip_until(const char *tok, const char *a, const char *b)
+    bool skip_until(const char *s) // raw search, no tokenization
     {
-      bool state=false;
-      if (!tok) tok = get_tok();
-      while (tok)
+      int state = 0, c = m_lastchar;
+      while (c>0 && s[state])
       {
-        if (state && !strcmp(b,tok)) return true;
-        state = !strcmp(a,tok);
-        if (state && !b) return true;
-
-        if (skip_whitespace()) state=false;
-        tok = get_tok(true);
+        state = (state && c == (unsigned char)s[state]) ? (state+1) : (c == (unsigned char)s[0]);
+        c = nextchar();
       }
-
-      return false;
+      m_lastchar = c;
+      return !s[state];
     }
 
     const char *parse_element_attributes(wdl_xml_element *elem)
@@ -414,7 +409,7 @@ class wdl_xml_parser {
             tok = get_tok(true);
             if (!tok) return "expected token following <!-";
             if (*tok != '-') return "unknown token following <!-";
-            if (!skip_until(NULL,"-","-")) 
+            if (!skip_until("--"))
             {
               m_last_line=start_line;
               m_last_col=start_col;
@@ -503,7 +498,7 @@ class wdl_xml_parser {
               }
               element_root_meta.Add(ne);
             }
-            else if (!skip_until(tok, "?",">")) // ignore <? inside elements
+            else if (!skip_until("?>")) // ignore <? inside elements
             {
               m_last_line=start_line;
               m_last_col=start_col;
