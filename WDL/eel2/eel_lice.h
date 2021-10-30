@@ -2918,9 +2918,9 @@ static const char *eel_lice_function_reference =
 #ifdef EEL_LICE_WANT_STANDALONE
 #ifndef EEL_LICE_STANDALONE_NOINITQUIT
 #ifdef EEL_LICE_WANTDOCK
-  "gfx_init\t\"name\"[,width,height,dockstate,xpos,ypos]\tInitializes the graphics window with title name. Suggested width and height can be specified.\n\n"
+  "gfx_init\t\"name\"[,width,height,dockstate,xpos,ypos]\tInitializes the graphics window with title name. Suggested width and height can be specified. If window is already open, a non-empty name will re-title window, or an empty title will resize window. \n\n"
 #else
-  "gfx_init\t\"name\"[,width,height,xpos,ypos]\tInitializes the graphics window with title name. Suggested width and height can be specified.\n\n"
+  "gfx_init\t\"name\"[,width,height,xpos,ypos]\tInitializes the graphics window with title name. Suggested width and height can be specified. If window is already open, a non-empty name will re-title window, or an empty title will resize window.\n\n"
 #endif
   "Once the graphics window is open, gfx_update() should be called periodically. \0"
   "gfx_quit\t\tCloses the graphics window.\0"
