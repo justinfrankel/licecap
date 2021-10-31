@@ -45,7 +45,7 @@ static bool ClipLine(int* pX1, int* pY1, int* pX2, int* pY2, int nX, int nY)
       int x, y;
       int eOut = e1 ? e1 : e2;
       if (eOut & eYHi) {
-        x = x1 + (int) ((double) (x2 - x1) * (double) (nY - y1) / (double) (y2 - y1));
+        x = x1 + (int) ((double) (x2 - x1) * (double) (nY - 1 - y1) / (double) (y2 - y1));
         y = nY - 1;
       }
       else
@@ -55,7 +55,7 @@ static bool ClipLine(int* pX1, int* pY1, int* pX2, int* pY2, int nX, int nY)
       }
       else
       if (eOut & eXHi) {
-        y = y1 + (int) ((double) (y2 - y1) * (double) (nX - x1) / (double) (x2 - x1));
+        y = y1 + (int) ((double) (y2 - y1) * (double) (nX - 1 - x1) / (double) (x2 - x1));
         x = nX - 1;
       }
       else {
