@@ -738,6 +738,27 @@ static const char *adv_str(const char *str, int *strcnt, unsigned short *c)
   return str+charlen;
 }
 
+const char *LICE_CachedFont::NextWordBreak(const char *str, int strcnt, int w)
+{
+  const char *next_break=NULL;
+  while (*str && strcnt)
+  {
+    unsigned short c;
+    str=adv_str(str, &strcnt, &c);
+    if (c != '\r' && c != '\n')
+    {
+      charEnt *ent=findChar(c);
+      if (ent && ent->base_offset > 0 && ent->base_offset < m_cachestore.GetSize())
+      {
+        w -= ent->advance;
+        if (w < 0) return next_break ? next_break : str;
+      }
+    }
+    if (c == ' ' || c == '\t' || c == '\r' || c == '\n') next_break=str;
+  }
+  return str;
+}
+
 
 int LICE_CachedFont::DrawTextImpl(LICE_IBitmap *bm, const char *str, int strcnt, 
                                RECT *rect, UINT dtFlags)
@@ -776,6 +797,10 @@ int LICE_CachedFont::DrawTextImpl(LICE_IBitmap *bm, const char *str, int strcnt,
 
   int ret=0;
   if (!bm || !bm->Extended('YUVx',NULL)) if (((m_flags&LICE_FONT_FLAG_FORCE_NATIVE) && m_font && !forceWantAlpha &&!LICE_Text_IsWine() &&
+#ifndef _WIN32
+      // swell does not support DT_WORDBREAK at the moment
+      !(dtFlags & DT_WORDBREAK) &&
+#endif
       !(dtFlags & LICE_DT_USEFGALPHA) &&
       !(m_flags&LICE_FONT_FLAG_PRECALCALL) && !LICE_FONT_FLAGS_HAS_FX(m_flags) &&
       (!m_lsadj || (dtFlags&DT_SINGLELINE))) || 
@@ -1041,6 +1066,7 @@ finish_up_native_render:
     int ypos=0;
     int max_xpos=0;
     int max_ypos=0;
+    const char *next_break=NULL;
     while (*str && strcnt)
     {
       unsigned short c;
@@ -1084,6 +1110,20 @@ finish_up_native_render:
           if (ypos+ent->height>max_ypos) max_ypos=ypos+ent->height;
           if (xpos>max_xpos) max_xpos=xpos;
           if (xext>max_xpos) max_xpos=xext;
+        }
+
+        if (dtFlags&DT_WORDBREAK)
+        {
+          if (str == next_break)
+          {
+            ypos += m_line_height+m_lsadj;
+            xpos=0;
+            next_break=NULL;
+          }
+          if (!next_break)
+          {
+            next_break=NextWordBreak(str, strcnt, rect->right-rect->left-xpos);
+          }
         }
       }
     }
@@ -1189,6 +1229,12 @@ finish_up_native_render:
   // might need to precalc size to make sure it's needed, though
 
 
+  if ((dtFlags&DT_WORDBREAK) && (m_flags&LICE_FONT_FLAG_VERTICAL))
+  {
+    dtFlags &= ~DT_WORDBREAK; // todo
+  }
+
+  const char *next_break=NULL;
   while (*str && strcnt)
   {
     unsigned short c;
@@ -1234,6 +1280,20 @@ finish_up_native_render:
       {
         xpos += ent->advance;
         if (drawn && ypos+ent->height>max_ypos) max_ypos=ypos+ent->height;
+      }
+
+      if (dtFlags&DT_WORDBREAK)
+      {
+        if (str == next_break)
+        {
+          ypos += m_line_height+m_lsadj;
+          xpos=start_x;
+          next_break=NULL;
+        }
+        if (!next_break)
+        {
+          next_break=NextWordBreak(str, strcnt, use_rect.right-xpos);
+        }
       }
     }
   }

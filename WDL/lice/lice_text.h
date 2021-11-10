@@ -89,6 +89,8 @@ class LICE_CachedFont : public LICE_IFont
 
     bool RenderGlyph(unsigned short idx);
 
+    const char *NextWordBreak(const char *str, int strcnt, int w);
+
     LICE_pixel m_fg,m_bg,m_effectcol;
     int m_bgmode;
     int m_comb;
