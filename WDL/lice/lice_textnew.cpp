@@ -730,6 +730,15 @@ static BOOL LICE_Text_HasUTF8(const char *_str)
         rect->bottom = (rect->bottom * 256) / __sc; \
       }
 
+
+static const char *adv_str(const char *str, int *strcnt, unsigned short *c)
+{
+  int charlen=utf8char(str, c);
+  if (strcnt && *strcnt > 0) *strcnt=wdl_max(*strcnt-charlen, 0);
+  return str+charlen;
+}
+
+
 int LICE_CachedFont::DrawTextImpl(LICE_IBitmap *bm, const char *str, int strcnt, 
                                RECT *rect, UINT dtFlags)
 {
@@ -1005,6 +1014,26 @@ finish_up_native_render:
   }
 #endif
 
+  // ensure all glyphs rendered
+  const char *tstr=str;
+  int tcnt=strcnt;
+  while (*tstr && tcnt)
+  {
+    unsigned short c;
+    tstr=adv_str(tstr, &tcnt, &c);
+
+    if (c != '\r' && c != '\n')
+    {
+      charEnt *ent=findChar(c);
+      if (!ent)
+      {
+        const int os=m_extracharlist.GetSize();
+        RenderGlyph(c);
+        if (m_extracharlist.GetSize() != os) ent=findChar(c);
+      }
+      if (ent && ent->base_offset == 0) RenderGlyph(c);
+    }
+  }
 
   if (dtFlags & DT_CALCRECT)
   {
@@ -1014,14 +1043,8 @@ finish_up_native_render:
     int max_ypos=0;
     while (*str && strcnt)
     {
-      unsigned short c=' ';
-      int charlen = utf8char(str,&c);
-      str += charlen;
-      if (strcnt>0)
-      {
-        strcnt -= charlen;
-        if (strcnt<0) strcnt=0;
-      }
+      unsigned short c;
+      str=adv_str(str, &strcnt, &c);
 
       if (c == '\r') continue;
       if (c == '\n')
@@ -1044,36 +1067,23 @@ finish_up_native_render:
       }
 
       charEnt *ent = findChar(c);
-      if (!ent) 
+      if (ent && ent->base_offset > 0 && ent->base_offset < m_cachestore.GetSize())
       {
-        const int os=m_extracharlist.GetSize();
-        RenderGlyph(c);
-        if (m_extracharlist.GetSize()!=os)
-          ent = findChar(c);
-      }
-
-      if (ent && ent->base_offset>=0)
-      {
-        if (ent->base_offset == 0) RenderGlyph(c);      
-
-        if (ent->base_offset > 0)
+        if (m_flags&LICE_FONT_FLAG_VERTICAL)
         {
-          if (m_flags&LICE_FONT_FLAG_VERTICAL) 
-          {
-            const int yext = ypos + ent->height - ent->left_extra;
-            ypos += ent->advance;
-            if (xpos+ent->width>max_xpos) max_xpos=xpos+ent->width;
-            if (ypos>max_ypos) max_ypos=ypos;
-            if (yext>max_ypos) max_ypos=yext;
-          }
-          else
-          {
-            const int xext = xpos + ent->width - ent->left_extra;
-            xpos += ent->advance;
-            if (ypos+ent->height>max_ypos) max_ypos=ypos+ent->height;         
-            if (xpos>max_xpos) max_xpos=xpos;
-            if (xext>max_xpos) max_xpos=xext;
-          }
+          const int yext = ypos + ent->height - ent->left_extra;
+          ypos += ent->advance;
+          if (xpos+ent->width>max_xpos) max_xpos=xpos+ent->width;
+          if (ypos>max_ypos) max_ypos=ypos;
+          if (yext>max_ypos) max_ypos=yext;
+        }
+        else
+        {
+          const int xext = xpos + ent->width - ent->left_extra;
+          xpos += ent->advance;
+          if (ypos+ent->height>max_ypos) max_ypos=ypos+ent->height;
+          if (xpos>max_xpos) max_xpos=xpos;
+          if (xext>max_xpos) max_xpos=xext;
         }
       }
     }
@@ -1178,16 +1188,12 @@ finish_up_native_render:
   // thought: calculate length of "...", then when pos+length+widthofnextchar >= right, switch
   // might need to precalc size to make sure it's needed, though
 
+
   while (*str && strcnt)
   {
-    unsigned short c=' ';
-    int charlen = utf8char(str,&c);
-    str += charlen;
-    if (strcnt>0)
-    {
-      strcnt -= charlen;
-      if (strcnt<0) strcnt=0;
-    }
+    unsigned short c;
+    str=adv_str(str, &strcnt, &c);
+
     if (c == '\r') continue;
     if (c == '\n')
     {
@@ -1209,38 +1215,25 @@ finish_up_native_render:
     }
 
     charEnt *ent = findChar(c);
-    if (!ent) 
+    if (ent && ent->base_offset > 0 && ent->base_offset < m_cachestore.GetSize())
     {
-      const int os=m_extracharlist.GetSize();
-      RenderGlyph(c);
-      if (m_extracharlist.GetSize()!=os)
-        ent = findChar(c);
-    }
+      if (isVertRev) ypos -= ent->height;
 
-    if (ent && ent->base_offset>=0)
-    {
-      if (ent->base_offset==0) RenderGlyph(c);
+      bool drawn = DrawGlyph(bm,c,xpos,ypos,&use_rect);
 
-      if (ent->base_offset > 0 && ent->base_offset < m_cachestore.GetSize())
+      if (m_flags&LICE_FONT_FLAG_VERTICAL)
       {
-        if (isVertRev) ypos -= ent->height;
-       
-        bool drawn = DrawGlyph(bm,c,xpos,ypos,&use_rect);
-
-        if (m_flags&LICE_FONT_FLAG_VERTICAL) 
+        if (!isVertRev)
         {
-          if (!isVertRev)
-          {
-            ypos += ent->advance;
-          }
-          else ypos += ent->height - ent->advance;
-          if (drawn && xpos+ent->width > max_xpos) max_xpos=xpos;
+          ypos += ent->advance;
         }
-        else
-        {
-          xpos += ent->advance;
-          if (drawn && ypos+ent->height>max_ypos) max_ypos=ypos+ent->height;         
-        }
+        else ypos += ent->height - ent->advance;
+        if (drawn && xpos+ent->width > max_xpos) max_xpos=xpos;
+      }
+      else
+      {
+        xpos += ent->advance;
+        if (drawn && ypos+ent->height>max_ypos) max_ypos=ypos+ent->height;
       }
     }
   }
