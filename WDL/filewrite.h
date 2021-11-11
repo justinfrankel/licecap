@@ -182,15 +182,21 @@ public:
         if (szreq > 1000)
         {
           WDL_TypedBuf<WCHAR> wfilename;
-          wfilename.Resize(szreq+10);
-          if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wfilename.Get(),wfilename.GetSize()))
+          wfilename.Resize(szreq+20);
+          if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wfilename.Get(),wfilename.GetSize()-10))
+          {
+            correctlongpath(wfilename.Get());
             m_fh = CreateFileW(wfilename.Get(),rwflag,shareFlag,NULL,createFlag,flag,NULL);
+          }
         }
         else
         {
           WCHAR wfilename[1024];
-          if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wfilename,1024))
+          if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wfilename,1024-10))
+          {
+            correctlongpath(wfilename);
             m_fh = CreateFileW(wfilename,rwflag,shareFlag,NULL,createFlag,flag,NULL);
+          }
         }
       }
       
@@ -667,6 +673,28 @@ public:
   int GetHandle() { return fileno(m_fp); }
  
   FILE *m_fp;
+#endif
+
+#ifdef _WIN32
+  static void correctlongpath(WCHAR *buf) // this also exists as wdl_utf8_correctlongpath
+  {
+    const WCHAR *insert;
+    WCHAR *wr;
+    int skip = 0;
+    if (!buf || !buf[0] || wcslen(buf) < 256) return;
+    if (buf[1] == ':') insert=L"\\\\?\\";
+    else if (buf[0] == '\\' && buf[1] == '\\') { insert = L"\\\\?\\UNC\\"; skip=2; }
+    else return;
+
+    wr = buf + wcslen(insert);
+    memmove(wr, buf + skip, (wcslen(buf+skip)+1)*2);
+    memmove(buf,insert,wcslen(insert)*2);
+    while (*wr)
+    {
+      if (*wr == '/') *wr = '\\';
+      wr++;
+    }
+  }
 #endif
 } WDL_FIXALIGN;
 

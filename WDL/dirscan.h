@@ -114,15 +114,21 @@ class WDL_DirScan
         if (reqbuf > 1000)
         {
           WDL_TypedBuf<WCHAR> tmp;
-          tmp.Resize(reqbuf+10);
-          if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,scanstr.Get(),-1,tmp.Get(),tmp.GetSize()))
+          tmp.Resize(reqbuf+20);
+          if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,scanstr.Get(),-1,tmp.Get(),tmp.GetSize()-10))
+          {
+            correctlongpath(tmp.Get());
             m_h=FindFirstFileW(tmp.Get(),&m_fd);
+          }
         }
         else
         {
           WCHAR wfilename[1024];
-          if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,scanstr.Get(),-1,wfilename,1024))
+          if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,scanstr.Get(),-1,wfilename,1024-10))
+          {
+            correctlongpath(wfilename);
             m_h=FindFirstFileW(wfilename,&m_fd);
+          }
         }
       }
       
@@ -296,6 +302,28 @@ class WDL_DirScan
     struct dirent *m_ent;
 #endif
     WDL_FastString m_leading_path;
+
+#ifdef _WIN32
+  static void correctlongpath(WCHAR *buf) // this also exists as wdl_utf8_correctlongpath
+  {
+    const WCHAR *insert;
+    WCHAR *wr;
+    int skip = 0;
+    if (!buf || !buf[0] || wcslen(buf) < 256) return;
+    if (buf[1] == ':') insert=L"\\\\?\\";
+    else if (buf[0] == '\\' && buf[1] == '\\') { insert = L"\\\\?\\UNC\\"; skip=2; }
+    else return;
+
+    wr = buf + wcslen(insert);
+    memmove(wr, buf + skip, (wcslen(buf+skip)+1)*2);
+    memmove(buf,insert,wcslen(insert)*2);
+    while (*wr)
+    {
+      if (*wr == '/') *wr = '\\';
+      wr++;
+    }
+  }
+#endif
 } WDL_FIXALIGN;
 
 #endif

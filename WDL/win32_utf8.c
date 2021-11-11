@@ -23,7 +23,7 @@ extern "C" {
 #define MBTOWIDE(symbase, src) \
                 int symbase##_size; \
                 WCHAR symbase##_buf[1024]; \
-                WCHAR *symbase = (symbase##_size=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,src,-1,NULL,0)) >= 1000 ? (WCHAR *)malloc(symbase##_size * sizeof(WCHAR) + 10) : symbase##_buf; \
+                WCHAR *symbase = (symbase##_size=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,src,-1,NULL,0)) >= 1000 ? (WCHAR *)malloc(symbase##_size * sizeof(WCHAR) + 24) : symbase##_buf; \
                 int symbase##_ok = symbase ? (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,src,-1,symbase,symbase##_size < 1 ? 1024 : symbase##_size)) : 0
 
 #define MBTOWIDE_FREE(symbase) if (symbase != symbase##_buf) free(symbase)
@@ -39,6 +39,31 @@ extern "C" {
 BOOL WDL_HasUTF8(const char *_str)
 {
   return WDL_DetectUTF8(_str) > 0;
+}
+
+static BOOL WDL_HasUTF8_FILENAME(const char *_str)
+{
+  return WDL_DetectUTF8(_str) > 0 || (_str && strlen(_str)>=256);
+}
+
+static void wdl_utf8_correctlongpath(WCHAR *buf)
+{
+  const WCHAR *insert;
+  WCHAR *wr;
+  int skip = 0;
+  if (!buf || !buf[0] || wcslen(buf) < 256) return;
+  if (buf[1] == ':') insert=L"\\\\?\\";
+  else if (buf[0] == '\\' && buf[1] == '\\') { insert = L"\\\\?\\UNC\\"; skip=2; }
+  else return;
+
+  wr = buf + wcslen(insert);
+  memmove(wr, buf + skip, (wcslen(buf+skip)+1)*2);
+  memmove(buf,insert,wcslen(insert)*2);
+  while (*wr)
+  {
+    if (*wr == '/') *wr = '\\';
+    wr++;
+  }
 }
 
 #ifdef AND_IS_NOT_WIN9X
@@ -482,9 +507,10 @@ int WDL_UTF8_SendBFFM_SETSEL(HWND hwnd, const char *str)
 
 BOOL SetCurrentDirectoryUTF8(LPCTSTR path)
 {
-  if (WDL_HasUTF8(path) AND_IS_NOT_WIN9X)
+  if (WDL_HasUTF8_FILENAME(path) AND_IS_NOT_WIN9X)
   {
     MBTOWIDE(wbuf,path);
+    if (wbuf_ok) wdl_utf8_correctlongpath(wbuf);
     if (wbuf_ok)
     {
       BOOL rv=SetCurrentDirectoryW(wbuf);
@@ -498,9 +524,10 @@ BOOL SetCurrentDirectoryUTF8(LPCTSTR path)
 
 BOOL RemoveDirectoryUTF8(LPCTSTR path)
 {
-  if (WDL_HasUTF8(path) AND_IS_NOT_WIN9X)
+  if (WDL_HasUTF8_FILENAME(path) AND_IS_NOT_WIN9X)
   {
     MBTOWIDE(wbuf,path);
+    if (wbuf_ok) wdl_utf8_correctlongpath(wbuf);
     if (wbuf_ok)
     {
       BOOL rv=RemoveDirectoryW(wbuf);
@@ -514,9 +541,10 @@ BOOL RemoveDirectoryUTF8(LPCTSTR path)
 
 HINSTANCE LoadLibraryUTF8(LPCTSTR path)
 {
-  if (WDL_HasUTF8(path) AND_IS_NOT_WIN9X)
+  if (WDL_HasUTF8_FILENAME(path) AND_IS_NOT_WIN9X)
   {
     MBTOWIDE(wbuf,path);
+    if (wbuf_ok) wdl_utf8_correctlongpath(wbuf);
     if (wbuf_ok)
     {
       HINSTANCE rv=LoadLibraryW(wbuf);
@@ -533,9 +561,10 @@ HINSTANCE LoadLibraryUTF8(LPCTSTR path)
 
 BOOL CreateDirectoryUTF8(LPCTSTR path, LPSECURITY_ATTRIBUTES attr)
 {
-  if (WDL_HasUTF8(path) AND_IS_NOT_WIN9X)
+  if (WDL_HasUTF8_FILENAME(path) AND_IS_NOT_WIN9X)
   {
     MBTOWIDE(wbuf,path);
+    if (wbuf_ok) wdl_utf8_correctlongpath(wbuf);
     if (wbuf_ok)
     {
       BOOL rv=CreateDirectoryW(wbuf,attr);
@@ -549,9 +578,10 @@ BOOL CreateDirectoryUTF8(LPCTSTR path, LPSECURITY_ATTRIBUTES attr)
 
 BOOL DeleteFileUTF8(LPCTSTR path)
 {
-  if (WDL_HasUTF8(path) AND_IS_NOT_WIN9X)
+  if (WDL_HasUTF8_FILENAME(path) AND_IS_NOT_WIN9X)
   {
     MBTOWIDE(wbuf,path);
+    if (wbuf_ok) wdl_utf8_correctlongpath(wbuf);
     if (wbuf_ok)
     {
       BOOL rv=DeleteFileW(wbuf);
@@ -565,12 +595,14 @@ BOOL DeleteFileUTF8(LPCTSTR path)
 
 BOOL MoveFileUTF8(LPCTSTR existfn, LPCTSTR newfn)
 {
-  if ((WDL_HasUTF8(existfn)||WDL_HasUTF8(newfn)) AND_IS_NOT_WIN9X)
+  if ((WDL_HasUTF8_FILENAME(existfn)||WDL_HasUTF8_FILENAME(newfn)) AND_IS_NOT_WIN9X)
   {
     MBTOWIDE(wbuf,existfn);
+    if (wbuf_ok) wdl_utf8_correctlongpath(wbuf);
     if (wbuf_ok)
     {
       MBTOWIDE(wbuf2,newfn);
+      if (wbuf2_ok) wdl_utf8_correctlongpath(wbuf2);
       if (wbuf2_ok)
       {
         int rv=MoveFileW(wbuf,wbuf2);
@@ -587,12 +619,14 @@ BOOL MoveFileUTF8(LPCTSTR existfn, LPCTSTR newfn)
 
 BOOL CopyFileUTF8(LPCTSTR existfn, LPCTSTR newfn, BOOL fie)
 {
-  if ((WDL_HasUTF8(existfn)||WDL_HasUTF8(newfn)) AND_IS_NOT_WIN9X)
+  if ((WDL_HasUTF8_FILENAME(existfn)||WDL_HasUTF8_FILENAME(newfn)) AND_IS_NOT_WIN9X)
   {
     MBTOWIDE(wbuf,existfn);
+    if (wbuf_ok) wdl_utf8_correctlongpath(wbuf);
     if (wbuf_ok)
     {
       MBTOWIDE(wbuf2,newfn);
+      if (wbuf2_ok) wdl_utf8_correctlongpath(wbuf2);
       if (wbuf2_ok)
       {
         int rv=CopyFileW(wbuf,wbuf2,fie);
@@ -643,11 +677,12 @@ DWORD GetCurrentDirectoryUTF8(DWORD nBufferLength, LPTSTR lpBuffer)
 
 HANDLE CreateFileUTF8(LPCTSTR lpFileName,DWORD dwDesiredAccess,DWORD dwShareMode,LPSECURITY_ATTRIBUTES lpSecurityAttributes,DWORD dwCreationDisposition,DWORD dwFlagsAndAttributes,HANDLE hTemplateFile)
 {
-  if (WDL_HasUTF8(lpFileName) AND_IS_NOT_WIN9X)
+  if (WDL_HasUTF8_FILENAME(lpFileName) AND_IS_NOT_WIN9X)
   {
     HANDLE h = INVALID_HANDLE_VALUE;
     
     MBTOWIDE(wstr, lpFileName);
+    if (wstr_ok) wdl_utf8_correctlongpath(wstr);
     if (wstr_ok) h = CreateFileW(wstr,dwDesiredAccess,dwShareMode,lpSecurityAttributes,dwCreationDisposition,dwFlagsAndAttributes,hTemplateFile);
     MBTOWIDE_FREE(wstr);
 
@@ -779,9 +814,10 @@ BOOL GetMenuItemInfoUTF8( HMENU hMenu,UINT uItem, BOOL fByPosition, LPMENUITEMIN
 
 FILE *fopenUTF8(const char *filename, const char *mode)
 {
-  if (WDL_HasUTF8(filename) AND_IS_NOT_WIN9X)
+  if (WDL_HasUTF8_FILENAME(filename) AND_IS_NOT_WIN9X)
   {
     MBTOWIDE(wbuf,filename);
+    if (wbuf_ok) wdl_utf8_correctlongpath(wbuf);
     if (wbuf_ok)
     {
       FILE *rv;
@@ -802,12 +838,14 @@ FILE *fopenUTF8(const char *filename, const char *mode)
 
 int statUTF8(const char *filename, struct stat *buffer)
 {
-  if (WDL_HasUTF8(filename) AND_IS_NOT_WIN9X)
+  if (WDL_HasUTF8_FILENAME(filename) AND_IS_NOT_WIN9X)
   {
     MBTOWIDE(wbuf,filename);
+    if (wbuf_ok) wdl_utf8_correctlongpath(wbuf);
     if (wbuf_ok)
     {
-      int rv=_wstat(wbuf,(struct _stat*)buffer);
+      int rv;
+      rv=_wstat(wbuf,(struct _stat*)buffer);
       MBTOWIDE_FREE(wbuf);
       if (!rv) return rv;
     }
@@ -873,6 +911,7 @@ int GetKeyNameTextUTF8(LONG lParam, LPTSTR lpString, int nMaxCount)
 
 HINSTANCE ShellExecuteUTF8(HWND hwnd, LPCTSTR lpOp, LPCTSTR lpFile, LPCTSTR lpParm, LPCTSTR lpDir, INT nShowCmd)
 {
+  // wdl_utf8_correctlongpath?
   if (IS_NOT_WIN9X_AND (WDL_HasUTF8(lpOp)||WDL_HasUTF8(lpFile)||WDL_HasUTF8(lpParm)||WDL_HasUTF8(lpDir)))
   {
     DWORD sz;
@@ -1051,6 +1090,8 @@ BOOL CreateProcessUTF8(LPCTSTR lpApplicationName,
   LPSTARTUPINFO lpStartupInfo,
   LPPROCESS_INFORMATION lpProcessInformation )
 {
+  // wdl_utf8_correctlongpath?
+
   // special case ver
   if (IS_NOT_WIN9X_AND (
         WDL_HasUTF8(lpApplicationName) ||
