@@ -45,15 +45,6 @@ typedef double WDL_ResampleSample;
 #endif
 
 
-#ifndef WDL_RESAMPLE_MAX_FILTERS
-#define WDL_RESAMPLE_MAX_FILTERS 4
-#endif
-
-#ifndef WDL_RESAMPLE_MAX_NCH
-#define WDL_RESAMPLE_MAX_NCH 64
-#endif
-
-
 class WDL_Resampler
 {
 public:
@@ -95,8 +86,9 @@ private:
   WDL_TypedBuf<WDL_ResampleSample> m_rsinbuf;
   WDL_TypedBuf<WDL_SincFilterSample> m_filter_coeffs;
 
-  class WDL_Resampler_IIRFilter;
-  WDL_Resampler_IIRFilter *m_iirfilter;
+  class WDL_Resampler_Filter;
+  WDL_Resampler_Filter *m_pre_filter, *m_post_filter;
+  int m_prepost_filtercnt;
 
   int m_filter_coeffs_size;
   int m_last_requested;
@@ -106,7 +98,6 @@ private:
   int m_sinc_ideal_calced; // -1=not yet calced
 
   int m_sincsize;
-  int m_filtercnt;
   int m_sincoversize;
   bool m_interp;
   bool m_feedmode;
