@@ -1110,6 +1110,7 @@ void WDL_Resampler::Reset(double fracpos)
   m_filtlatency=0;
   m_fracpos=fracpos; 
   m_samples_in_rsinbuf=0; 
+  if (m_sinc_ideal_calced == -2) m_sinc_ideal_calced = -1;
   if (m_pre_filter) m_pre_filter->Reset();
   if (m_post_filter) m_post_filter->Reset();
 }
@@ -1157,7 +1158,7 @@ const WDL_SincFilterSample *WDL_Resampler::BuildLowPass(double filtpos, bool *is
   int ideal_interp = 0;
   if (wantinterp)
   {
-    if (m_sinc_ideal_calced < 0)
+    if (m_sinc_ideal_calced == -1)
     {
       if (m_ratio < 1.0)
       {
@@ -1191,6 +1192,11 @@ const WDL_SincFilterSample *WDL_Resampler::BuildLowPass(double filtpos, bool *is
           if (!n2)
             ideal_interp = out1 / n1;
         }
+      }
+      if (ideal_interp > 0 && m_fracpos != 0.0)
+      {
+        // should maybe see if m_fracpos maps losslessly to ideal_interp
+        ideal_interp = -2;
       }
       m_sinc_ideal_calced = ideal_interp;
     }
