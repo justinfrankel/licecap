@@ -52,6 +52,10 @@ extern "C" {
 
 #include <X11/Xatom.h>
 
+#include <GL/glew.h>
+#include <GL/gl.h>
+#include <GL/glx.h>
+
 static void (*_gdk_drag_drop_done)(GdkDragContext *, gboolean); // may not always be available
 
 static guint32 _gdk_x11_window_get_desktop(GdkWindow *window)
@@ -2098,11 +2102,26 @@ struct bridgeState {
   bool lastvis;
   bool need_reparent;
   RECT lastrect;
+
+  GLXContext gl_ctx;
 };
+
+static bridgeState *s_last_gl_ctx;
 
 static WDL_PtrList<bridgeState> filter_windows;
 bridgeState::~bridgeState() 
 { 
+  if (gl_ctx)
+  {
+    if (s_last_gl_ctx == this)
+    {
+      glXMakeCurrent(native_disp,None, NULL);
+      s_last_gl_ctx = NULL;
+    }
+
+    glXDestroyContext(native_disp,gl_ctx);
+    gl_ctx = NULL;
+  }
   filter_windows.DeletePtr(this); 
   if (w) 
   {
@@ -2118,6 +2137,7 @@ bridgeState::~bridgeState()
 }
 bridgeState::bridgeState(bool needrep, GdkWindow *_w, Window _nw, Display *_disp, GdkWindow *_curpar)
 {
+  gl_ctx = NULL;
   w=_w;
   native_w=_nw;
   native_disp=_disp;
@@ -2314,6 +2334,7 @@ static GdkFilterReturn filterCreateShowProc(GdkXEvent *xev, GdkEvent *event, gpo
   return GDK_FILTER_CONTINUE;
 }
 
+static const char * const bridge_class_name = "__swell_xbridgewndclass";
 HWND SWELL_CreateXBridgeWindow(HWND viewpar, void **wref, const RECT *r)
 {
   HWND hwnd = NULL;
@@ -2342,6 +2363,7 @@ HWND SWELL_CreateXBridgeWindow(HWND viewpar, void **wref, const RECT *r)
 
   hwnd = new HWND__(viewpar,0,r,NULL, true, xbridgeProc);
   bridgeState *bs = gdkw ? new bridgeState(need_reparent,gdkw,w,disp, ospar) : NULL;
+  hwnd->m_classname = bridge_class_name;
   hwnd->m_private_data = (INT_PTR) bs;
   if (gdkw)
   {
@@ -2845,6 +2867,67 @@ BOOL GetMonitorInfo(HMONITOR hmon, void *inf)
 
   return TRUE;
 }
+
+
+
+void SWELL_SetViewGL(HWND h, char wantGL)
+{
+  // only works for X bridge windows
+  if (h && h->m_classname == bridge_class_name && h->m_private_data)
+  {
+    bridgeState *bs = (bridgeState*)h->m_private_data;
+    if (wantGL && !bs->gl_ctx)
+    {
+      static GLint att[] = { GLX_RGBA, None };
+      XVisualInfo* vi = glXChooseVisual(bs->native_disp, 0, att);
+      bs->gl_ctx = glXCreateContext(bs->native_disp,vi,NULL,1);
+    }
+    else if (!wantGL && bs->gl_ctx)
+    {
+      if (s_last_gl_ctx == bs)
+      {
+        glXMakeCurrent(bs->native_disp,None, NULL);
+        s_last_gl_ctx = NULL;
+      }
+
+      glXDestroyContext(bs->native_disp,bs->gl_ctx);
+      bs->gl_ctx = NULL;
+    }
+  }
+}
+
+bool SWELL_GetViewGL(HWND h)
+{
+  return h && h->m_classname == bridge_class_name && h->m_private_data &&
+    ((bridgeState*)h->m_private_data)->gl_ctx != NULL;
+}
+
+bool SWELL_SetGLContextToView(HWND h)
+{
+  if (h)
+  {
+    if (h->m_classname == bridge_class_name && h->m_private_data)
+    {
+      bridgeState *bs = (bridgeState*)h->m_private_data;
+      if (bs->gl_ctx)
+      {
+        glXMakeCurrent(bs->native_disp, bs->native_w, bs->gl_ctx);
+        s_last_gl_ctx = bs;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  if (s_last_gl_ctx)
+  {
+    glXMakeCurrent(s_last_gl_ctx->native_disp,None, NULL);
+    s_last_gl_ctx = NULL;
+  }
+  return true;
+}
+
+
 
 #endif
 #endif
