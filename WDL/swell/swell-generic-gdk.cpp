@@ -2272,6 +2272,7 @@ static LRESULT xbridgeProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
               bs->cur_parent = h->m_oswindow;
               bs->need_reparent=false;
+              if (vis && bs->lastvis) gdk_window_show(bs->w);
             }
             else if (memcmp(&tr,&bs->lastrect,sizeof(RECT)))
             {
