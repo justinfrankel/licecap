@@ -2087,13 +2087,13 @@ DWORD GetMessagePos()
 }
 
 struct bridgeState {
-  bridgeState(bool needrep, GdkWindow *_w, Window _nw, Display *_disp);
+  bridgeState(bool needrep, GdkWindow *_w, Window _nw, Display *_disp, GdkWindow *_curpar);
   ~bridgeState();
-
 
   GdkWindow *w;
   Window native_w;
   Display *native_disp;
+  GdkWindow *cur_parent;
 
   bool lastvis;
   bool need_reparent;
@@ -2116,13 +2116,14 @@ bridgeState::~bridgeState()
     XDestroyWindow(native_disp,native_w);
   }
 }
-bridgeState::bridgeState(bool needrep, GdkWindow *_w, Window _nw, Display *_disp)
+bridgeState::bridgeState(bool needrep, GdkWindow *_w, Window _nw, Display *_disp, GdkWindow *_curpar)
 {
   w=_w;
   native_w=_nw;
   native_disp=_disp;
   lastvis=false;
   need_reparent=needrep;
+  cur_parent = _curpar;
   memset(&lastrect,0,sizeof(lastrect));
   filter_windows.Add(this);
 }
@@ -2252,6 +2253,9 @@ static LRESULT xbridgeProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
           }
 
+          if (h && h->m_oswindow != bs->cur_parent)
+            bs->need_reparent = true;
+
           if (h && (bs->need_reparent || (vis != bs->lastvis) || (vis&&memcmp(&tr,&bs->lastrect,sizeof(RECT))))) 
           {
             if (bs->lastvis && !vis)
@@ -2266,6 +2270,7 @@ static LRESULT xbridgeProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
               gdk_window_resize(bs->w, tr.right-tr.left,tr.bottom-tr.top);
               bs->lastrect=tr;
 
+              bs->cur_parent = h->m_oswindow;
               bs->need_reparent=false;
             }
             else if (memcmp(&tr,&bs->lastrect,sizeof(RECT)))
@@ -2335,7 +2340,7 @@ HWND SWELL_CreateXBridgeWindow(HWND viewpar, void **wref, const RECT *r)
   GdkWindow *gdkw = w ? gdk_x11_window_foreign_new_for_display(gdk_display_get_default(),w) : NULL;
 
   hwnd = new HWND__(viewpar,0,r,NULL, true, xbridgeProc);
-  bridgeState *bs = gdkw ? new bridgeState(need_reparent,gdkw,w,disp) : NULL;
+  bridgeState *bs = gdkw ? new bridgeState(need_reparent,gdkw,w,disp, ospar) : NULL;
   hwnd->m_private_data = (INT_PTR) bs;
   if (gdkw)
   {
