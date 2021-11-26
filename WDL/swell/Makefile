@@ -139,7 +139,7 @@ ifndef NOGDK
       LINKEXTRA += -lfontconfig
     endif
   endif
-  LINKEXTRA += -lGL -lGLX
+  LINKEXTRA += -lGL
 endif
 
 CXXFLAGS = $(CFLAGS)
