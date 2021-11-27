@@ -680,7 +680,7 @@ bool UnpackVorbisFrame(unsigned char *frame, int framelen,
     str.Set("VORBIS:");
     str.Append(p, taglen);
     p += taglen;
-    const char *sep=strchr(str.Get()+7, '=');
+    const char *sep=strchr(str.Get(), '=');
     if (!sep) return false;
     *(char*)sep=0;
     metadata->Insert(str.Get(), strdup(sep+1));
