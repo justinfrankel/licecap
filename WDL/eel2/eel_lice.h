@@ -2948,7 +2948,7 @@ static const char *eel_lice_function_reference =
   "\4gfx_clear - if greater than -1.0, framebuffer will be cleared to that color. the color for this one is packed RGB (0..255), i.e. red+green*256+blue*65536. The default is 0 (black). \n"
   "\4gfx_dest - destination for drawing operations, -1 is main framebuffer, set to 0.." EEL_LICE_DOC_MAXHANDLE " to have drawing operations go to an offscreen buffer (or loaded image).\n"
   "\4gfx_texth - the (READ-ONLY) height of a line of text in the current font. Do not modify this variable.\n"
-  "\4gfx_ext_retina - to support hidpi/retina, callers should set to 1.0 on initialization, will be updated to 2.0 if high resolution display is supported, and if so gfx_w/gfx_h/etc will be doubled.\n"
+  "\4gfx_ext_retina - to support hidpi/retina, callers should set to 1.0 on initialization, this value will be updated to value greater than 1.0 (such as 2.0) if retina/hidpi. On macOS gfx_w/gfx_h/etc will be doubled, but on other systems gfx_w/gfx_h will remain the same and gfx_ext_retina is a scaling hint for drawing.\n"
   "\4gfx_ext_flags - &1 if context is JSFX embedded in TCP or MCP.\n"
   "\4mouse_x - current X coordinate of the mouse relative to the graphics window.\n"
   "\4mouse_y - current Y coordinate of the mouse relative to the graphics window.\n"
