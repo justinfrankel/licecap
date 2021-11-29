@@ -2954,7 +2954,7 @@ static const char *eel_lice_function_reference =
   "\4mouse_y - current Y coordinate of the mouse relative to the graphics window.\n"
   "\4mouse_wheel - wheel position, will change typically by 120 or a multiple thereof, the caller should clear the state to 0 after reading it.\n"
   "\4mouse_hwheel - horizontal wheel positions, will change typically by 120 or a multiple thereof, the caller should clear the state to 0 after reading it.\n"
-  "\4mouse_cap - a bitfield of mouse and keyboard modifier state:\3"
+  "\4mouse_cap - a bitfield of mouse and keyboard modifier state. Note that a script must call gfx_getchar() at least once in order to get modifier state when the mouse is not captured by the window. Bitfield bits:\3"
     "\4" "1: left mouse button\n"
     "\4" "2: right mouse button\n"
 #ifdef __APPLE__
@@ -2973,7 +2973,7 @@ static const char *eel_lice_function_reference =
   "\2\0"
 
 "gfx_getchar\t[char]\tIf char is 0 or omitted, returns a character from the keyboard queue, or 0 if no character is available, or -1 if the graphics window is not open. "
-     "If char is specified and nonzero, that character's status will be checked, and the function will return greater than 0 if it is pressed.\n\n"
+     "If char is specified and nonzero, that character's status will be checked, and the function will return greater than 0 if it is pressed. Note that calling gfx_getchar() at least once causes mouse_cap to reflect keyboard modifiers even when the mouse is not captured.\n\n"
      "Common values are standard ASCII, such as 'a', 'A', '=' and '1', but for many keys multi-byte values are used, including 'home', 'up', 'down', 'left', 'rght', 'f1'.. 'f12', 'pgup', 'pgdn', 'ins', and 'del'. \n\n"
      "Modified and special keys can also be returned, including:\3\n"
      "\4Ctrl/Cmd+A..Ctrl+Z as 1..26\n"
