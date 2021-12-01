@@ -681,6 +681,7 @@ bool LICE_CachedFont::DrawGlyph(LICE_IBitmap *bm, unsigned short c,
 }
 
 
+#ifndef LICE_TEXT_NONATIVE
 static int LICE_Text_IsWine()
 {
   static int isWine=-1;
@@ -698,6 +699,7 @@ static int LICE_Text_IsWine()
 #endif
   return isWine>0;
 }
+#endif
 
 #ifdef _WIN32
 static BOOL LICE_Text_HasUTF8(const char *_str)
