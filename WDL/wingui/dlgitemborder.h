@@ -58,7 +58,7 @@ static void Dlg_removeFromRgn(HRGN hrgn, int left, int top, int right, int botto
 #define Dlg_removeFromRgn(a,b,c,d,e) do{ } while(0)
 #endif
 
-static void Dlg_DrawChildWindowBorders(HWND hwndDlg, INT_PTR *tab, int tabsize, int (*GSC)(int)=0, PAINTSTRUCT *__use_ps=NULL
+static void WDL_STATICFUNC_UNUSED Dlg_DrawChildWindowBorders(HWND hwndDlg, INT_PTR *tab, int tabsize, int (*GSC)(int)=0, PAINTSTRUCT *__use_ps=NULL
 #ifdef WDL_DLGITEMBORDER_CUSTOMPARMS                                       
   , WDL_DLGITEMBORDER_CUSTOMPARMS
 #endif

@@ -2857,7 +2857,7 @@ void eel_lice_register_standalone(HINSTANCE hInstance, const char *classname, HW
 
 
 #ifdef DYNAMIC_LICE
-static void eel_lice_initfuncs(void *(*getFunc)(const char *name))
+static WDL_STATICFUNC_UNUSED void eel_lice_initfuncs(void *(*getFunc)(const char *name))
 {
   if (!getFunc) return;
 

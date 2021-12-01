@@ -69,7 +69,7 @@ void __localizeInitializeDialog(HWND hwnd, const char *d)
   if (WDL_NORMALLY(importedLocalizeInitializeDialog)) importedLocalizeInitializeDialog(hwnd,d);
 }
 
-static void localizeKbdSection(KbdSectionInfo *sec, const char *nm)
+static WDL_STATICFUNC_UNUSED void localizeKbdSection(KbdSectionInfo *sec, const char *nm)
 {
   if (WDL_NORMALLY(importedLocalizeFunc))
   {
