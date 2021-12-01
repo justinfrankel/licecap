@@ -5357,7 +5357,11 @@ int g_swell_in_paint;
 BOOL InvalidateRect(HWND hwnd, const RECT *r, int eraseBk)
 { 
 #ifdef _DEBUG
-  WDL_ASSERT(!g_swell_in_paint); // not forbidden, but bad form to call InvalidateRect() from within a WM_PAINT
+  if (g_swell_in_paint)
+  {
+    printf("swell-cocoa: calling InvalidateRect() from within paint, this is allowed but bad form.\n");
+    // WDL_ASSERT(false);
+  }
 #endif
 
   if (WDL_NOT_NORMALLY(!hwnd)) return FALSE;
