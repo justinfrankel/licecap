@@ -25,7 +25,7 @@
 
   Usage:
 
-  See: mac_resgen.php etc
+  See: swell_resgen.php etc
 
   */
 

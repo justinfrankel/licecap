@@ -14,7 +14,7 @@
  
  Go to Frameworks -> Linked Frameworks, add existing framework, Carbon.Framework
  
- go to terminal, to project dir, and run php <pathtoswell>/mac_resgen.php sample_project.rc
+ go to terminal, to project dir, and run php <pathtoswell>/swell_resgen.php sample_project.rc
 
  Open mainmenu.xib in Interface Builder (doubleclick it in XCode)
 
@@ -187,7 +187,7 @@ INT_PTR SWELLAppMain(int msg, INT_PTR parm1, INT_PTR parm2)
 
 
 
-#ifndef _WIN32 // import the resources. Note: if you do not have these files, run "php ../mac_resgen.php sample_project.rc" from this directory
+#ifndef _WIN32 // import the resources. Note: if you do not have these files, run "php ../swell_resgen.php sample_project.rc" from this directory
   #include "../swell-dlggen.h"
 
   #include "sample_project.rc_mac_dlg"
