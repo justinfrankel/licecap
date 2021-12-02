@@ -166,4 +166,6 @@ loose_eel: loose_eel.o $(OBJS) $(OBJS2)
 	g++ -o $@ $^ $(CXXFLAGS) $(LFLAGS)
 
 clean:
-	-rm loose_eel loose_eel.o $(OBJS) 
+	-rm -f -- loose_eel loose_eel.o $(OBJS)
+
+.PHONY: clean

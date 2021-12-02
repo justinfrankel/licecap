@@ -173,4 +173,4 @@ libSwell.colortheme: swell-gdi-generic.cpp $(SWELL_HEADERS)
 	./make-theme > libSwell.colortheme
 
 clean: 
-	-rm $(OBJS) libSwell$(DLL_EXT) make-theme libSwell.colortheme
+	-rm -f -- $(OBJS) libSwell$(DLL_EXT) make-theme libSwell.colortheme
