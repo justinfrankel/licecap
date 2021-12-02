@@ -70,7 +70,7 @@ DLGPROC __localizePrepareDialog(const char *rescat, HINSTANCE hInstance, const c
 
 
 #undef LoadMenu
-#define LoadMenu(a,b) __localizeLoadMenu(a,b)
+#define LoadMenu __localizeLoadMenu
 #endif
 
 HMENU __localizeLoadMenu(HINSTANCE hInstance, const char *lpMenuName);
