@@ -333,6 +333,9 @@ static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
   return fn;
 }
 
+void eel_setfp_round() { }
+void eel_setfp_trunc() { }
+
 // end of x86-64
 
 #endif

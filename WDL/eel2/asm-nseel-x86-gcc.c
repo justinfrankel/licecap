@@ -2060,7 +2060,7 @@ void eel_callcode64()
 		"subl $16, %rsp\n"
 		"fnstcw (%rsp)\n"
 		"mov (%rsp), %ax\n"
-		"or $0xE3F, %ax\n" // 53 or 64 bit precision, trunc, and masking all exceptions
+		"or $0x23F, %ax\n" // 53 or 64 bit precision, and masking all exceptions
 		"mov %ax, 4(%rsp)\n"
 		"fldcw 4(%rsp)\n"
 #endif
@@ -2134,51 +2134,19 @@ void eel_callcode64_fast()
 	);
 }
 
-void eel_setfp_round()
-{
-	__asm__(
-#ifndef EEL_X64_NO_CHANGE_FPFLAGS
-		"subl $16, %rsp\n"
-		"fnstcw (%rsp)\n"
-		"mov (%rsp), %ax\n"
-		"and $0xF3FF, %ax\n" // set round to nearest
-		"mov %ax, 4(%rsp)\n"
-		"fldcw 4(%rsp)\n"
-		"addl $16, %rsp\n"
-#endif
-		"ret\n"
-	);
-}
-
-void eel_setfp_trunc()
-{
-	__asm__(
-#ifndef EEL_X64_NO_CHANGE_FPFLAGS
-		"subl $16, %rsp\n"
-		"fnstcw (%rsp)\n"
-		"mov (%rsp), %ax\n"
-		"or $0xC00, %ax\n" // set to truncate
-		"mov %ax, 4(%rsp)\n"
-		"fldcw 4(%rsp)\n"
-		"addl $16, %rsp\n"
-#endif
-		"ret\n"
-	);
-}
-
 void eel_enterfp(int s[2]) 
 {
 	__asm__(
 #ifdef AMD64ABI
 		"fnstcw (%rdi)\n"
 		"mov (%rdi), %ax\n"
-		"or $0xE3F, %ax\n" // 53 or 64 bit precision, trunc, and masking all exceptions
+		"or $0x23F, %ax\n" // 53 or 64 bit precision, and masking all exceptions
 		"mov %ax, 4(%rdi)\n"
 		"fldcw 4(%rdi)\n"
 #else
 		"fnstcw (%rcx)\n"
 		"mov (%rcx), %ax\n"
-		"or $0xE3F, %ax\n" // 53 or 64 bit precision, trunc, and masking all exceptions
+		"or $0x23F, %ax\n" // 53 or 64 bit precision, and masking all exceptions
 		"mov %ax, 4(%rcx)\n"
 		"fldcw 4(%rcx)\n"
 #endif

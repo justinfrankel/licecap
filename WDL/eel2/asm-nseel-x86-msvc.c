@@ -4030,7 +4030,7 @@ void eel_callcode64()
 		sub rsp, 16;
 		fnstcw [rsp];
 		mov ax, [rsp];
-		or ax, 0xE3F; // 53 or 64 bit precision, trunc, and masking all exceptions
+		or ax, 0x23F; // 53 or 64 bit precision, and masking all exceptions
 		mov [rsp+4], ax;
 		fldcw [rsp+4];
 #endif
@@ -4104,51 +4104,19 @@ void eel_callcode64_fast()
 	}
 }
 
-void eel_setfp_round()
-{
-	__asm {
-#ifndef EEL_X64_NO_CHANGE_FPFLAGS
-		sub rsp, 16;
-		fnstcw [rsp];
-		mov ax, [rsp];
-		and ax, 0xF3FF; // set round to nearest
-		mov [rsp+4], ax;
-		fldcw [rsp+4];
-		add rsp, 16;
-#endif
-		ret;
-	}
-}
-
-void eel_setfp_trunc()
-{
-	__asm {
-#ifndef EEL_X64_NO_CHANGE_FPFLAGS
-		sub rsp, 16;
-		fnstcw [rsp];
-		mov ax, [rsp];
-		or ax, 0xC00; // set to truncate
-		mov [rsp+4], ax;
-		fldcw [rsp+4];
-		add rsp, 16;
-#endif
-		ret;
-	}
-}
-
 void eel_enterfp(int s[2])
 {
 	__asm {
 #ifdef AMD64ABI
 		fnstcw [rdi];
 		mov ax, [rdi];
-		or ax, 0xE3F; // 53 or 64 bit precision, trunc, and masking all exceptions
+		or ax, 0x23F; // 53 or 64 bit precision, and masking all exceptions
 		mov [rdi+4], ax;
 		fldcw [rdi+4];
 #else
 		fnstcw [rcx];
 		mov ax, [rcx];
-		or ax, 0xE3F; // 53 or 64 bit precision, trunc, and masking all exceptions
+		or ax, 0x23F; // 53 or 64 bit precision, and masking all exceptions
 		mov [rcx+4], ax;
 		fldcw [rcx+4];
 #endif
