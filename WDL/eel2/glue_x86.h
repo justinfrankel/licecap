@@ -241,7 +241,7 @@ static void eel_callcode32(INT_PTR cp, INT_PTR ramptr)
 #ifndef NSEEL_EEL1_COMPAT_MODE
       fnstcw [oldsw]
       mov ax, [oldsw]
-      or ax, 0xE3F  // 53 or 64 bit precision (depending on whether 0x100 is set), trunc, and masking all exceptions
+      or ax, 0x23F  // 53 or 64 bit precision (depending on whether 0x100 is set), and masking all exceptions
       mov [newsw], ax
       fldcw [newsw]
 #endif
@@ -276,7 +276,7 @@ static void eel_callcode32(INT_PTR cp, INT_PTR ramptr)
 #ifndef NSEEL_EEL1_COMPAT_MODE
       "fnstcw %2\n"
       "movw %2, %%ax\n"
-      "orw $0xE3F, %%ax\n" // 53 or 64 bit precision (depending on whether 0x100 is set), trunc, and masking all exceptions
+      "orw $0x23F, %%ax\n" // 53 or 64 bit precision (depending on whether 0x100 is set), and masking all exceptions
       "movw %%ax, %3\n"
       "fldcw %3\n"
 #endif
@@ -309,7 +309,7 @@ void eel_enterfp(int s[2])
       mov ecx, s
       fnstcw [ecx]
       mov ax, [ecx]
-      or ax, 0xE3F  // 53 or 64 bit precision (depending on whether 0x100 is set), trunc, and masking all exceptions
+      or ax, 0x23F  // 53 or 64 bit precision (depending on whether 0x100 is set), and masking all exceptions
       mov [ecx+4], ax
       fldcw [ecx+4]
     };
@@ -317,7 +317,7 @@ void eel_enterfp(int s[2])
     __asm__(
       "fnstcw (%%ecx)\n"
       "movw (%%ecx), %%ax\n"
-      "orw $0xE3F, %%ax\n" // 53 or 64 bit precision (depending on whether 0x100 is set), trunc, and masking all exceptions
+      "orw $0x23F, %%ax\n" // 53 or 64 bit precision (depending on whether 0x100 is set), and masking all exceptions
       "movw %%ax, 4(%%ecx)\n"
       "fldcw 4(%%ecx)\n"
           :: "c" (s) : "%eax");
@@ -403,7 +403,13 @@ static unsigned char *EEL_GLUE_set_immediate(void *_p, INT_PTR newv)
 #define GLUE_INLINE_LOOPS
 
 static const unsigned char GLUE_LOOP_LOADCNT[]={
-        0xDB, 0x1E,           //fistp dword [esi]
+        0xd9, 0x7e, 0x04,       // fnstcw [esi+4]
+        0x66, 0x8b, 0x46, 0x04, // mov ax, [esi+4]
+        0x66, 0x0d, 0x00, 0x0c, // or ax, 0xC00
+        0x66, 0x89, 0x46, 0x08, // mov [esi+8], ax
+        0xd9, 0x6e, 0x08,       // fldcw [esi+8]
+        0xDB, 0x1E,           // fistp dword [esi]
+        0xd9, 0x6e, 0x04,     // fldcw [esi+4]
         0x8B, 0x0E,           // mov ecx, [esi]
         0x81, 0xf9, 1,0,0,0,  // cmp ecx, 1
         0x0F, 0x8C, 0,0,0,0,  // JL <skipptr>
@@ -497,10 +503,56 @@ static EEL_F onepointfive=1.5f;
 
 #define GLUE_HAS_NATIVE_TRIGSQRTLOG
 
+
+void nseel_asm_or(void);
+void nseel_asm_or0(void);
+void nseel_asm_or_op(void);
+void nseel_asm_and(void);
+void nseel_asm_and_op(void);
+void nseel_asm_xor(void);
+void nseel_asm_xor_op(void);
+void nseel_asm_shl(void);
+void nseel_asm_shr(void);
+void nseel_asm_mod(void);
+void nseel_asm_mod_op(void);
+void nseel_asm_stack_peek(void);
+void _asm_gmegabuf(void);
+void _asm_megabuf(void);
+
+static struct roundinftab {
+  void *fn;
+  void *newfn;
+  int newsz;
+} s_round_fixes[] = {
+  { nseel_asm_or, },
+  { nseel_asm_or_op, },
+  { nseel_asm_or0, },
+  { nseel_asm_and, },
+  { nseel_asm_and_op, },
+  { nseel_asm_xor, },
+  { nseel_asm_xor_op, },
+  { nseel_asm_shl, },
+  { nseel_asm_shr, },
+  { nseel_asm_mod, },
+  { nseel_asm_mod_op, },
+  { nseel_asm_stack_peek, },
+  { _asm_megabuf, },
+  { _asm_gmegabuf, },
+};
+
 static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
 {
   static const unsigned char sig[12] = { 0x89, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90 };
   unsigned char *p = (unsigned char *)fn;
+
+  size_t rmatch;
+  const size_t nmatch = sizeof(s_round_fixes) / sizeof(s_round_fixes[0]);
+  for (rmatch = 0; rmatch < nmatch && s_round_fixes[rmatch].fn != fn; rmatch++);
+  if (rmatch < nmatch && s_round_fixes[rmatch].newfn && s_round_fixes[rmatch].newsz)
+  {
+    *size = s_round_fixes[rmatch].newsz;
+    return s_round_fixes[rmatch].newfn;
+  }
 
   #if defined(_DEBUG) && defined(_MSC_VER)
     if (*p == 0xE9) // this means jump to the following address (debug stub)
@@ -515,7 +567,36 @@ static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
 
   while (memcmp(p,sig,sizeof(sig))) p++;
   *size = p - (unsigned char *)fn;
+
+  if (rmatch < nmatch)
+  {
+    static const unsigned char prefix[] = {
+        0xd9, 0x7e, 0x10,       // fnstcw [esi+16]
+        0x66, 0x8b, 0x46, 0x10, // mov ax, [esi+16]
+        0x66, 0x0d, 0x00, 0x0c, // or ax, 0xC00
+        0x66, 0x89, 0x46, 0x14, // mov [esi+20], ax
+        0xd9, 0x6e, 0x14,       // fldcw [esi+20]
+    };
+    static const unsigned char postfix[] = {
+        0xd9, 0x6e, 0x10,       // fldcw [esi+16]
+    };
+    char *tmp = (char *) malloc(*size + sizeof(prefix) + sizeof(postfix));
+    if (tmp)
+    {
+      memcpy(tmp,prefix,sizeof(prefix));
+      memcpy(tmp+sizeof(prefix),fn,*size);
+      memcpy(tmp+sizeof(prefix)+*size,postfix,sizeof(postfix));
+
+      *size += sizeof(prefix) + sizeof(postfix);
+      fn = tmp;
+      s_round_fixes[rmatch].newsz = *size;
+      s_round_fixes[rmatch].newfn = fn;
+    }
+  }
+
   return fn;
 }
+void eel_setfp_round() { }
+void eel_setfp_trunc() { }
 
 #endif
