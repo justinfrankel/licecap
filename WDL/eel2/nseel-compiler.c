@@ -1628,6 +1628,36 @@ static void combineNamespaceFields(char *nm, const namespaceInformation *namespa
   nm[lfp++]=0;
 }
 
+#if defined(_WIN32) && !defined(_WIN64) && defined(__INTEL_COMPILER)
+  #ifndef NSEEL_INACCURATE_POW_WORKAROUND
+    // on win32 vc2005 + ICC, if a system is non-Intel, the generic pow() implementation
+    // is inaccurate if the FP rounding mode isn't set to nearest. (ugh)
+    #define NSEEL_INACCURATE_POW_WORKAROUND
+  #endif
+#endif
+
+#ifdef NSEEL_INACCURATE_POW_WORKAROUND
+int nseel_pow_workaround__2 = 2;
+static double pow_workaround(double a, double b)
+{
+  short oldstate,newstate;
+  double v;
+  __asm {
+    fnstcw [oldstate]
+    mov ax, [oldstate]
+    and ax, 0xF3FF; // set round to nearest
+    mov [newstate], ax
+    fldcw [newstate]
+  }
+  v = pow(a,b);
+  __asm {
+    fldcw [oldstate]
+  }
+  return v;
+}
+#endif
+
+static void *pow_replptrs[4]={&pow,};
 
 //---------------------------------------------------------------------------------------------------------------
 static void *nseel_getBuiltinFunctionAddress(compileContext *ctx, 
@@ -1636,7 +1666,6 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
       void **endP, int *abiInfo, int preferredReturnValues, const EEL_F *hasConstParm1, const EEL_F *hasConstParm2)
 {
   const EEL_F *firstConstParm = hasConstParm1 ? hasConstParm1 : hasConstParm2;
-  static void *pow_replptrs[4]={&pow,};      
 
   switch (fntype)
   {
@@ -5344,6 +5373,20 @@ void NSEEL_code_free(NSEEL_CODEHANDLE code)
 NSEEL_VMCTX NSEEL_VM_alloc() // return a handle
 {
   compileContext *ctx=calloc(1,sizeof(compileContext));
+
+  #ifdef NSEEL_INACCURATE_POW_WORKAROUND
+  static int has_pow_chk;
+  if (!has_pow_chk)
+  {
+    int tmp[2];
+    double v;
+    eel_enterfp(tmp);
+    v = pow((double)nseel_pow_workaround__2,nseel_pow_workaround__2*2.0);
+    eel_leavefp(tmp);
+    if (v != 16.0) pow_replptrs[0] = &pow_workaround;
+    has_pow_chk = 1;
+  }
+  #endif
 
   #ifdef NSEEL_SUPER_MINIMAL_LEXER
     if (ctx) ctx->scanner = ctx;
