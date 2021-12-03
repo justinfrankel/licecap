@@ -321,18 +321,6 @@ static void  __attribute__((unused)) glue_setscr(unsigned int v)
   asm volatile ( "fmxr fpscr, %0" :: "r"(v));
 }
 
-void eel_setfp_round() 
-{ 
-  const unsigned int s = glue_getscr();
-  if (s & (1<<24))
-    glue_setscr(s ^ (1<<24));
-}
-void eel_setfp_trunc() 
-{ 
-  const unsigned int s = glue_getscr();
-  if (!(s & (1<<24)))
-    glue_setscr(s ^ (1<<24));
-}
 void eel_enterfp(int s[2]) 
 {
   s[0] = glue_getscr();

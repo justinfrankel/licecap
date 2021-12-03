@@ -640,6 +640,4 @@ static int GLUE_FUSE(compileContext *ctx, unsigned char *code, int left_size, in
   return 0;
 }
 
-  void eel_setfp_round() { }
-  void eel_setfp_trunc() { }
 #endif

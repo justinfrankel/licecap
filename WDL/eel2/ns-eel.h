@@ -264,9 +264,6 @@ typedef void (*EEL_BC_TYPE)(void *next_inst, void *state);
 double *NSEEL_getglobalregs();
 #endif
 
-void eel_setfp_round(); // use to set fp to rounding mode (normal) -- only really use this when being called from EEL
-void eel_setfp_trunc(); // use to restore fp to trunc mode -- only really use this when being called from EEL
-
 void eel_enterfp(int s[2]);
 void eel_leavefp(int s[2]);
 

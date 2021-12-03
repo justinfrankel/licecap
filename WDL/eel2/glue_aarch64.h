@@ -360,18 +360,6 @@ static void  __attribute__((unused)) glue_setscr(unsigned long v)
   asm volatile ( "msr fpcr, %0" :: "r"(v));
 }
 
-void eel_setfp_round() 
-{ 
-  const unsigned long s = glue_getscr();
-  if (s & (1<<24))
-    glue_setscr(s ^ (1<<24));
-}
-void eel_setfp_trunc() 
-{ 
-  const unsigned long s = glue_getscr();
-  if (!(s & (1<<24)))
-    glue_setscr(s ^ (1<<24));
-}
 void eel_enterfp(int _s[2]) 
 {
   unsigned long *s = (unsigned long*)_s;
