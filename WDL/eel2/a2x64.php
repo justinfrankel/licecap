@@ -298,6 +298,9 @@ if ($fmt == "win64x") { $nasm="nasm64"; $fmt = "win64"; }
 process_file("asm-nseel-x86-gcc.c" , $fnout, $fmt != "win64" ? "%define AMD64ABI\n" : "");
 
 
-system("$nasm -f $fmt $fnout");
+$extra = "";
+if ($fmt == "win64") $extra .= " -o asm-nseel-x64-nosse.obj";
+
+system("$nasm -f $fmt $fnout$extra");
 
 ?>
