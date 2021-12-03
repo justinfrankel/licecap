@@ -402,7 +402,16 @@ static unsigned char *EEL_GLUE_set_immediate(void *_p, INT_PTR newv)
 
 #define GLUE_INLINE_LOOPS
 
-static const unsigned char GLUE_LOOP_LOADCNT[]={
+#define GLUE_LOOP_LOADCNT_SIZE (nseel_has_sse3() ? sizeof(GLUE_LOOP_LOADCNT_SSE3) : sizeof(GLUE_LOOP_LOADCNT_NOSSE3))
+#define GLUE_LOOP_LOADCNT (nseel_has_sse3() ? GLUE_LOOP_LOADCNT_SSE3 : GLUE_LOOP_LOADCNT_NOSSE3)
+static const unsigned char GLUE_LOOP_LOADCNT_SSE3[]={
+        0xdb, 0x0e, // fisttp dword [esi]
+        0x8B, 0x0E,           // mov ecx, [esi]
+        0x81, 0xf9, 1,0,0,0,  // cmp ecx, 1
+        0x0F, 0x8C, 0,0,0,0,  // JL <skipptr>
+};
+
+static const unsigned char GLUE_LOOP_LOADCNT_NOSSE3[]={
         0xd9, 0x7e, 0x04,       // fnstcw [esi+4]
         0x66, 0x8b, 0x46, 0x04, // mov ax, [esi+4]
         0x66, 0x0d, 0x00, 0x0c, // or ax, 0xC00
@@ -521,25 +530,79 @@ void _asm_megabuf(void);
 
 static struct roundinftab {
   void *fn;
-  void *newfn;
+  char istores; // number of fistp's
+  char flag; // 0=fistpll, 1=fistpl, 2=fistpl 4(%esp)
   int newsz;
+  void *newfn;
 } s_round_fixes[] = {
-  { nseel_asm_or, },
-  { nseel_asm_or_op, },
-  { nseel_asm_or0, },
-  { nseel_asm_and, },
-  { nseel_asm_and_op, },
-  { nseel_asm_xor, },
-  { nseel_asm_xor_op, },
-  { nseel_asm_shl, },
-  { nseel_asm_shr, },
-  { nseel_asm_mod, },
-  { nseel_asm_mod_op, },
-  { nseel_asm_stack_peek, },
-  { _asm_megabuf, },
-  { _asm_gmegabuf, },
+  { nseel_asm_or, 2, },
+  { nseel_asm_or_op, 2, },
+  { nseel_asm_or0, 1, },
+  { nseel_asm_and, 2, },
+  { nseel_asm_and_op, 2, },
+  { nseel_asm_xor, 2, },
+  { nseel_asm_xor_op, 2, },
+  { nseel_asm_shl, 2, 1, },
+  { nseel_asm_shr, 2, 1, },
+  { nseel_asm_mod, 2, 1, },
+  { nseel_asm_mod_op, 2, 1, },
+  { nseel_asm_stack_peek, 1, 1, },
+  { _asm_megabuf, 1, 1, },
+  { _asm_gmegabuf, 1, 2, },
 };
 
+static void eel_fixup_sse3(unsigned char *p, unsigned char *endp, int np, int flag)
+{
+  const int isz = flag == 2 ? 3 : 2;
+  while (p+isz <= endp && np > 0)
+  {
+    if (flag == 0 && p[0] == 0xdf && (p[1]&0xbe) == 0x3e)
+    {
+      *p++ = 0xdd;
+      *p -= 0x30;
+      if (*p & 0x40) p++;
+      np--;
+    }
+    else if (flag == 1 && p[0] == 0xdb && (p[1]&0xbe) == 0x1e)
+    {
+      *++p -= 0x10;
+      if (*p & 0x40) p++;
+      np--;
+    }
+    else if (flag == 2 && p[0] == 0xdb && (p[1]&0xbf) == 0x1c && p[2] == 0x24)
+    {
+      *++p -= 0x10;
+      if (*p & 0x40) p++;
+      p++;
+      np--;
+    }
+    p++;
+  }
+  WDL_ASSERT(np == 0);
+}
+
+static int nseel_has_sse3()
+{
+  static char c;
+  if (!c)
+  {
+    int features = 1;
+  #ifdef _MSC_VER
+    __asm {
+      mov eax, 1
+      cpuid
+      mov [features], ecx
+    };
+  #else
+    __asm__(
+        "movl $1, %%eax\n"
+        "cpuid\n"
+        : "=c" (features) : : "%eax","%ebx","%edx");
+  #endif
+    c=(features&1) ? 1 : -1;
+  }
+  return c>0;
+}
 static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
 {
   static const unsigned char sig[12] = { 0x89, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90 };
@@ -580,14 +643,25 @@ static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
     static const unsigned char postfix[] = {
         0xd9, 0x6e, 0x10,       // fldcw [esi+16]
     };
-    char *tmp = (char *) malloc(*size + sizeof(prefix) + sizeof(postfix));
+
+    const int has_sse = nseel_has_sse3();
+
+    unsigned char *tmp = (unsigned char *) malloc(*size + (has_sse ? 0 : sizeof(prefix) + sizeof(postfix)));
     if (tmp)
     {
-      memcpy(tmp,prefix,sizeof(prefix));
-      memcpy(tmp+sizeof(prefix),fn,*size);
-      memcpy(tmp+sizeof(prefix)+*size,postfix,sizeof(postfix));
+      if (has_sse)
+      {
+        memcpy(tmp,fn,*size);
+        eel_fixup_sse3(tmp,tmp + *size,s_round_fixes[rmatch].istores, s_round_fixes[rmatch].flag);
+      }
+      else
+      {
+        memcpy(tmp,prefix,sizeof(prefix));
+        memcpy(tmp+sizeof(prefix),fn,*size);
+        memcpy(tmp+sizeof(prefix)+*size,postfix,sizeof(postfix));
 
-      *size += sizeof(prefix) + sizeof(postfix);
+        *size += sizeof(prefix) + sizeof(postfix);
+      }
       fn = tmp;
       s_round_fixes[rmatch].newsz = *size;
       s_round_fixes[rmatch].newfn = fn;
