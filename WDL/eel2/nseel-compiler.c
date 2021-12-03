@@ -4170,11 +4170,14 @@ doNonInlineIf_:
         int fUse2=0;
         unsigned char *skipptr1,*loopdest;
 
-        if (bufOut_len < parm_size + (int)(sizeof(GLUE_LOOP_LOADCNT) + GLUE_LOOP_CLAMPCNT_SIZE + GLUE_LOOP_BEGIN_SIZE)) RET_MINUS1_FAIL("loop size fail")
+#ifndef GLUE_LOOP_LOADCNT_SIZE
+#define GLUE_LOOP_LOADCNT_SIZE sizeof(GLUE_LOOP_LOADCNT)
+#endif
+        if (bufOut_len < parm_size + (int)(GLUE_LOOP_LOADCNT_SIZE + GLUE_LOOP_CLAMPCNT_SIZE + GLUE_LOOP_BEGIN_SIZE)) RET_MINUS1_FAIL("loop size fail")
 
         // store, convert to int, compare against 1, if less than, skip to end
-        if (bufOut) memcpy(bufOut+parm_size,GLUE_LOOP_LOADCNT,sizeof(GLUE_LOOP_LOADCNT));
-        parm_size += sizeof(GLUE_LOOP_LOADCNT);
+        if (bufOut) memcpy(bufOut+parm_size,GLUE_LOOP_LOADCNT,GLUE_LOOP_LOADCNT_SIZE);
+        parm_size += GLUE_LOOP_LOADCNT_SIZE;
         skipptr1 = bufOut+parm_size; 
 
         // compare aginst max loop length, jump to loop start if not above it
