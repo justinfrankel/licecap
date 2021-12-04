@@ -3206,7 +3206,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
   #ifdef GLUE_PREFER_NONFP_DV_ASSIGNS // x86-64, and maybe others, prefer to avoid the fp stack for a simple copy
           if (wantFpStack &&
               (op->parms.parms[pn]->opcodeType != OPCODETYPE_DIRECTVALUE ||
-              (op->parms.parms[pn]->parms.dv.directValue != 1.0 && op->parms.parms[pn]->parms.dv.directValue != 0.0)))
+              op->parms.parms[pn]->parms.dv.directValue != 0.0))
           {
             wantFpStack=-1; // cacheable but non-FP stack
           }
