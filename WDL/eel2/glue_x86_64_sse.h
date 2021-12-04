@@ -414,15 +414,10 @@ static EEL_F onepointfive=1.5f;
 
 static void *GLUE_realAddress(void *fn, int *size)
 {
-  static const unsigned char sig[12] = { 0x89, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90 };
-  unsigned char *p = (unsigned char *)fn;
-
-  while (memcmp(p,sig,sizeof(sig))) p++;
-  p+=sizeof(sig);
-  fn = p;
-
-  while (memcmp(p,sig,sizeof(sig))) p++;
-  *size = (int) (p - (unsigned char *)fn);
+  static const unsigned char new_sig[8] = { 0x89, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x00 };
+  int sz = 0;
+  while (memcmp((char*)fn + sz,new_sig,sizeof(new_sig))) sz++;
+  *size = sz;
   return fn;
 }
 
