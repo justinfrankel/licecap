@@ -603,7 +603,7 @@ static int nseel_has_sse3()
   }
   return c>0;
 }
-static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
+static void *GLUE_realAddress(void *fn, int *size)
 {
   static const unsigned char sig[12] = { 0x89, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90 };
   unsigned char *p = (unsigned char *)fn;

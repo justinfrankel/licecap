@@ -326,7 +326,7 @@ static const unsigned int GLUE_SET_P1_Z[] =  { 0x52800000 }; // mov w0, #0
 static const unsigned int GLUE_SET_P1_NZ[] = { 0x52800020 }; // mov w0, #1
 
 
-static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
+static void *GLUE_realAddress(void *fn, int *size)
 {
   while ((*(int*)fn & 0xFC000000) == 0x14000000)
   {

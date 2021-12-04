@@ -46,7 +46,6 @@ _emit 0x90;
 
   }
 }
-void nseel_asm_1pdd_end(void){}
 
 void nseel_asm_2pdd(void)
 {
@@ -85,7 +84,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_2pdd_end(void){}
 
 void nseel_asm_2pdds(void)
 {
@@ -140,7 +138,6 @@ _emit 0x90;
 
   }
 }
-void nseel_asm_2pdds_end(void){}
 
 
 
@@ -178,7 +175,6 @@ _emit 0x90;
 _emit 0x90;
     }
 }
-void nseel_asm_exec2_end(void) { }
 
 
 
@@ -251,7 +247,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_invsqrt_end(void) {}
 
 
 void nseel_asm_dbg_getstackptr(void)
@@ -291,7 +286,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_dbg_getstackptr_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_sin(void)
@@ -324,7 +318,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_sin_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_cos(void)
@@ -357,7 +350,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_cos_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_tan(void)
@@ -391,7 +383,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_tan_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_sqr(void)
@@ -424,7 +415,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_sqr_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_sqrt(void)
@@ -458,7 +448,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_sqrt_end(void) {}
 
 
 //---------------------------------------------------------------------------------------------------------------
@@ -494,7 +483,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_log_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_log10(void)
@@ -530,7 +518,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_log10_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_abs(void)
@@ -563,7 +550,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_abs_end(void) {}
 
 
 //---------------------------------------------------------------------------------------------------------------
@@ -613,7 +599,6 @@ _emit 0x90;
   }
 
 }
-void nseel_asm_assign_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_assign_fromfp(void)
@@ -658,7 +643,6 @@ _emit 0x90;
 _emit 0x90;
     }
 }
-void nseel_asm_assign_fromfp_end(void) {}
 
 
 //---------------------------------------------------------------------------------------------------------------
@@ -693,7 +677,6 @@ _emit 0x90;
 _emit 0x90;
    }
 }
-void nseel_asm_assign_fast_fromfp_end(void) {}
 
 
 
@@ -733,7 +716,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_assign_fast_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_add(void)
@@ -770,7 +752,6 @@ _emit 0x90;
 _emit 0x90;
           }
 }
-void nseel_asm_add_end(void) {}
 
 void nseel_asm_add_op(void)
 {
@@ -815,7 +796,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_add_op_end(void) {}
 
 void nseel_asm_add_op_fast(void)
 {
@@ -849,7 +829,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_add_op_fast_end(void) {}
 
 
 //---------------------------------------------------------------------------------------------------------------
@@ -895,7 +874,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_sub_end(void) {}
 
 void nseel_asm_sub_op(void)
 {
@@ -940,7 +918,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_sub_op_end(void) {}
 
 void nseel_asm_sub_op_fast(void)
 {
@@ -974,7 +951,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_sub_op_fast_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_mul(void)
@@ -1011,7 +987,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_mul_end(void) {}
 
 void nseel_asm_mul_op(void)
 {
@@ -1056,7 +1031,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_mul_op_end(void) {}
 
 void nseel_asm_mul_op_fast(void)
 {
@@ -1090,7 +1064,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_mul_op_fast_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_div(void)
@@ -1135,7 +1108,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_div_end(void) {}
 
 void nseel_asm_div_op(void)
 {
@@ -1194,7 +1166,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_div_op_end(void) {}
 
 void nseel_asm_div_op_fast(void)
 {
@@ -1242,7 +1213,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_div_op_fast_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_mod(void)
@@ -1288,7 +1258,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_mod_end(void) {}
 
 void nseel_asm_shl(void)
 {
@@ -1326,7 +1295,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_shl_end(void) {}
 
 void nseel_asm_shr(void)
 {
@@ -1364,7 +1332,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_shr_end(void) {}
 
 
 void nseel_asm_mod_op(void)
@@ -1414,7 +1381,6 @@ _emit 0x90;
 _emit 0x90;
     }
 }
-void nseel_asm_mod_op_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_or(void)
@@ -1454,7 +1420,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_or_end(void) {}
 
 void nseel_asm_or0(void)
 {
@@ -1487,7 +1452,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_or0_end(void) {}
 
 void nseel_asm_or_op(void)
 {
@@ -1530,7 +1494,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_or_op_end(void) {}
 
 
 void nseel_asm_xor(void)
@@ -1570,7 +1533,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_xor_end(void) {}
 
 void nseel_asm_xor_op(void)
 {
@@ -1613,7 +1575,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_xor_op_end(void) {}
 
 
 //---------------------------------------------------------------------------------------------------------------
@@ -1654,7 +1615,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_and_end(void) {}
 
 void nseel_asm_and_op(void)
 {
@@ -1697,7 +1657,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_and_op_end(void) {}
 
 
 //---------------------------------------------------------------------------------------------------------------
@@ -1731,7 +1690,6 @@ _emit 0x90;
 _emit 0x90;
     }
 }
-void nseel_asm_uplus_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_uminus(void)
@@ -1764,7 +1722,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_uminus_end(void) {}
 
 
 
@@ -1814,7 +1771,6 @@ _emit 0x90;
 _emit 0x90;
 }
 }
-void nseel_asm_sign_end(void) {}
 
 
 
@@ -1851,7 +1807,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_bnot_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_fcall(void)
@@ -1887,7 +1842,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_fcall_end(void) {}
 
 void nseel_asm_band(void)
 {
@@ -1927,7 +1881,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_band_end(void) {}
 
 void nseel_asm_bor(void)
 {
@@ -1967,7 +1920,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_bor_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_equal(void)
@@ -2010,7 +1962,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_equal_end(void) {}
 //
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_equal_exact(void)
@@ -2050,7 +2001,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_equal_exact_end(void) {}
 
 void nseel_asm_notequal_exact(void)
 {
@@ -2090,7 +2040,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_notequal_exact_end(void) {}
 //
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_notequal(void)
@@ -2133,7 +2082,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_notequal_end(void) {}
 
 
 //---------------------------------------------------------------------------------------------------------------
@@ -2169,7 +2117,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_above_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_beloweq(void)
@@ -2205,7 +2152,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_beloweq_end(void) {}
 
 
 void nseel_asm_booltofp(void)
@@ -2246,7 +2192,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_booltofp_end(void) {}
 
 void nseel_asm_fptobool(void)
 {
@@ -2282,7 +2227,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_fptobool_end(void) {}
 
 void nseel_asm_fptobool_rev(void)
 {
@@ -2317,7 +2261,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_fptobool_rev_end(void) {}
 
 void nseel_asm_min(void)
 {
@@ -2359,7 +2302,6 @@ _emit 0x90;
     }
 
 }
-void nseel_asm_min_end(void) {}
 
 void nseel_asm_max(void)
 {
@@ -2400,7 +2342,6 @@ _emit 0x90;
 _emit 0x90;
     }
 }
-void nseel_asm_max_end(void) {}
 
 
 
@@ -2442,7 +2383,6 @@ _emit 0x90;
     }
 
 }
-void nseel_asm_min_fp_end(void) {}
 
 void nseel_asm_max_fp(void)
 {
@@ -2481,7 +2421,6 @@ _emit 0x90;
 _emit 0x90;
     }
 }
-void nseel_asm_max_fp_end(void) {}
 
 
 
@@ -2529,7 +2468,6 @@ _emit 0x90;
 _emit 0x90;
  }
 }
-void _asm_generic3parm_end(void) {}
 
 
 void _asm_generic3parm_retd(void)
@@ -2572,7 +2510,6 @@ _emit 0x90;
 _emit 0x90;
  }
 }
-void _asm_generic3parm_retd_end(void) {}
 
 
 void _asm_generic2parm(void) // this prob neds to be fixed for ppc
@@ -2614,7 +2551,6 @@ _emit 0x90;
 _emit 0x90;
  }
 }
-void _asm_generic2parm_end(void) {}
 
 
 void _asm_generic2parm_retd(void)
@@ -2656,7 +2592,6 @@ _emit 0x90;
 _emit 0x90;
  }
 }
-void _asm_generic2parm_retd_end(void) {}
 
 
 void _asm_generic2xparm_retd(void)
@@ -2698,7 +2633,6 @@ _emit 0x90;
 _emit 0x90;
  }
 }
-void _asm_generic2xparm_retd_end(void) {}
 
 
 
@@ -2740,7 +2674,6 @@ _emit 0x90;
 _emit 0x90;
  }
 }
-void _asm_generic1parm_end(void) {}
 
 
 void _asm_generic1parm_retd(void) // 1 parameter returning double
@@ -2781,7 +2714,6 @@ _emit 0x90;
 _emit 0x90;
  }
 }
-void _asm_generic1parm_retd_end(void) {}
 
 
 
@@ -2859,7 +2791,6 @@ _emit 0x90;
   }
 }
 
-void _asm_megabuf_end(void) {}
 
 
 void _asm_gmegabuf(void)
@@ -2902,7 +2833,6 @@ _emit 0x90;
  }
 }
 
-void _asm_gmegabuf_end(void) {}
 
 void nseel_asm_stack_push(void)
 {
@@ -2950,7 +2880,6 @@ _emit 0x90;
   }
 
 }
-void nseel_asm_stack_push_end(void) {}
 
 
 
@@ -2991,7 +2920,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_stack_pop_end(void) {}
 
 
 void nseel_asm_stack_pop_fast(void)
@@ -3030,7 +2958,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_stack_pop_fast_end(void) {}
 
 void nseel_asm_stack_peek_int(void)
 {
@@ -3067,7 +2994,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_stack_peek_int_end(void) {}
 
 
 
@@ -3108,7 +3034,6 @@ _emit 0x90;
 _emit 0x90;
   }
 }
-void nseel_asm_stack_peek_end(void) {}
 
 
 void nseel_asm_stack_peek_top(void)
@@ -3143,7 +3068,6 @@ _emit 0x90;
   }
 
 }
-void nseel_asm_stack_peek_top_end(void) {}
 
 void nseel_asm_stack_exch(void)
 {
@@ -3181,5 +3105,4 @@ _emit 0x90;
   }
 
 }
-void nseel_asm_stack_exch_end(void) {}
 

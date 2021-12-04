@@ -296,7 +296,7 @@ static const unsigned int GLUE_SET_P1_Z[] =  { 0xe3a00000 }; // mov r0, #0
 static const unsigned int GLUE_SET_P1_NZ[] = { 0xe3a00001 }; // mov r0, #1
 
 
-static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
+static void *GLUE_realAddress(void *fn, int *size)
 {
   static const unsigned int sig[3] = { 0xe1a00000, 0xe1a01001, 0xe1a02002 };
   unsigned char *p = (unsigned char *)fn;

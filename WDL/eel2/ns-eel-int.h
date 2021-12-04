@@ -252,7 +252,6 @@ compileContext;
 typedef struct functionType {
       const char *name;
       void *afunc;
-      void *func_e;
       int nParams;
       void *replptrs[4];
       NSEEL_PPPROC pProc;
