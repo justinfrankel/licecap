@@ -221,16 +221,8 @@ extern int NSEEL_RAM_memused_errors;
 
 //#define EEL_DUMP_OPS // used for testing frontend parser/logic changes
 
-// note: if you wish to change NSEEL_RAM_*, and your target is x86-64, you will need to regenerate things.
-
-// on osx:
-//  php a2x64.php win64x
-//  php a2x64.php macho64
-
-// or on win32:
-//  php a2x64.php
-//  php a2x64.php macho64x
-// this will regenerate the .asm files and object files
+// note: if you wish to change NSEEL_RAM_*, and your target is x86-64, you will
+// need to edit asm-nseel-x64-sse.asm to match
 
 // 512 * 65536 = 32 million entries maximum (256MB RAM)
 // default is limited to 128 * 65536 = 8 million entries (64MB RAM)

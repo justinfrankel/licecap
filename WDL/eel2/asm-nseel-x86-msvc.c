@@ -8,10 +8,6 @@
 
 /* note: only EEL_F_SIZE=8 is now supported (no float EEL_F's) */
 
-#ifndef AMD64ABI
-#define X64_EXTRA_STACK_SPACE 32 // win32 requires allocating space for 4 parameters at 8 bytes each, even though we pass via register
-#endif
-
 void nseel_asm_1pdd(void)
 {
   __asm {
@@ -30,26 +26,10 @@ _emit 0x90;
 _emit 0x90;
 
     mov edi, 0xfefefefe;
-#ifdef TARGET_X64
-    fstp qword ptr [rsi];
-    movq xmm0, [rsi];
-    #ifdef AMD64ABI
-       mov r15, rsi;
-       call edi;
-       mov rsi, r15;
-    #else
-       sub rsp, X64_EXTRA_STACK_SPACE;
-       call edi;
-       add rsp, X64_EXTRA_STACK_SPACE;
-    #endif
-    movq [rsi], xmm0;
-    fld qword ptr [rsi];
-#else
     sub esp, 16;
     fstp qword ptr [esp];
     call edi;
     add esp, 16;
-#endif
 
 _emit 0x89;
 _emit 0x90;
@@ -85,29 +65,11 @@ _emit 0x90;
 _emit 0x90;
 
     mov edi, 0xfefefefe;
-#ifdef TARGET_X64
-    fstp qword ptr [rsi+8];
-    fstp qword ptr [rsi];
-    movq xmm1, [rsi+8];
-    movq xmm0, [rsi];
-    #ifdef AMD64ABI
-      mov r15, rsi;
-      call edi;
-      mov rsi, r15;
-    #else
-      sub rsp, X64_EXTRA_STACK_SPACE;
-      call edi;
-      add rsp, X64_EXTRA_STACK_SPACE;
-    #endif
-    movq [rsi], xmm0;
-    fld qword ptr [rsi];
-#else
     sub esp, 16;
     fstp qword ptr [esp+8];
     fstp qword ptr [esp];
     call edi;
     add esp, 16;
-#endif
 
 _emit 0x89;
 _emit 0x90;
@@ -142,26 +104,6 @@ _emit 0x90;
 _emit 0x90;
 
     mov eax, 0xfefefefe;
-#ifdef TARGET_X64
-    fstp qword ptr [rsi];
-    movq xmm0, [rdi];
-    movq xmm1, [rsi];
-    #ifdef AMD64ABI
-      mov r15, rsi;
-      mov r14, rdi;
-      call eax;
-      mov rdi, r14; /* restore thrashed rdi */
-      mov rsi, r15;
-      mov rax, r14; /* set return value */
-      movq [r14], xmm0;
-    #else
-      sub rsp, X64_EXTRA_STACK_SPACE;
-      call eax;
-      movq [edi], xmm0;
-      mov eax, edi; /* set return value */
-      add rsp, X64_EXTRA_STACK_SPACE;
-    #endif
-#else
     sub esp, 8;
     fstp qword ptr [esp];
     push dword ptr [edi+4]; /* push parameter */
@@ -170,7 +112,6 @@ _emit 0x90;
     add esp, 16;
     fstp qword ptr [edi]; /* store result */
     mov eax, edi; /* set return value */
-#endif
 
     // denormal-fix result (this is only currently used for pow_op, so we want this!)
     mov edx, dword ptr [edi+4];
@@ -179,12 +120,8 @@ _emit 0x90;
     cmp edx, 0x00200000;
     jg label_0;
       sub edx, edx;
-#ifdef TARGET_X64
-      mov qword ptr [rdi], rdx;
-#else
       mov dword ptr [edi], edx;
       mov dword ptr [edi+4], edx;
-#endif
 label_0:
     
 
@@ -262,11 +199,6 @@ _emit 0x90;
 _emit 0x90;
     mov edx, 0x5f3759df;
     fst dword ptr [esi];
-#ifdef TARGET_X64
-    mov rax, 0xfefefefe;
-    fmul EEL_ASM_TYPE [rax];
-    movsx rcx, dword ptr [esi];
-#else
 #if EEL_F_SIZE == 8
 _emit 0xDC; // fmul qword ptr [0xfefefefe]
 _emit 0x0D;
@@ -283,16 +215,11 @@ _emit 0xFE;
 _emit 0xFE;
 #endif
     mov ecx, dword ptr [esi];
-#endif
     sar ecx, 1;
     sub edx, ecx;
     mov dword ptr [esi], edx;
     fmul dword ptr [esi];
     fmul dword ptr [esi];
-#ifdef TARGET_X64
-    mov rax, 0xfefefefe;
-    fadd EEL_ASM_TYPE [rax];
-#else
 #if EEL_F_SIZE == 8
 _emit 0xDC; // fadd qword ptr [0xfefefefe]
 _emit 0x05;
@@ -307,7 +234,6 @@ _emit 0xFE;
 _emit 0xFE;
 _emit 0xFE;
 _emit 0xFE;
-#endif
 #endif
     fmul dword ptr [esi];
 
@@ -643,49 +569,6 @@ void nseel_asm_abs_end(void) {}
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_assign(void)
 {
-#ifdef TARGET_X64
-
-  __asm {
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-    mov rdx, qword ptr [rax];
-    mov rcx, rdx;
-    shr rdx, 32;
-    add edx, 0x00100000;
-    and edx, 0x7FF00000;
-    cmp edx, 0x00200000;
-    mov rax, rdi;
-    jg label_1;
-      sub ecx, ecx;
-label_1:
-    
-    mov qword ptr [edi], rcx;
-
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-    }
-
-#else
 
   __asm {
 _emit 0x89;
@@ -706,10 +589,10 @@ _emit 0x90;
     add eax, 0x00100000; // if exponent is zero, make exponent 0x7ff, if 7ff, make 7fe
     and eax, 0x7ff00000;
     cmp eax, 0x00200000;
-    jg label_2;
+    jg label_1;
       sub ecx, ecx;
       sub edx, edx;
-label_2:
+label_1:
     
     mov eax, edi;
     mov dword ptr [edi], ecx;
@@ -729,7 +612,6 @@ _emit 0x90;
 _emit 0x90;
   }
 
-#endif
 }
 void nseel_asm_assign_end(void) {}
 
@@ -755,15 +637,11 @@ _emit 0x90;
     and edx, 0x7FF00000;
     cmp edx, 0x00200000;
     mov eax, edi;
-    jg label_3;
+    jg label_2;
       sub edx, edx;
-#ifdef TARGET_X64
-      mov qword ptr [rdi], rdx;
-#else
       mov dword ptr [edi], edx;
       mov dword ptr [edi+4], edx;
-#endif
-label_3:
+label_2:
     
 
 _emit 0x89;
@@ -822,40 +700,6 @@ void nseel_asm_assign_fast_fromfp_end(void) {}
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_assign_fast(void)
 {
-#ifdef TARGET_X64
-
-  __asm {
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-    mov rdx, qword ptr [rax];
-    mov qword ptr [edi], rdx;
-    mov rax, rdi;
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-    }
-
-#else
-
   __asm {
 _emit 0x89;
 _emit 0x90;
@@ -888,8 +732,6 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
   }
-
-#endif
 }
 void nseel_asm_assign_fast_end(void) {}
 
@@ -953,15 +795,11 @@ _emit 0x90;
     add edx, 0x00100000;
     and edx, 0x7FF00000;
     cmp edx, 0x00200000;
-    jg label_4;
+    jg label_3;
       sub edx, edx;
-#ifdef TARGET_X64
-      mov qword ptr [rdi], rdx;
-#else
       mov dword ptr [edi], edx;
       mov dword ptr [edi+4], edx;
-#endif
-label_4:
+label_3:
     
 _emit 0x89;
 _emit 0x90;
@@ -1082,15 +920,11 @@ _emit 0x90;
     add edx, 0x00100000;
     and edx, 0x7FF00000;
     cmp edx, 0x00200000;
-    jg label_5;
+    jg label_4;
       sub edx, edx;
-#ifdef TARGET_X64
-      mov qword ptr [rdi], rdx;
-#else
       mov dword ptr [edi], edx;
       mov dword ptr [edi+4], edx;
-#endif
-label_5:
+label_4:
     
 _emit 0x89;
 _emit 0x90;
@@ -1202,15 +1036,11 @@ _emit 0x90;
     add edx, 0x00100000;
     and edx, 0x7FF00000;
     cmp edx, 0x00200000;
-    jg label_6;
+    jg label_5;
       sub edx, edx;
-#ifdef TARGET_X64
-      mov qword ptr [rdi], rdx;
-#else
       mov dword ptr [edi], edx;
       mov dword ptr [edi+4], edx;
-#endif
-label_6:
+label_5:
     
 _emit 0x89;
 _emit 0x90;
@@ -1343,15 +1173,11 @@ _emit 0x90;
     add edx, 0x00100000;
     and edx, 0x7FF00000;
     cmp edx, 0x00200000;
-    jg label_7;
+    jg label_6;
       sub edx, edx;
-#ifdef TARGET_X64
-      mov qword ptr [rdi], rdx;
-#else
       mov dword ptr [edi], edx;
       mov dword ptr [edi+4], edx;
-#endif
-label_7:
+label_6:
     
 
 _emit 0x89;
@@ -1440,10 +1266,10 @@ _emit 0x90;
     fistp dword ptr [esi+4];
     xor edx, edx;
     cmp dword ptr [esi], 0;
-    je label_8; // skip devide, set return to 0
+    je label_7; // skip devide, set return to 0
     mov eax, dword ptr [esi+4];
     div dword ptr [esi];
-label_8:
+label_7:
     
     mov dword ptr [esi], edx;
     fild dword ptr [esi];
@@ -1564,10 +1390,10 @@ _emit 0x90;
     fistp dword ptr [esi];
     xor edx, edx;
     cmp dword ptr [edi], 0;
-    je label_9; // skip devide, set return to 0
+    je label_8; // skip devide, set return to 0
     mov eax, dword ptr [esi];
     div dword ptr [edi];
-label_9:
+label_8:
     
     mov dword ptr [edi], edx;
     fild dword ptr [edi];
@@ -1608,15 +1434,10 @@ _emit 0x90;
 _emit 0x90;
     fistp qword ptr [esi];
     fistp qword ptr [esi+8];
-#ifdef TARGET_X64
-    mov rdi, qword ptr [rsi+8];
-    or qword ptr [rsi], rdi;
-#else
     mov edi, dword ptr [esi+8];
     mov ecx, dword ptr [esi+12];
     or dword ptr [esi], edi;
     or dword ptr [esi+4], ecx;
-#endif
     fild qword ptr [esi];
 
 _emit 0x89;
@@ -1687,15 +1508,10 @@ _emit 0x90;
     fxch;
     fistp qword ptr [edi];
     fistp qword ptr [esi];
-#ifdef TARGET_X64
-    mov rax, qword ptr [rsi];
-    or qword ptr [rdi], rax;
-#else
     mov eax, dword ptr [esi];
     mov ecx, dword ptr [esi+4];
     or dword ptr [edi], eax;
     or dword ptr [edi+4], ecx;
-#endif
     fild qword ptr [edi];
     mov eax, edi;
     fstp EEL_ASM_TYPE [edi];
@@ -1734,15 +1550,10 @@ _emit 0x90;
 _emit 0x90;
     fistp qword ptr [esi];
     fistp qword ptr [esi+8];
-#ifdef TARGET_X64
-    mov rdi, qword ptr [rsi+8];
-    xor qword ptr [rsi], rdi;
-#else
     mov edi, dword ptr [esi+8];
     mov ecx, dword ptr [esi+12];
     xor dword ptr [esi], edi;
     xor dword ptr [esi+4], ecx;
-#endif
     fild qword ptr [esi];
 
 _emit 0x89;
@@ -1780,15 +1591,10 @@ _emit 0x90;
     fxch;
     fistp qword ptr [edi];
     fistp qword ptr [esi];
-#ifdef TARGET_X64
-    mov rax, qword ptr [rsi];
-    xor qword ptr [rdi], rax;
-#else
     mov eax, dword ptr [esi];
     mov ecx, dword ptr [esi+4];
     xor dword ptr [edi], eax;
     xor dword ptr [edi+4], ecx;
-#endif
     fild qword ptr [edi];
     mov eax, edi;
     fstp EEL_ASM_TYPE [edi];
@@ -1828,15 +1634,10 @@ _emit 0x90;
 _emit 0x90;
     fistp qword ptr [esi];
     fistp qword ptr [esi+8];
-#ifdef TARGET_X64
-    mov rdi, qword ptr [rsi+8];
-    and qword ptr [rsi], rdi;
-#else
     mov edi, dword ptr [esi+8];
     mov ecx, dword ptr [esi+12];
     and dword ptr [esi], edi;
     and dword ptr [esi+4], ecx;
-#endif
     fild qword ptr [esi];
 
 _emit 0x89;
@@ -1874,15 +1675,10 @@ _emit 0x90;
     fxch;
     fistp qword ptr [edi];
     fistp qword ptr [esi];
-#ifdef TARGET_X64
-    mov rax, qword ptr [rsi];
-    and qword ptr [rdi], rax;
-#else
     mov eax, dword ptr [esi];
     mov ecx, dword ptr [esi+4];
     and dword ptr [edi], eax;
     and dword ptr [edi+4], ecx;
-#endif
     fild qword ptr [edi];
     mov eax, edi;
     fstp EEL_ASM_TYPE [edi];
@@ -1989,42 +1785,21 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
 
-#ifdef TARGET_X64
-
-
-    fst EEL_ASM_TYPE [rsi];
-    mov rdx, EEL_ASM_TYPE [rsi];
-    mov rcx, 0x7FFFFFFFFFFFFFFF;
-    test rdx, rcx;
-    jz label_10; // zero zero, return the value passed directly
-      // calculate sign
-      inc rcx; // rcx becomes 0x80000...
-      fstp st(0);
-      fld1;
-      test rdx, rcx;
-      jz label_10;
-      fchs;
-label_10:
-  	
-
-#else
-
     fst dword ptr [esi];
     mov ecx, dword ptr [esi];
     mov edx, 0x7FFFFFFF;
     test ecx, edx;
-    jz label_11; // zero zero, return the value passed directly
+    jz label_9; // zero zero, return the value passed directly
       // calculate sign
       inc edx; // edx becomes 0x8000...
       fstp st(0);
       fld1;
       test ecx, edx;
-      jz label_11;
+      jz label_9;
       fchs;
-label_11:
+label_9:
   	
 
-#endif
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -2095,15 +1870,9 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
      mov edx, 0xfefefefe;
-#ifdef TARGET_X64
-     sub esp, 8;
-     call edx;
-     add esp, 8;
-#else
      sub esp, 12; /* keep stack 16 byte aligned, 4 bytes for return address */
      call edx;
      add esp, 12;
-#endif
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -2136,21 +1905,13 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
     test eax, eax;
-    jz label_12;
+    jz label_10;
 
      mov ecx, 0xfefefefe;
-#ifdef TARGET_X64
-        sub rsp, 8;
-#else
         sub esp, 12;
-#endif
         call ecx;
-#ifdef TARGET_X64
-        add rsp, 8;
-#else
         add esp, 12;
-#endif
-label_12:
+label_10:
     
 _emit 0x89;
 _emit 0x90;
@@ -2184,21 +1945,13 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
     test eax, eax;
-    jnz label_13;
+    jnz label_11;
 
     mov ecx, 0xfefefefe;
-#ifdef TARGET_X64
-    sub rsp, 8;
-#else
     sub esp, 12;
-#endif
     call ecx;
-#ifdef TARGET_X64
-    add rsp, 8;
-#else
     add esp, 12;
-#endif
-label_13:
+label_11:
     
 _emit 0x89;
 _emit 0x90;
@@ -2239,11 +1992,7 @@ _emit 0x90;
 #endif
 
     fabs;
-#ifdef TARGET_X64
-    fcomp EEL_ASM_TYPE [r12+-8]; //[g_closefact]
-#else
     fcomp EEL_ASM_TYPE [ebx+-8]; //[g_closefact]
-#endif
     fstsw ax;
     and eax, 256; // old behavior: if 256 set, true (NaN means true)
 
@@ -2283,9 +2032,9 @@ _emit 0x90;
     fstsw ax; // for equal 256 and 1024 should be clear, 16384 should be set
     and eax, 17664;  // mask C4/C3/C1, bits 8/10/14, 16384|256|1024 -- if equals 16384, then equality
     cmp eax, 16384;
-    je label_14;
+    je label_12;
     sub eax, eax;
-label_14:
+label_12:
     
 _emit 0x89;
 _emit 0x90;
@@ -2322,9 +2071,9 @@ _emit 0x90;
     fstsw ax; // for equal 256 and 1024 should be clear, 16384 should be set
     and eax, 17664;  // mask C4/C3/C1, bits 8/10/14, 16384|256|1024 -- if equals 16384, then equality
     cmp eax, 16384;
-    je label_15;
+    je label_13;
     sub eax, eax;
-label_15:
+label_13:
     
     xor eax, 16384; // flip the result
 _emit 0x89;
@@ -2366,11 +2115,7 @@ _emit 0x90;
 #endif
 
     fabs;
-#ifdef TARGET_X64
-    fcomp EEL_ASM_TYPE [r12+-8]; //[g_closefact]
-#else
     fcomp EEL_ASM_TYPE [ebx+-8]; //[g_closefact]
-#endif
     fstsw ax;
     and eax, 256;
     xor eax, 256; // old behavior: if 256 set, FALSE (NaN makes for false)
@@ -2479,13 +2224,13 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
     test eax, eax;
-    jz label_16;
+    jz label_14;
     fld1;
-    jmp label_17;
-label_16:
+    jmp label_15;
+label_14:
     
     fldz;
-label_17:
+label_15:
     
 _emit 0x89;
 _emit 0x90;
@@ -2519,11 +2264,7 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
     fabs;
-#ifdef TARGET_X64
-    fcomp EEL_ASM_TYPE [r12+-8]; //[g_closefact]
-#else
     fcomp EEL_ASM_TYPE [ebx+-8]; //[g_closefact]
-#endif
     fstsw ax;
     and eax, 256;
     xor eax, 256;
@@ -2559,11 +2300,7 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
     fabs;
-#ifdef TARGET_X64
-    fcomp EEL_ASM_TYPE [r12+-8]; //[g_closefact]
-#else
     fcomp EEL_ASM_TYPE [ebx+-8]; //[g_closefact]
-#endif
     fstsw ax;
     and eax, 256;
 _emit 0x89;
@@ -2603,9 +2340,9 @@ _emit 0x90;
     fstsw ax;
     test eax, 256;
     mov eax, ecx;
-    jz label_18;
+    jz label_16;
     mov eax, edi;
-label_18:
+label_16:
     
 _emit 0x89;
 _emit 0x90;
@@ -2645,9 +2382,9 @@ _emit 0x90;
     fstsw ax;
     test eax, 256;
     mov eax, ecx;
-    jnz label_19;
+    jnz label_17;
     mov eax, edi;
-label_19:
+label_17:
     
 _emit 0x89;
 _emit 0x90;
@@ -2685,9 +2422,9 @@ _emit 0x90;
     fcom;
     fstsw ax;
     test eax, 256;
-    jz label_20;
+    jz label_18;
     fxch;
-label_20:
+label_18:
     
     fstp st(0);
 _emit 0x89;
@@ -2725,9 +2462,9 @@ _emit 0x90;
     fcom;
     fstsw ax;
     test eax, 256;
-    jnz label_21;
+    jnz label_19;
     fxch;
-label_21:
+label_19:
     
     fstp st(0);
 _emit 0x89;
@@ -2768,32 +2505,6 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
 _emit 0x90;
-#ifdef TARGET_X64
-
-#ifdef AMD64ABI
-
-    mov r15, rsi;
-    mov rdx, rdi; // third parameter = parm
-    mov rdi, 0xfefefefe; // first parameter= context
-
-    mov rsi, ecx; // second parameter = parm
-    mov rcx, rax; // fourth parameter = parm
-    mov rax, 0xfefefefe; // call function
-    call rax;
-
-    mov rsi, r15;
-#else
-    mov edx, ecx; // second parameter = parm
-    mov ecx, 0xfefefefe; // first parameter= context
-    mov r8, rdi; // third parameter = parm
-    mov r9, rax; // fourth parameter = parm
-    mov edi, 0xfefefefe; // call function
-    sub rsp, X64_EXTRA_STACK_SPACE;
-    call edi;
-    add rsp, X64_EXTRA_STACK_SPACE;
-#endif
-
-#else
 
     mov edx, 0xfefefefe;
     push eax; // push parameter
@@ -2804,7 +2515,6 @@ _emit 0x90;
     call edi;
     add esp, 16;
 
-#endif
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -2837,31 +2547,6 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
 _emit 0x90;
-#ifdef TARGET_X64
-#ifdef AMD64ABI
-    mov r15, rsi;
-    mov rdx, rdi; // third parameter = parm
-    mov rdi, 0xfefefefe; // first parameter= context
-    mov rsi, ecx; // second parameter = parm
-    mov rcx, rax; // fourth parameter = parm
-    mov rax, 0xfefefefe; // call function
-    call rax;
-    mov rsi, r15;
-    movq [r15], xmm0;
-    fld qword ptr [r15];
-#else
-    mov edx, ecx; // second parameter = parm
-    mov ecx, 0xfefefefe; // first parameter= context
-    mov r8, rdi; // third parameter = parm
-    mov r9, rax; // fourth parameter = parm
-    mov edi, 0xfefefefe; // call function
-    sub rsp, X64_EXTRA_STACK_SPACE;
-    call edi;
-    add rsp, X64_EXTRA_STACK_SPACE;
-    movq [rsi], xmm0;
-    fld qword ptr [rsi];
-#endif
-#else
 
     sub esp, 16;
     mov edx, 0xfefefefe;
@@ -2873,7 +2558,6 @@ _emit 0x90;
     call edi;
     add esp, 16;
 
-#endif
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -2906,26 +2590,6 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
 _emit 0x90;
-#ifdef TARGET_X64
-
-#ifdef AMD64ABI
-    mov r15, rsi;
-    mov esi, edi; // second parameter = parm
-    mov edi, 0xfefefefe; // first parameter= context
-    mov rdx, rax; // third parameter = parm
-    mov rcx, 0xfefefefe; // call function
-    call rcx;
-    mov rsi, r15;
-#else
-    mov ecx, 0xfefefefe; // first parameter= context
-    mov edx, edi; // second parameter = parm
-    mov r8, rax; // third parameter = parm
-    mov edi, 0xfefefefe; // call function
-    sub rsp, X64_EXTRA_STACK_SPACE;
-    call edi;
-    add rsp, X64_EXTRA_STACK_SPACE;
-#endif
-#else
 
     mov edx, 0xfefefefe;
     mov ecx, 0xfefefefe;
@@ -2936,7 +2600,6 @@ _emit 0x90;
     call ecx;
     add esp, 16;
 
-#endif
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -2969,29 +2632,6 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
 _emit 0x90;
-#ifdef TARGET_X64
-#ifdef AMD64ABI
-    mov r15, rsi;
-    mov rsi, rdi; // second parameter = parm
-    mov rdi, 0xfefefefe; // first parameter= context
-    mov rcx, 0xfefefefe; // call function
-    mov rdx, rax; // third parameter = parm
-    call rcx;
-    mov rsi, r15;
-    movq [r15], xmm0;
-    fld qword ptr [r15];
-#else
-    mov rdx, rdi; // second parameter = parm
-    mov rcx, 0xfefefefe; // first parameter= context
-    mov rdi, 0xfefefefe; // call function
-    mov r8, rax; // third parameter = parm
-    sub rsp, X64_EXTRA_STACK_SPACE;
-    call edi;
-    add rsp, X64_EXTRA_STACK_SPACE;
-    movq [rsi], xmm0;
-    fld qword ptr [rsi];
-#endif
-#else
 
     sub esp, 16;
     mov edx, 0xfefefefe;
@@ -3002,7 +2642,6 @@ _emit 0x90;
     call ecx;
     add esp, 16;
 
-#endif
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -3035,34 +2674,6 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
 _emit 0x90;
-#ifdef TARGET_X64
-#ifdef AMD64ABI
-      // input is rdi/rax
-      // pass parameters as rdi/rsi/rdx/rcx
-    mov r15, rsi;
-    mov rdx, rdi; // third parameter = parm
-    mov rcx, rax; // fourth parameter = parm
-    mov rdi, 0xfefefefe; // first parameter= context
-    mov rsi, 0xfefefefe; // second parameter= context
-    mov rax, 0xfefefefe; // call function
-    call rax;
-    mov rsi, r15;
-    movq [r15], xmm0;
-    fld qword ptr [r15];
-#else
-    // rcx, rdx, r8, r9
-    mov r8, rdi; // third parameter = parm
-    mov rcx, 0xfefefefe; // first parameter= context
-    mov rdx, 0xfefefefe; // second parameter= context
-    mov rdi, 0xfefefefe; // call function
-    mov r9, rax; // fourth parameter = parm
-    sub rsp, X64_EXTRA_STACK_SPACE;
-    call edi;
-    add rsp, X64_EXTRA_STACK_SPACE;
-    movq [rsi], xmm0;
-    fld qword ptr [rsi];
-#endif
-#else
     sub esp, 16;
     mov edx, 0xfefefefe; // first parameter
     mov dword ptr [esp], edx;
@@ -3073,7 +2684,6 @@ _emit 0x90;
     mov dword ptr [esp+12], eax;
     call ecx;
     add esp, 16;
-#endif
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -3107,23 +2717,6 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
 _emit 0x90;
-#ifdef TARGET_X64
-#ifdef AMD64ABI
-    mov rdi, 0xfefefefe; // first parameter= context
-    mov r15, rsi;
-    mov rsi, eax; // second parameter = parm
-    mov rcx, 0xfefefefe; // call function
-    call rcx;
-    mov rsi, r15;
-#else
-    mov ecx, 0xfefefefe; // first parameter= context
-    mov edx, eax; // second parameter = parm
-    mov edi, 0xfefefefe; // call function
-    sub rsp, X64_EXTRA_STACK_SPACE;
-    call edi;
-    add rsp, X64_EXTRA_STACK_SPACE;
-#endif
-#else
 
     mov edx, 0xfefefefe;
     sub esp, 8; // keep stack aligned
@@ -3132,8 +2725,6 @@ _emit 0x90;
     push edx; // push context pointer
     call ecx;
     add esp, 16;
-
-#endif
 
 _emit 0x89;
 _emit 0x90;
@@ -3167,31 +2758,6 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
 _emit 0x90;
-#ifdef TARGET_X64
-#ifdef AMD64ABI
-    mov rdi, 0xfefefefe; // first parameter = context pointer
-    mov rcx, 0xfefefefe; // function address
-    mov r15, rsi; // save rsi
-    mov rsi, rax; // second parameter = parameter
-
-    call rcx;
-
-    mov rsi, r15;
-    movq [r15], xmm0;
-    fld qword ptr [r15];
-#else
-    mov ecx, 0xfefefefe; // first parameter= context
-    mov edi, 0xfefefefe; // call function
-
-    mov rdx, rax; // second parameter = parm
-
-    sub rsp, X64_EXTRA_STACK_SPACE;
-    call edi;
-    add rsp, X64_EXTRA_STACK_SPACE;
-    movq [rsi], xmm0;
-    fld qword ptr [rsi];
-#endif
-#else
 
     mov edx, 0xfefefefe; // context pointer
     mov ecx, 0xfefefefe; // func-addr
@@ -3201,7 +2767,6 @@ _emit 0x90;
     call ecx;
     add esp, 16;
 
-#endif
 _emit 0x89;
 _emit 0x90;
 _emit 0x90;
@@ -3241,105 +2806,21 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
 
-#ifdef TARGET_X64
-
-
-#ifdef AMD64ABI
-
-    fadd EEL_ASM_TYPE [r12+-8];
-
-    fistp dword ptr [rsi];
-
-    // check if (%rsi) is in range, and buffer available, otherwise call function
-    mov edx, dword ptr [rsi];
-    cmp rdx, ((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK));      //REPLACE=((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK))
-    jae label_22;
-      mov rax, rdx;
-      shr rax, (NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   );     //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   )
-      and rax, ((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   );     //REPLACE=((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   )
-      mov rax, qword ptr [r12+rax];
-      test rax, rax;
-      jnz label_23;
-label_22:
-    
-      mov rax, 0xfefefefe;
-      mov rdi, r12; // set first parm to ctx
-      mov r15, rsi; // save rsi
-      mov esi, rdx; // esi becomes second parameter (edi is first, context pointer)
-      call rax;
-      mov rsi, r15; // restore rsi
-      jmp label_24;
-label_23:
-    
-      and rdx, (NSEEL_RAM_ITEMSPERBLOCK-1);      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
-      shl rdx, 3;      // 3 is log2(sizeof(EEL_F))
-      add rax, rdx;
-label_24:
-    
-
-#else
-
-    fadd EEL_ASM_TYPE [r12+-8];
-
-    fistp dword ptr [rsi];
-
-    // check if (%rsi) is in range...
-    mov edi, dword ptr [rsi];
-    cmp edi, ((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK));       //REPLACE=((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK))
-    jae label_25;
-      mov rax, rdi;
-      shr rax, (NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   );       //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 3/*log2(sizeof(void *))*/   )
-      and rax, ((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   );       //REPLACE=((NSEEL_RAM_BLOCKS-1)*8 /*sizeof(void*)*/                   )
-      mov rax, qword ptr [r12+rax];
-      test rax, rax;
-      jnz label_26;
-label_25:
-    
-      mov rax, 0xfefefefe; // function ptr
-      mov rcx, r12; // set first parm to ctx
-      mov rdx, rdi; // rdx is second parameter (rcx is first)
-      sub rsp, X64_EXTRA_STACK_SPACE;
-      call rax;
-      add rsp, X64_EXTRA_STACK_SPACE;
-      jmp label_27;
-label_26:
-    
-      and rdi, (NSEEL_RAM_ITEMSPERBLOCK-1);       //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
-      shl rdi, 3;       // 3 is log2(sizeof(EEL_F))
-      add rax, rdi;
-label_27:
-    
-#endif
-
-
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-#else
     fadd EEL_ASM_TYPE [ebx+-8];
     fistp dword ptr [esi];
 
     // check if (%esi) is in range, and buffer available, otherwise call function
     mov edi, dword ptr [esi];
     cmp edi, ((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK));     //REPLACE=((NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK))
-    jae label_28;
+    jae label_20;
 
       mov eax, edi;
       shr eax, (NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 2/*log2(sizeof(void *))*/   );      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK_LOG2 - 2/*log2(sizeof(void *))*/   )
       and eax, ((NSEEL_RAM_BLOCKS-1)*4 /*sizeof(void*)*/                   );      //REPLACE=((NSEEL_RAM_BLOCKS-1)*4 /*sizeof(void*)*/                   )
       mov eax, dword ptr [ebx+eax];
       test eax, eax;
-      jnz label_29;
-label_28:
+      jnz label_21;
+label_20:
     
       sub esp, 8; // keep stack aligned
       mov ecx, 0xfefefefe;
@@ -3347,13 +2828,13 @@ label_28:
       push ebx; // push context pointer
       call ecx;
       add esp, 16;
-      jmp label_30;
-label_29:
+      jmp label_22;
+label_21:
     
       and edi, (NSEEL_RAM_ITEMSPERBLOCK-1);      //REPLACE=(NSEEL_RAM_ITEMSPERBLOCK-1)
       shl edi, 3;      // 3 is log2(sizeof(EEL_F))
       add eax, edi;
-label_30:
+label_22:
     
 _emit 0x89;
 _emit 0x90;
@@ -3374,10 +2855,6 @@ _emit 0x90;
            i; (((NSEEL_RAM_BLOCKS-1)*4 /*sizeof(void*)*/                   )),
            i; ((NSEEL_RAM_ITEMSPERBLOCK-1                                  ))
     #endif
-
-
-
-#endif
 
   }
 }
@@ -3402,33 +2879,6 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
 
-#ifdef TARGET_X64
-
-
-#ifdef AMD64ABI
-
-    mov r15, rsi;
-    fadd EEL_ASM_TYPE [r12+-8];
-    mov rdi, 0xfefefefe; // first parameter = context pointer
-    fistp dword ptr [rsi];
-    mov edx, 0xfefefefe;
-    mov esi, dword ptr [rsi];
-    call rdx;
-    mov rsi, r15;
-
-#else
-    fadd EEL_ASM_TYPE [r12+-8];
-    mov rcx, 0xfefefefe; // first parameter = context pointer
-    fistp dword ptr [rsi];
-    mov rdi, 0xfefefefe;
-    mov edx, dword ptr [rsi];
-    sub rsp, X64_EXTRA_STACK_SPACE;
-    call rdi;
-    add rsp, X64_EXTRA_STACK_SPACE;
-#endif
-
-
-#else
     sub esp, 16; // keep stack aligned
     mov dword ptr [esp], 0xfefefefe;
     fadd EEL_ASM_TYPE [ebx+-8];
@@ -3436,10 +2886,6 @@ _emit 0x90;
     fistp dword ptr [esp+4];
     call edi;
     add esp, 16;
-
-#endif
-
-
 
 _emit 0x89;
 _emit 0x90;
@@ -3460,44 +2906,6 @@ void _asm_gmegabuf_end(void) {}
 
 void nseel_asm_stack_push(void)
 {
-#ifdef TARGET_X64
-  __asm {
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-    mov rdi, 0xfefefefe;
-    mov rcx, qword ptr [rax];
-    mov rax, qword ptr [rdi];
-    add rax, 8;
-    mov rdx, 0xFEFEFEFE;
-    and rax, rdx;
-    mov rdx, 0xFEFEFEFE;
-    or rax, rdx;
-    mov qword ptr [rax], rcx;
-    mov qword ptr [rdi], rax;
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-    }
-#else
 
   __asm {
 _emit 0x89;
@@ -3541,8 +2949,6 @@ _emit 0x90;
 _emit 0x90;
   }
 
-#endif
-
 }
 void nseel_asm_stack_push_end(void) {}
 
@@ -3550,47 +2956,6 @@ void nseel_asm_stack_push_end(void) {}
 
 void nseel_asm_stack_pop(void)
 {
-#ifdef TARGET_X64
-
-  __asm {
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-      mov rdi, 0xfefefefe;
-      mov rcx, qword ptr [rdi];
-      movq xmm0, [rcx];
-      sub rcx, 8;
-      mov rdx, 0xFEFEFEFE;
-      and rcx, rdx;
-      mov rdx, 0xFEFEFEFE;
-      or rcx, rdx;
-      mov qword ptr [rdi], rcx;
-      movq [eax], xmm0;
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-    }
-
-#else
-
   __asm {
 _emit 0x89;
 _emit 0x90;
@@ -3625,54 +2990,12 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
   }
-
-#endif
 }
 void nseel_asm_stack_pop_end(void) {}
 
 
 void nseel_asm_stack_pop_fast(void)
 {
-#ifdef TARGET_X64
-
-  __asm {
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-      mov rdi, 0xfefefefe;
-      mov rcx, qword ptr [rdi];
-      mov rax, rcx;
-      sub rcx, 8;
-      mov rdx, 0xFEFEFEFE;
-      and rcx, rdx;
-      mov rdx, 0xFEFEFEFE;
-      or rcx, rdx;
-      mov qword ptr [rdi], rcx;
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-    }
-
-#else
-
   __asm {
 _emit 0x89;
 _emit 0x90;
@@ -3706,52 +3029,11 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
   }
-
-#endif
 }
 void nseel_asm_stack_pop_fast_end(void) {}
 
 void nseel_asm_stack_peek_int(void)
 {
-#ifdef TARGET_X64
-
-  __asm {
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-    mov rdi, 0xfefefefe;
-    mov rax, qword ptr [rdi];
-    mov rdx, 0xfefefefe;
-    sub rax, rdx;
-    mov rdx, 0xFEFEFEFE;
-    and rax, rdx;
-    mov rdx, 0xFEFEFEFE;
-    or rax, rdx;
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-  }
-
-#else
-
   __asm {
 _emit 0x89;
 _emit 0x90;
@@ -3784,9 +3066,6 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
   }
-
-#endif
-
 }
 void nseel_asm_stack_peek_int_end(void) {}
 
@@ -3794,47 +3073,6 @@ void nseel_asm_stack_peek_int_end(void) {}
 
 void nseel_asm_stack_peek(void)
 {
-#ifdef TARGET_X64
-
-  __asm {
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-    mov rdi, 0xfefefefe;
-    fistp dword ptr [rsi];
-    mov rax, qword ptr [rdi];
-    mov rdx, qword ptr [rsi];
-    shl rdx, 3; // log2(sizeof(EEL_F))
-    sub rax, rdx;
-    mov rdx, 0xFEFEFEFE;
-    and rax, rdx;
-    mov rdx, 0xFEFEFEFE;
-    or rax, rdx;
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-  }
-
-#else
-
   __asm {
 _emit 0x89;
 _emit 0x90;
@@ -3869,48 +3107,12 @@ _emit 0x90;
 _emit 0x90;
 _emit 0x90;
   }
-
-#endif
-
 }
 void nseel_asm_stack_peek_end(void) {}
 
 
 void nseel_asm_stack_peek_top(void)
 {
-#ifdef TARGET_X64
-
-  __asm {
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-    mov rdi, 0xfefefefe;
-    mov rax, qword ptr [rdi];
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-  }
-
-#else
-
   __asm {
 _emit 0x89;
 _emit 0x90;
@@ -3940,50 +3142,11 @@ _emit 0x90;
 _emit 0x90;
   }
 
-#endif
-
 }
 void nseel_asm_stack_peek_top_end(void) {}
 
 void nseel_asm_stack_exch(void)
 {
-#ifdef TARGET_X64
-
-  __asm {
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-    mov rdi, 0xfefefefe;
-    mov rcx, qword ptr [rdi];
-    movq xmm0, [rcx];
-    movq xmm1, [rax];
-    movq [rax], xmm0;
-    movq [rcx], xmm1;
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-  }
-
-#else
-
   __asm {
 _emit 0x89;
 _emit 0x90;
@@ -4017,122 +3180,6 @@ _emit 0x90;
 _emit 0x90;
   }
 
-#endif
-
 }
 void nseel_asm_stack_exch_end(void) {}
 
-#ifdef TARGET_X64
-void eel_callcode64()
-{
-	__asm {
-#ifndef EEL_X64_NO_CHANGE_FPFLAGS
-		sub rsp, 16;
-		fnstcw [rsp];
-		mov ax, [rsp];
-		or ax, 0x23F; // 53 or 64 bit precision, and masking all exceptions
-		mov [rsp+4], ax;
-		fldcw [rsp+4];
-#endif
-		push rbx;
-		push rbp;
-		push r12;
-		push r13;
-		push r14;
-		push r15;
-
-#ifdef AMD64ABI
-    		mov r12, rsi; // second parameter is ram-blocks pointer
-		call rdi;
-#else
-		push rdi;
-		push rsi;
-    		mov r12, rdx; // second parameter is ram-blocks pointer
-		call rcx;
-		pop rsi;
-		pop rdi;
-#endif
-
-		fclex;
-
-		pop r15;
-		pop r14;
-		pop r13;
-		pop r12;
-		pop rbp;
-		pop rbx;
-
-#ifndef EEL_X64_NO_CHANGE_FPFLAGS
-		fldcw [rsp];
-		add rsp, 16;
-#endif
-
-		ret;
-	}
-}
-
-void eel_callcode64_fast()
-{
-	__asm {
-		push rbx;
-		push rbp;
-		push r12;
-		push r13;
-		push r14;
-		push r15;
-
-#ifdef AMD64ABI
-    		mov r12, rsi; // second parameter is ram-blocks pointer
-		call rdi;
-#else
-		push rdi;
-		push rsi;
-    		mov r12, rdx; // second parameter is ram-blocks pointer
-		call rcx;
-		pop rsi;
-		pop rdi;
-#endif
-
-		pop r15;
-		pop r14;
-		pop r13;
-		pop r12;
-		pop rbp;
-		pop rbx;
-
-		ret;
-	}
-}
-
-void eel_enterfp(int s[2])
-{
-	__asm {
-#ifdef AMD64ABI
-		fnstcw [rdi];
-		mov ax, [rdi];
-		or ax, 0x23F; // 53 or 64 bit precision, and masking all exceptions
-		mov [rdi+4], ax;
-		fldcw [rdi+4];
-#else
-		fnstcw [rcx];
-		mov ax, [rcx];
-		or ax, 0x23F; // 53 or 64 bit precision, and masking all exceptions
-		mov [rcx+4], ax;
-		fldcw [rcx+4];
-#endif
-            ret;
-        }
-}
-void eel_leavefp(int s[2])
-{
-	__asm {
-#ifdef AMD64ABI
-		fldcw [rdi];
-#else
-		fldcw [rcx];
-#endif
-                ret;;
-        }
-}
-
-#endif
