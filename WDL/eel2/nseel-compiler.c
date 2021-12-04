@@ -632,6 +632,9 @@ static functionType fnTable1[] = {
   {"stack_peek",nseel_asm_stack_peek,1|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(0),{0,},NSEEL_PProc_Stack},
   {"stack_exch",nseel_asm_stack_exch,1|BIF_FPSTACKUSE(1), {0,},NSEEL_PProc_Stack_PeekTop},
 };
+static functionType fn_min2 = { "min2",    nseel_asm_min_fp, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2)|BIF_WONTMAKEDENORMAL };
+static functionType fn_max2 = { "max2",    nseel_asm_max_fp, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2)|BIF_WONTMAKEDENORMAL };
+static functionType fn_or0  = { "or0",     nseel_asm_or0,    1|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_RETURNSONSTACK|BIF_CLEARDENORMAL };
 
 static eel_function_table default_user_funcs;
 
@@ -1734,11 +1737,8 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
         // if prefers fpstack or bool, or ignoring value, then use fp-stack versions
         if ((preferredReturnValues&(RETURNVALUE_BOOL|RETURNVALUE_FPSTACK)) || !preferredReturnValues)
         {
-          static functionType min2={ "min",    nseel_asm_min_fp, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2)|BIF_WONTMAKEDENORMAL };
-          static functionType max2={ "max",    nseel_asm_max_fp, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK_LAZY|BIF_FPSTACKUSE(2)|BIF_WONTMAKEDENORMAL };
-
-          if (p->afunc == (void*)nseel_asm_min) p = &min2;
-          else if (p->afunc == (void*)nseel_asm_max) p = &max2;
+          if (p->afunc == (void*)nseel_asm_min) p = &fn_min2;
+          else if (p->afunc == (void*)nseel_asm_max) p = &fn_max2;
         }
 
         *replList=p->replptrs;
@@ -2126,11 +2126,9 @@ start_over: // when an opcode changed substantially in optimization, goto here t
               if (!(WDL_INT64)dvalue)
               {
                 // replace with or0
-                static functionType fr={"or0",nseel_asm_or0, 1|NSEEL_NPARAMS_FLAG_CONST|BIF_LASTPARMONSTACK|BIF_RETURNSONSTACK|BIF_CLEARDENORMAL, {0}, NULL};
-
                 op->opcodeType = OPCODETYPE_FUNC1;
                 op->fntype = FUNCTYPE_FUNCTIONTYPEREC;
-                op->fn = &fr;
+                op->fn = &fn_or0;
                 if (dv0) op->parms.parms[0] = op->parms.parms[1];
                 goto start_over;
               }
@@ -2211,7 +2209,12 @@ start_over: // when an opcode changed substantially in optimization, goto here t
                 // opcodeRec *parm0 = op->parms.parms[0];
                 if (dvalue > 0.0)
                 {
-                  static functionType expcpy={ "exp",    nseel_asm_1pdd,  1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK, {&exp}, };
+                  static functionType *expcpy;
+                  if (!expcpy)
+                  {
+                    expcpy = nseel_getFunctionByName(NULL,"exp",NULL);
+                    if (WDL_NOT_NORMALLY(!expcpy)) break;
+                  }
 
                   // 1^x = 1
                   if (fabs(dvalue-1.0) < 1e-30)
@@ -2243,7 +2246,7 @@ start_over: // when an opcode changed substantially in optimization, goto here t
 
                   op->opcodeType = OPCODETYPE_FUNC1;
                   op->fntype = FUNCTYPE_FUNCTIONTYPEREC;
-                  op->fn = &expcpy;
+                  op->fn = expcpy;
                   goto start_over;
                 }
               }
@@ -2450,11 +2453,15 @@ start_over: // when an opcode changed substantially in optimization, goto here t
               }
               if (!second_parm) // switch from x*x to sqr(x)
               {
-                static functionType sqrcpy={ "sqr",    nseel_asm_sqr, 1|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(1) };
-                op->opcodeType = OPCODETYPE_FUNC1;
-                op->fntype = FUNCTYPE_FUNCTIONTYPEREC;
-                op->fn = &sqrcpy;
-                goto start_over;
+                static functionType *sqrcpy;
+                if (!sqrcpy) sqrcpy = nseel_getFunctionByName(NULL,"sqr",NULL);
+                if (WDL_NORMALLY(sqrcpy))
+                {
+                  op->opcodeType = OPCODETYPE_FUNC1;
+                  op->fntype = FUNCTYPE_FUNCTIONTYPEREC;
+                  op->fn = sqrcpy;
+                  goto start_over;
+                }
               }
             }
           }
