@@ -60,18 +60,6 @@ __attribute__((naked)) void nseel_asm_2pdds(void)
 //---------------------------------------------------------------------------------------------------------------
 
 
-
-// do nothing, eh
-__attribute__((naked)) void nseel_asm_exec2(void)
-{
-  __asm__ __volatile__(
-    FUNCTION_MARKER
-    FUNCTION_MARKER
-  );
-}
-
-
-
 __attribute__((naked)) void nseel_asm_invsqrt(void)
 {
   __asm__ __volatile__(
@@ -529,15 +517,6 @@ __attribute__((naked)) void nseel_asm_and_op(void)
   );
 }
 
-
-//---------------------------------------------------------------------------------------------------------------
-__attribute__((naked)) void nseel_asm_uplus(void) // this is the same as doing nothing, it seems
-{
-  __asm__ __volatile__(
-    FUNCTION_MARKER
-    FUNCTION_MARKER
-  );
-}
 
 //---------------------------------------------------------------------------------------------------------------
 __attribute__((naked)) void nseel_asm_uminus(void)

@@ -69,18 +69,6 @@ void nseel_asm_2pdds(void)
 //---------------------------------------------------------------------------------------------------------------
 
 
-// do nothing, eh
-void nseel_asm_exec2(void)
-{
-   __asm__(
-      FUNCTION_MARKER
-      ""
-      FUNCTION_MARKER
-    );
-}
-
-
-
 void nseel_asm_invsqrt(void)
 {
   __asm__(
@@ -711,16 +699,6 @@ void nseel_asm_and_op(void)
   );
 }
 
-
-//---------------------------------------------------------------------------------------------------------------
-void nseel_asm_uplus(void) // this is the same as doing nothing, it seems
-{
-   __asm__(
-      FUNCTION_MARKER
-      ""
-      FUNCTION_MARKER
-    );
-}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_uminus(void)

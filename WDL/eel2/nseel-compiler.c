@@ -366,7 +366,6 @@ void _asm_gmegabuf(void);
   DECL_ASMFUNC(band)
   DECL_ASMFUNC(bor)
   DECL_ASMFUNC(bnot)
-  DECL_ASMFUNC(bnotnot)
   DECL_ASMFUNC(if)
   DECL_ASMFUNC(fcall)
   DECL_ASMFUNC(repeat)
@@ -406,13 +405,9 @@ void _asm_gmegabuf(void);
   DECL_ASMFUNC(and)
   DECL_ASMFUNC(or_op)
   DECL_ASMFUNC(and_op)
-  DECL_ASMFUNC(uplus)
   DECL_ASMFUNC(uminus)
   DECL_ASMFUNC(invsqrt)
   DECL_ASMFUNC(dbg_getstackptr)
-#ifdef NSEEL_EEL1_COMPAT_MODE
-  DECL_ASMFUNC(exec2)
-#endif
 
   DECL_ASMFUNC(stack_push)
   DECL_ASMFUNC(stack_pop)
@@ -615,8 +610,8 @@ static functionType fnTable1[] = {
   { "band",  nseel_asm_2pdd, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_CLEARDENORMAL , {&eel1band}, },
   { "bor",  nseel_asm_2pdd, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_CLEARDENORMAL , {&eel1bor}, },
 
-  {"exec2",nseel_asm_exec2,2|NSEEL_NPARAMS_FLAG_CONST|BIF_WONTMAKEDENORMAL},
-  {"exec3",nseel_asm_exec2,3|NSEEL_NPARAMS_FLAG_CONST|BIF_WONTMAKEDENORMAL},
+  {"exec2", NULL, 2|NSEEL_NPARAMS_FLAG_CONST|BIF_WONTMAKEDENORMAL},
+  {"exec3", NULL, 3|NSEEL_NPARAMS_FLAG_CONST|BIF_WONTMAKEDENORMAL},
 #endif // end EEL1 compat
 
 
@@ -1586,7 +1581,6 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
   {
 #define RF(x) return (void*)nseel_asm_##x
 
-
     case FN_MUL_OP:
       *abiInfo=BIF_LASTPARMONSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL;
     RF(mul_op);
@@ -1656,11 +1650,7 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
     case FN_SHL:
       *abiInfo = BIF_RETURNSONSTACK|BIF_TWOPARMSONFPSTACK|BIF_FPSTACKUSE(2)|BIF_CLEARDENORMAL;
     RF(shl);
-#ifndef EEL_TARGET_PORTABLE
-    case FN_NOTNOT: *abiInfo = BIF_LASTPARM_ASBOOL|BIF_RETURNSBOOL|BIF_FPSTACKUSE(1); RF(uplus);
-#else
-    case FN_NOTNOT: *abiInfo = BIF_LASTPARM_ASBOOL|BIF_RETURNSBOOL|BIF_FPSTACKUSE(1); RF(bnotnot);
-#endif
+    case FN_NOTNOT: *abiInfo = BIF_LASTPARM_ASBOOL|BIF_RETURNSBOOL|BIF_FPSTACKUSE(1); break;
     case FN_UMINUS: *abiInfo = BIF_RETURNSONSTACK|BIF_LASTPARMONSTACK|BIF_WONTMAKEDENORMAL; RF(uminus);
     case FN_NOT: *abiInfo = BIF_LASTPARM_ASBOOL|BIF_RETURNSBOOL|BIF_FPSTACKUSE(1); RF(bnot);
 
@@ -1755,7 +1745,7 @@ static void *nseel_getBuiltinFunctionAddress(compileContext *ctx,
     break;
   }
   
-  return 0;
+  return NULL;
 }
 
 
@@ -2809,8 +2799,6 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
        parm1_dv ? &op->parms.parms[1]->parms.dv.directValue : NULL
        );
 
-  if (!func) RET_MINUS1_FAIL("error getting funcaddr")
-
   *fpStackUsage=BIF_GETFPSTACKUSE(cfunc_abiinfo);
   *rvMode = RETURNVALUE_NORMAL;
 
@@ -3050,11 +3038,7 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
         if (func == nseel_asm_bnot && rvt==RETURNVALUE_BOOL_REVERSED)
         {
           // remove bnot, compileOpcodes() used fptobool_rev
-#ifndef EEL_TARGET_PORTABLE
-          func = nseel_asm_uplus;
-#else
-          func = nseel_asm_bnotnot;
-#endif
+          func = NULL;
           rvt = RETURNVALUE_BOOL;
         }
 
@@ -3253,11 +3237,8 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
           if (func == nseel_asm_bnot && rvt == RETURNVALUE_BOOL_REVERSED)
           {
             // remove bnot, compileOpcodes() used fptobool_rev
-#ifndef EEL_TARGET_PORTABLE
-            func = nseel_asm_uplus;
-#else
-            func = nseel_asm_bnotnot;
-#endif
+            // case: !b ? 2 : 3, for example
+            func = NULL;
             rvt = RETURNVALUE_BOOL;
           }
 
@@ -3339,8 +3320,15 @@ static int compileNativeFunctionCall(compileContext *ctx, opcodeRec *op, unsigne
   if (cfunc_abiinfo & (BIF_CLEARDENORMAL | BIF_RETURNSBOOL) ) *canHaveDenormalOutput=0;
   else if (!(cfunc_abiinfo & BIF_WONTMAKEDENORMAL)) *canHaveDenormalOutput=1;
 
-  func = GLUE_realAddress(func,&func_size);
-  if (!func) RET_MINUS1_FAIL("failrealladdrfunc")
+  if (func)
+  {
+    func = GLUE_realAddress(func,&func_size);
+    if (!func) RET_MINUS1_FAIL("failrealladdrfunc")
+  }
+  else
+  {
+    func_size = 0;
+  }
                    
   if (bufOut_len < parm_size + func_size) RET_MINUS1_FAIL("funcsz")
 

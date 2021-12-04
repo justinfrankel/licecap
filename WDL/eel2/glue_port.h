@@ -68,7 +68,6 @@ enum {
 
 
   EEL_BC_BNOT,
-  EEL_BC_BNOTNOT,
   EEL_BC_EQUAL,
   EEL_BC_EQUAL_EXACT,
   EEL_BC_NOTEQUAL,
@@ -356,7 +355,6 @@ BC_DECLASM(band,NOP)
 BC_DECLASM(bor,NOP)
 
 BC_DECLASM(bnot,BNOT)
-BC_DECLASM(bnotnot,BNOTNOT)
 BC_DECLASM(equal,EQUAL)
 BC_DECLASM(equal_exact,EQUAL_EXACT)
 BC_DECLASM(notequal_exact,NOTEQUAL_EXACT)
@@ -676,9 +674,6 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt)
       break; 
       case EEL_BC_BNOT:
         p1 = p1 ? NULL : EEL_BC_TRUE;
-      break;
-      case EEL_BC_BNOTNOT:
-        p1 = p1 ? EEL_BC_TRUE : NULL;
       break;
       case EEL_BC_EQUAL:
         p1 = fabs(fp_top - fp_top2) < NSEEL_CLOSEFACTOR ? EEL_BC_TRUE : NULL;

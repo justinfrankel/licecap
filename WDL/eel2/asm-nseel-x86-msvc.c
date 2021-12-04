@@ -144,40 +144,6 @@ _emit 0x90;
 //---------------------------------------------------------------------------------------------------------------
 
 
-// do nothing, eh
-void nseel_asm_exec2(void)
-{
-   __asm {
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-      
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-    }
-}
-
-
-
 void nseel_asm_invsqrt(void)
 {
   __asm {
@@ -1658,38 +1624,6 @@ _emit 0x90;
   }
 }
 
-
-//---------------------------------------------------------------------------------------------------------------
-void nseel_asm_uplus(void) // this is the same as doing nothing, it seems
-{
-   __asm {
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-      
-_emit 0x89;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-_emit 0x90;
-    }
-}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_uminus(void)
