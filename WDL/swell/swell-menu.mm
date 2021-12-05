@@ -196,16 +196,6 @@ int GetMenuItemID(HMENU hMenu, int pos)
 bool SetMenuItemModifier(HMENU hMenu, int idx, int flag, int code, unsigned int mask)
 {
   if (WDL_NOT_NORMALLY(hMenu == NULL)) return false;
-
-#if 0 // enable this once we make SWELL_KeyToASCII decent
-  int n2=0;
-  int n1 = SWELL_KeyToASCII(code,flag,&n2);
-  if (n1)
-  {
-    code=n1;
-    flag=n2;
-  }
-#endif
   
   NSMenu *menu=(NSMenu *)hMenu;
   
