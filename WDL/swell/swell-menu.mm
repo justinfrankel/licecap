@@ -255,6 +255,7 @@ bool SetMenuItemModifier(HMENU hMenu, int idx, int flag, int code, unsigned int 
     DEFKP(VK_SUBTRACT,'-')
     DEFKP(VK_RETURN,'\r')
     DEFKP(VK_TAB,'\t')
+    DEFKP(VK_ESCAPE,27)
     // hmm numpad enter, what to do: DEFKP(VK_RETURN|32768, '\r')
   }
 
