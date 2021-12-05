@@ -596,8 +596,12 @@ static int nseel_has_sse3()
   #else
     __asm__(
         "movl $1, %%eax\n"
+        "pushl %%ebx\n"
+        "pushl %%edx\n"
         "cpuid\n"
-        : "=c" (features) : : "%eax","%ebx","%edx");
+        "popl %%edx\n"
+        "popl %%ebx\n"
+        : "=c" (features) : : "%eax");
   #endif
     c=(features&1) ? 1 : -1;
   }
