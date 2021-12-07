@@ -742,66 +742,63 @@ void swell_oswindow_updatetoscreen(HWND hwnd, RECT *rect)
   #define DEF_GKY(x) GDK_KEY_##x
 #endif
 
-static guint swell_gdkConvertKey(guint key)
+static guint swell_gdkConvertKey(guint key, bool *extended)
 {
-  //gdk key to VK_ conversion
   switch(key)
   {
-  case DEF_GKY(KP_Home):
-  case DEF_GKY(Home): return VK_HOME;
-  case DEF_GKY(KP_End):
-  case DEF_GKY(End): return VK_END;
-  case DEF_GKY(KP_Up):
-  case DEF_GKY(Up): return VK_UP;
-  case DEF_GKY(KP_Down):
-  case DEF_GKY(Down): return VK_DOWN;
-  case DEF_GKY(KP_Left):
-  case DEF_GKY(Left): return VK_LEFT;
-  case DEF_GKY(KP_Right):
-  case DEF_GKY(Right): return VK_RIGHT;
-  case DEF_GKY(KP_Page_Up):
-  case DEF_GKY(Page_Up): return VK_PRIOR;
-  case DEF_GKY(KP_Page_Down):
-  case DEF_GKY(Page_Down): return VK_NEXT;
-  case DEF_GKY(KP_Insert):
-  case DEF_GKY(Insert): return VK_INSERT;
-  case DEF_GKY(KP_Delete):
-  case DEF_GKY(Delete): return VK_DELETE;
-  case DEF_GKY(Escape): return VK_ESCAPE;
-  case DEF_GKY(BackSpace): return VK_BACK;
-  case DEF_GKY(KP_Enter):
-  case DEF_GKY(Return): return VK_RETURN;
-  case DEF_GKY(ISO_Left_Tab):
-  case DEF_GKY(Tab): return VK_TAB;
-  case DEF_GKY(F1): return VK_F1;
-  case DEF_GKY(F2): return VK_F2;
-  case DEF_GKY(F3): return VK_F3;
-  case DEF_GKY(F4): return VK_F4;
-  case DEF_GKY(F5): return VK_F5;
-  case DEF_GKY(F6): return VK_F6;
-  case DEF_GKY(F7): return VK_F7;
-  case DEF_GKY(F8): return VK_F8;
-  case DEF_GKY(F9): return VK_F9;
-  case DEF_GKY(F10): return VK_F10;
-  case DEF_GKY(F11): return VK_F11;
-  case DEF_GKY(F12): return VK_F12;
-  case DEF_GKY(KP_0): return VK_NUMPAD0;
-  case DEF_GKY(KP_1): return VK_NUMPAD1;
-  case DEF_GKY(KP_2): return VK_NUMPAD2;
-  case DEF_GKY(KP_3): return VK_NUMPAD3;
-  case DEF_GKY(KP_4): return VK_NUMPAD4;
-  case DEF_GKY(KP_5): return VK_NUMPAD5;
-  case DEF_GKY(KP_6): return VK_NUMPAD6;
-  case DEF_GKY(KP_7): return VK_NUMPAD7;
-  case DEF_GKY(KP_8): return VK_NUMPAD8;
-  case DEF_GKY(KP_9): return VK_NUMPAD9;
-  case DEF_GKY(KP_Multiply): return VK_MULTIPLY;
-  case DEF_GKY(KP_Add): return VK_ADD;
-  case DEF_GKY(KP_Separator): return VK_SEPARATOR;
-  case DEF_GKY(KP_Subtract): return VK_SUBTRACT;
-  case DEF_GKY(KP_Decimal): return VK_DECIMAL;
-  case DEF_GKY(KP_Divide): return VK_DIVIDE;
-  case DEF_GKY(Num_Lock): return VK_NUMLOCK;
+#define DEF_GK2(h, v)  \
+    case DEF_GKY(h): *extended = true; return (v);  \
+    case DEF_GKY(KP_##h): return (v);
+
+    DEF_GK2(Home,VK_HOME)
+    DEF_GK2(End,VK_END)
+    DEF_GK2(Up, VK_UP)
+    DEF_GK2(Down, VK_DOWN)
+    DEF_GK2(Left, VK_LEFT)
+    DEF_GK2(Right, VK_RIGHT)
+    DEF_GK2(Page_Up, VK_PRIOR)
+    DEF_GK2(Page_Down, VK_NEXT)
+    DEF_GK2(Insert,VK_INSERT)
+    DEF_GK2(Delete, VK_DELETE)
+
+#undef DEF_GK2
+    case DEF_GKY(KP_Enter): *extended = true; return VK_RETURN;
+    case DEF_GKY(Return): return VK_RETURN;
+
+    case DEF_GKY(Escape): return VK_ESCAPE;
+    case DEF_GKY(BackSpace): return VK_BACK;
+    case DEF_GKY(ISO_Left_Tab):
+    case DEF_GKY(Tab): return VK_TAB;
+    case DEF_GKY(F1): return VK_F1;
+    case DEF_GKY(F2): return VK_F2;
+    case DEF_GKY(F3): return VK_F3;
+    case DEF_GKY(F4): return VK_F4;
+    case DEF_GKY(F5): return VK_F5;
+    case DEF_GKY(F6): return VK_F6;
+    case DEF_GKY(F7): return VK_F7;
+    case DEF_GKY(F8): return VK_F8;
+    case DEF_GKY(F9): return VK_F9;
+    case DEF_GKY(F10): return VK_F10;
+    case DEF_GKY(F11): return VK_F11;
+    case DEF_GKY(F12): return VK_F12;
+    case DEF_GKY(KP_0): return VK_NUMPAD0;
+    case DEF_GKY(KP_1): return VK_NUMPAD1;
+    case DEF_GKY(KP_2): return VK_NUMPAD2;
+    case DEF_GKY(KP_3): return VK_NUMPAD3;
+    case DEF_GKY(KP_4): return VK_NUMPAD4;
+    case DEF_GKY(KP_5): return VK_NUMPAD5;
+    case DEF_GKY(KP_6): return VK_NUMPAD6;
+    case DEF_GKY(KP_7): return VK_NUMPAD7;
+    case DEF_GKY(KP_8): return VK_NUMPAD8;
+    case DEF_GKY(KP_9): return VK_NUMPAD9;
+    case DEF_GKY(KP_Multiply): return VK_MULTIPLY;
+    case DEF_GKY(KP_Add): return VK_ADD;
+    case DEF_GKY(KP_Separator): return VK_SEPARATOR;
+    case DEF_GKY(KP_Subtract): return VK_SUBTRACT;
+    case DEF_GKY(KP_Decimal): return VK_DECIMAL;
+    case DEF_GKY(KP_Divide): return VK_DIVIDE;
+    case DEF_GKY(Num_Lock): return VK_NUMLOCK;
+    case DEF_GKY(KP_Begin): return VK_SELECT;
   }
   return 0;
 }
@@ -1090,10 +1087,28 @@ static void OnKeyEvent(GdkEventKey *k)
 
   UINT msgtype = k->type == GDK_KEY_PRESS ? WM_KEYDOWN : WM_KEYUP;
 
-  guint kv = swell_gdkConvertKey(k->keyval);
+  bool is_extended = false;
+  guint kv = swell_gdkConvertKey(k->keyval, &is_extended);
   if (kv) 
   {
     modifiers |= FVIRTKEY;
+
+    if (modifiers & FSHIFT)
+    {
+      if (k->state&GDK_MOD2_MASK) // numlock on
+      {
+        // if shift+numpad home/end is sent while numlock is on, that means it should be treated
+        // as unmodified home/end
+        if (!is_extended && kv >= VK_PRIOR && kv <= VK_SELECT)
+          modifiers &= ~FSHIFT;
+      }
+      else
+      {
+        // if numpadX is sent while numlock is off, then it should be treated as unmodified
+        if (kv >= VK_NUMPAD0 && kv <= VK_NUMPAD9)
+          modifiers &= ~FSHIFT;
+      }
+    }
   }
   else 
   {
@@ -1145,6 +1160,8 @@ static void OnKeyEvent(GdkEventKey *k)
   HWND foc = GetFocusIncludeMenus();
   if (foc && IsChild(hwnd,foc)) hwnd=foc;
   else if (foc && foc->m_oswindow && !(foc->m_style&WS_CAPTION)) hwnd=foc; // for menus, event sent to other window due to gdk_window_set_override_redirect()
+
+  if (is_extended) modifiers |= 1<<24;
 
   MSG msg = { hwnd, msgtype, kv, modifiers, };
   INT_PTR extra_flags = 0;

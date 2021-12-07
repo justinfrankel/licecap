@@ -1060,7 +1060,7 @@ treatAsDir:
         SendMessage(hwnd,WM_COMMAND,IDC_PARENTBUTTON,0);
         return 1;
       }
-      else if (lParam == FVIRTKEY && wParam == VK_RETURN && 
+      else if ((lParam&0xff) == FVIRTKEY && wParam == VK_RETURN &&
                GetFocus() == GetDlgItem(hwnd,IDC_LIST))
       {
         SendMessage(hwnd,WM_COMMAND,IDOK,0);
