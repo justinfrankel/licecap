@@ -564,13 +564,16 @@ public:
       if (!ent) break;
       DWORD s=0;
       m_pending.Delete(0);
-      if (!GetOverlappedResult(m_fh,&ent->m_ol,&s,TRUE) && GetLastError()==ERROR_OPERATION_ABORTED)
+      BOOL ok = GetOverlappedResult(m_fh,&ent->m_ol,&s,TRUE);
+      int errcode;
+      if (!ok && (errcode=GetLastError())==ERROR_OPERATION_ABORTED)
       {
         // rewrite this one
         if (!RunAsyncWrite(ent,false)) m_empties.Add(ent);
       }
       else
       {
+        if (!ok) { WDL_FILEWRITE_ON_ERROR(errcode==ERROR_DISK_FULL) }
         m_empties.Add(ent);
         ent->m_bufused=0;
         if (!syncall) break;
