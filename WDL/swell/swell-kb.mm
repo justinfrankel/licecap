@@ -32,7 +32,7 @@
 
 
 
-static int MacKeyCodeToVK(int code)
+static int MacKeyCodeToVK(int code, int *flag)
 {
   switch (code)
   {
@@ -42,7 +42,7 @@ static int MacKeyCodeToVK(int code)
     case 69: return VK_ADD;
     case 71: return VK_NUMLOCK;
     case 75: return VK_DIVIDE;
-    case 76: return VK_RETURN|0x8000;
+    case 76: *flag |= 1<<24; return VK_RETURN;
     case 78: return VK_SUBTRACT;
     case 81: return VK_SEPARATOR;
     case 82: return VK_NUMPAD0;
@@ -64,19 +64,19 @@ static int MacKeyCodeToVK(int code)
     case 109: return VK_F10;
     case 103: return VK_F11;
     case 111: return VK_F12;
-    case 114: return VK_INSERT;
-    case 115: return VK_HOME;
-    case 117: return VK_DELETE;
-    case 116: return VK_PRIOR;
+    case 114: *flag |= 1<<24; return VK_INSERT;
+    case 115: *flag |= 1<<24; return VK_HOME;
+    case 117: *flag |= 1<<24; return VK_DELETE;
+    case 116: *flag |= 1<<24; return VK_PRIOR;
     case 118: return VK_F4;
-    case 119: return VK_END;
+    case 119: *flag |= 1<<24; return VK_END;
     case 120: return VK_F2;
-    case 121: return VK_NEXT;
+    case 121: *flag |= 1<<24; return VK_NEXT;
     case 122: return VK_F1;
-    case 123: return VK_LEFT;
-    case 124: return VK_RIGHT;
-    case 125: return VK_DOWN;
-    case 126: return VK_UP;
+    case 123: *flag |= 1<<24; return VK_LEFT;
+    case 124: *flag |= 1<<24; return VK_RIGHT;
+    case 125: *flag |= 1<<24; return VK_DOWN;
+    case 126: *flag |= 1<<24; return VK_UP;
     case 0x69: return VK_F13;
     case 0x6B: return VK_F14;
     case 0x71: return VK_F15;
@@ -156,7 +156,7 @@ int SWELL_MacKeyToWindowsKeyEx(void *nsevent, int *flags, int mode)
     
   int rawcode=[theEvent keyCode];
 
-  int code=MacKeyCodeToVK(rawcode);
+  int code=MacKeyCodeToVK(rawcode,&flag);
   if (!code)
   {
     NSString *str=NULL;
