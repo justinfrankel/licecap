@@ -21,6 +21,7 @@
 #include "../chunkalloc.h"
 #include "../fnv64.h"
 #include "../win32_utf8.h"
+#include "../wdlcstring.h"
 
 
 #define LANGPACK_SCALE_CONSTANT WDL_UINT64_CONST(0x5CA1E00000000000)
