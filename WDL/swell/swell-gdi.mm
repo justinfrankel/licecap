@@ -148,12 +148,22 @@ char g_swell_disable_retina;
 
 int SWELL_IsRetinaHWND(HWND hwnd)
 {
-  if (g_swell_disable_retina) return 0;
   if (!hwnd || SWELL_GDI_GetOSXVersion() < 0x1070) return 0;
 
+  int retina_disabled = g_swell_disable_retina;
   NSWindow *w=NULL;
-  if ([(id)hwnd isKindOfClass:[NSView class]]) w = [(NSView *)hwnd window];
+  if ([(id)hwnd isKindOfClass:[NSView class]])
+  {
+    if (retina_disabled &&
+        [(id)hwnd isKindOfClass:[SWELL_hwndChild class]] &&
+        ((SWELL_hwndChild*)hwnd)->m_glctx != NULL)
+      retina_disabled = 0;
+
+    w = [(NSView *)hwnd window];
+  }
   else if ([(id)hwnd isKindOfClass:[NSWindow class]]) w = (NSWindow *)hwnd;
+
+  if (retina_disabled) return 0;
 
   if (w)
   {
