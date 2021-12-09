@@ -207,7 +207,7 @@ protected:
             *toklen = (int) ((*str = p+3) - tok_start);
             return tok_start;
           }
-          if (!validate_escape(&p,str_end,true))
+          if (decode_escape(&p,str_end,true) < 0)
           {
             on_err("invalid escape sequence in long quote", p);
             return NULL;
@@ -223,7 +223,7 @@ protected:
           *toklen = (int) ((*str = p+1) - tok_start);
           return tok_start;
         }
-        if (p[0] == '\r' || p[0] == '\n' || !validate_escape(&p,str_end,true))
+        if (p[0] == '\r' || p[0] == '\n' || decode_escape(&p,str_end,true) < 0)
         {
           on_err(p[0] == '\\' ? "invalid escape sequence in quote" : "invalid character in quote", p);
           return NULL;
@@ -246,7 +246,7 @@ protected:
 
         if ((p[0] >= 0 && p[0] <= 0x20) || p[0] == '<' || p[0] == '|' ||
              p[0] == '"' || p[0] == '{' || p[0] == '}' || p[0] == '`' ||
-             !validate_escape(&p,str_end,false)
+             decode_escape(&p,str_end,false) < 0
              )
         {
           on_err(p[0] == '\\' ? "invalid escape sequence in IRI" : "invalid character in IRI", p);
@@ -274,55 +274,54 @@ protected:
     return tok_start;
   }
 
-  static bool validate_escape(const char **p, const char *endp, bool allow_echar)
-    // if not escape sequence, returns true and advances p by 1
-    // if valid escape sequence, returns true and advances p by length (2 or more)
-    // otherwise returns false
+  static int decode_escape(const char **p, const char *endp, bool allow_echar)
+    // if string is not beginning with '\\', returns unsigned raw character value, advances p by 1
+    // if valid escape sequence, returns non-negative value (may be UTF-8 codepoint), advances p by length (2 or more)
+    // if error occurs, returns -1
   {
     const char *rd = *p;
-    if (*rd == '\\')
+    if (*rd != '\\')
     {
-      if (++rd >= endp) return false;
-      char c = *rd++;
-      switch (c)
-      {
-        case 'u': case 'U':
-          {
-            int len = c == 'u' ? 4 : 8;
-            for (int x = 0; x < len; x ++)
-            {
-              if (rd >= endp) return false;
-              c = *rd++;
-              if (!(c >= '0' && c <= '9') && !(c >= 'a' && c <= 'f') && !(c >= 'A' && c <= 'F')) return false;
-            }
-          }
-        break;
-        case 'b': case 'f': case 't':
-        case 'n': case 'r':
-        case '\\': case '"': case '\'':
-          if (allow_echar) break;
-        default:
-          return false;
-      }
-      *p = rd;
-    }
-    else
       *p += 1;
-    return true;
-  }
-
-  static int decode_hex(const char *p, int l) // returns -1 on failure
-  {
-    int ret = 0;
-    while (l--)
-    {
-      char c = *p++;
-      if (c >= '0' && c <= '9') ret = ret*16 + (c - '0');
-      else if (c >= 'A' && c <= 'F') ret = ret*16 + 10 + (c - 'A');
-      else if (c >= 'a' && c <= 'f') ret = ret*16 + 10 + (c - 'a');
-      else return -1;
+      return (int) (unsigned char) *rd;
     }
-    return ret;
+    if (++rd >= endp) return -1;
+
+    if (*rd == 'u' || *rd == 'U')
+    {
+      const int hexlen = *rd++ == 'u' ? 4 : 8;
+      unsigned int rv = 0;
+      if (rd + hexlen > endp) return -1;
+      for (int x = 0; x < hexlen; x ++)
+      {
+        const char c = *rd++;
+        if (c >= '0' && c <= '9') rv = rv*16 + (c - '0');
+        else if (c >= 'A' && c <= 'F') rv = rv*16 + 10 + (c - 'A');
+        else if (c >= 'a' && c <= 'f') rv = rv*16 + 10 + (c - 'a');
+        else return -1;
+      }
+      if (rv >= 0x200000) return -1;
+      *p += 2 + hexlen;
+      return (int)rv;
+    }
+
+    if (!allow_echar) return -1;
+
+    int rv;
+    switch (*rd)
+    {
+      case 'b': rv = '\b'; break;
+      case 'f': rv = '\f'; break;
+      case 't': rv = '\t'; break;
+      case 'n': rv = '\n'; break;
+      case 'r': rv = '\r'; break;
+      case '"': rv = '"'; break;
+      case '\'': rv = '\''; break;
+      case '\\': rv = '\\'; break;
+      default: return -1;
+    }
+    *p += 2;
+    return rv;
   }
 
   int tok_to_str(const char *tok, int toklen, WDL_FastString *fs, bool allow_decode)
@@ -371,46 +370,28 @@ protected:
       }
     }
 
-    int i;
-    for (i = 0; i < toklen; i ++)
+    const char *endp = tok+toklen;
+    while (tok < endp)
     {
-      if (mode > 1 && tok[i] == '\\')
+      if (mode > 1 && *tok == '\\')
       {
-        char tmp[32];
-        if (i+1 < toklen)
+        const int cv = decode_escape(&tok,endp, mode!='<');
+        if (cv < 0)
         {
-          if (tok[i+1] == 'u' || tok[i+1] == 'U')
-          {
-            int hexl = tok[i+1] == 'u' ? 4 : 8;
-            const int l = i + 1 + hexl < toklen ? wdl_utf8_makechar(decode_hex(tok+i+2,hexl),tmp,sizeof(tmp)) : 0;
-            if (l<1) { on_err("invalid unicode escape sequence", tok+i); return 0; }
-            fs->Append(tmp,l);
-            i += hexl+1;
-            continue;
-          }
-
-          if (mode == '<')
-          {
-            on_err("invalid escape sequence in IRI", tok+i);
-            return 0;
-          }
-
-          switch (tok[++i])
-          {
-            case 'b':  fs->Append("\b"); continue;
-            case 'f':  fs->Append("\f"); continue;
-            case 't':  fs->Append("\t"); continue;
-            case 'n':  fs->Append("\n"); continue;
-            case 'r':  fs->Append("\r"); continue;
-            case '\\': fs->Append("\\"); continue;
-            case '"':  fs->Append("\""); continue;
-            case '\'': fs->Append("'");  continue;
-            default: on_err("invalid escape sequence", tok + i - 1); return 0;
-          }
+          on_err(mode == '<' ? "invalid escape sequence in IRI" : "invalid escape sequence in quote", tok);
+          return 0;
         }
+        char tmp[8];
+        const int tmpl = wdl_utf8_makechar(cv,tmp,sizeof(tmp));
+        if (tmpl <= 0)
+        {
+          on_err(mode == '<' ? "invalid unicode codepoint in IRI" : "invalid unicode codepoint in quote", tok);
+          return 0;
+        }
+        fs->Append(tmp,tmpl);
       }
-
-      fs->Append(tok+i,1);
+      else
+        fs->Append(tok++,1);
     }
     if (mode == '<' && !strstr(fs->Get(),"://") && m_base.GetLength()) fs->Insert(m_base.Get(),0);
     if (rv == '\'') rv = '"';
