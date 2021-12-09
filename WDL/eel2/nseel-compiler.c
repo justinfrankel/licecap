@@ -2718,11 +2718,7 @@ static int generateValueToReg(compileContext *ctx, opcodeRec *op, unsigned char 
       if (!b) RET_MINUS1_FAIL("error allocating data block")
 
       if (op->opcodeType != OPCODETYPE_VARPTRPTR) op->parms.dv.valuePtr = b;
-      #if EEL_F_SIZE == 8
-        *b = denormal_filter_double2(op->parms.dv.directValue);
-      #else
-        *b = denormal_filter_float2(op->parms.dv.directValue);
-      #endif
+      *b = denormal_filter_double2(op->parms.dv.directValue);
 
       if (allowCache)
       {

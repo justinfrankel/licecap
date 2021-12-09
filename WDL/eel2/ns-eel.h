@@ -35,13 +35,8 @@
 
 #include "../wdltypes.h"
 
-#if EEL_F_SIZE == 4
-typedef float EEL_F;
-typedef float *EEL_F_PTR;
-#else
 typedef double EEL_F WDL_FIXALIGN;
 typedef double *EEL_F_PTR;
-#endif
 
 #ifdef _MSC_VER
 #define NSEEL_CGEN_CALL __cdecl

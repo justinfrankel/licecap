@@ -56,14 +56,6 @@ void _asm_generic1parm_retd(void); // 1 double * parms, returning double
 
 #endif
 
-#if EEL_F_SIZE == 4
-#define EEL_F_SSTR "4"
-#define EEL_F_SUFFIX "s"
-#else
-#define EEL_F_SSTR "8"
-#define EEL_F_SUFFIX "l"
-#endif
-
 #ifdef __cplusplus
 };
 

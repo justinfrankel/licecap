@@ -1,4 +1,3 @@
-/* note: only EEL_F_SIZE=8 is now supported (no float EEL_F's) */
 
 void nseel_asm_1pdd(void)
 {
