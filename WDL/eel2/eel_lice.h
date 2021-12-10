@@ -260,7 +260,7 @@ public:
   NSEEL_VMCTX m_vmref;
   void *m_user_ctx;
 
-  int setup_frame(HWND hwnd, RECT r, int _mouse_x=0, int _mouse_y=0, int has_dpi=0, int is_embedded=0); // mouse_x/y used only if hwnd is NULL
+  int setup_frame(HWND hwnd, RECT r, int _mouse_x=0, int _mouse_y=0, int has_dpi=0, int ext_flags=0); // mouse_x/y used only if hwnd is NULL
   void finish_draw();
 
   void gfx_lineto(EEL_F xpos, EEL_F ypos, EEL_F aaflag);
@@ -1816,7 +1816,7 @@ void eel_lice_state::gfx_drawnumber(EEL_F n, EEL_F ndigits)
                            getCurColor(),getCurMode(),(float)*m_gfx_a,DT_NOCLIP,NULL,NULL);
 }
 
-int eel_lice_state::setup_frame(HWND hwnd, RECT r, int _mouse_x, int _mouse_y, int has_dpi, int is_embedded)
+int eel_lice_state::setup_frame(HWND hwnd, RECT r, int _mouse_x, int _mouse_y, int has_dpi, int ext_flags)
 {
   int use_w = r.right - r.left;
   int use_h = r.bottom - r.top;
@@ -1831,7 +1831,7 @@ int eel_lice_state::setup_frame(HWND hwnd, RECT r, int _mouse_x, int _mouse_y, i
   *m_mouse_x=pt.x-r.left;
   *m_mouse_y=pt.y-r.top;
 
-  *m_gfx_ext_flags = is_embedded ? 1 : 0;
+  *m_gfx_ext_flags = ext_flags;
 
   if (has_dpi>0 && *m_gfx_ext_retina > 0.0)
   {
