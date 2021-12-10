@@ -1100,6 +1100,7 @@ int EEL_Editor::peek_get_token_info(const char *name, char *sstr, size_t sstr_sz
     {
       int good_len=-1;
       snprintf(sstr,sstr_sz,"%s=%.14f",name,v);
+      WDL_remove_trailing_decimal_zeros(sstr,2);
 
       if (v > -1.0 && v < NSEEL_RAM_ITEMSPERBLOCK*NSEEL_RAM_BLOCKS)
       {
@@ -1108,12 +1109,12 @@ int EEL_Editor::peek_get_token_info(const char *name, char *sstr, size_t sstr_sz
         if (dv)
         {
           snprintf_append(sstr,sstr_sz," [0x%06x]=%.14f",w,*dv);
-          good_len=-2;
+          WDL_remove_trailing_decimal_zeros(sstr,2);
         }
         else
         {
           good_len = strlen(sstr);
-          snprintf_append(sstr,sstr_sz," [0x%06x]=<uninit>",w);
+          snprintf_append(sstr,sstr_sz," [0x%06x]=<0>",w);
         }
       }
 
@@ -1121,13 +1122,8 @@ int EEL_Editor::peek_get_token_info(const char *name, char *sstr, size_t sstr_sz
       buf[0]=0;
       if (peek_get_numbered_string_value(v,buf,sizeof(buf)))
       {
-        if (good_len==-2)
-          snprintf_append(sstr,sstr_sz," %.0f(str)=%s",v,buf);
-        else
-        {
-          if (good_len>=0) sstr[good_len]=0; // remove [addr]=<uninit> if a string and no ram
-          snprintf_append(sstr,sstr_sz," (str)=%s",buf);
-        }
+        if (good_len>=0) sstr[good_len]=0; // remove [addr]=<uninit> if a string and no ram
+        snprintf_append(sstr,sstr_sz," #=\"%s\"",buf);
       }
     }
 
