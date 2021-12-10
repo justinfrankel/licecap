@@ -140,6 +140,8 @@ public:
 
   virtual void open_import_line();
 
+  virtual void get_extra_filepos_names(WDL_LogicalSortStringKeyedArray<int> * list, int pass) { }
+
   // static helpers
   static WDL_TypedBuf<char> s_draw_parentokenstack;
   static int parse_format_specifier(const char *fmt_in, int *var_offs, int *var_len);

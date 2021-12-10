@@ -1935,11 +1935,19 @@ void EEL_Editor::onRightClick(HWND hwnd)
       p += 4;
     }
   }
-  if (flist.GetSize())
+
+  get_extra_filepos_names(&flist,0);
+
+  if (flist.GetSize()>1)
   {
     flist.Resort();
     if (m_case_sensitive) flist.Resort(WDL_LogicalSortStringKeyedArray<int>::cmpistr);
+  }
 
+  get_extra_filepos_names(&flist,1);
+
+  if (flist.GetSize())
+  {
     HMENU hm=CreatePopupMenu();
     int pos=0;
     for (i=0; i < flist.GetSize(); ++i)
