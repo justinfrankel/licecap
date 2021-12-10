@@ -1119,13 +1119,13 @@ int EEL_Editor::peek_get_token_info(const char *name, char *sstr, size_t sstr_sz
         EEL_F *dv = NSEEL_VM_getramptr_noalloc(vm,w,NULL);
         if (dv)
         {
-          snprintf_append(sstr,sstr_sz," [0x%06x]=%.14f",w,*dv);
+          snprintf_append(sstr,sstr_sz," [%d]=%.14f",w,*dv);
           WDL_remove_trailing_decimal_zeros(sstr,2);
         }
         else
         {
           good_len = strlen(sstr);
-          snprintf_append(sstr,sstr_sz," [0x%06x]=<0>",w);
+          snprintf_append(sstr,sstr_sz," [%d]=<0>",w);
         }
       }
 
