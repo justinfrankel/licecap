@@ -1332,11 +1332,14 @@ void EEL_Editor::doWatchInfo(int c)
         WDL_FastString n;
         lp++;
         n.Set(lp,(int)(rp-lp));
-        int idx;
-        if ((idx=peek_get_named_string_value(n.Get(),buf,sizeof(buf)))>=0) snprintf(sstr,sizeof(sstr),"#%s(%d)=%s",n.Get(),idx,buf);
-        else snprintf(sstr,sizeof(sstr),"#%s not found",n.Get());
+        int idx=peek_get_named_string_value(n.Get(),buf,sizeof(buf));
+        if (idx>=0)
+        {
+          snprintf(sstr,sizeof(sstr),"#%s(%d)=%s",n.Get(),idx,buf);
+          lp="";
+        }
       }
-      else if (*lp > 0 && (isalpha(*lp) || *lp == '_') && rp > lp)
+      if (*lp > 0 && (isalpha(*lp) || *lp == '_') && rp > lp)
       {
         WDL_FastString n;
         n.Set(lp,(int)(rp-lp));
