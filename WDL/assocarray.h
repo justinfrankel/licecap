@@ -271,14 +271,16 @@ public:
     m_data=cp.m_data;
   }
 
-protected:
 
+// private data, but exposed in case the caller wants to manipulate at its own risk
   struct KeyVal
   {
     KEY key;
     VAL val;
   };
   WDL_TypedBuf<KeyVal> m_data;
+
+protected:
 
   int (*m_keycmp)(KEY *k1, KEY *k2);
   KEY (*m_keydup)(KEY);
