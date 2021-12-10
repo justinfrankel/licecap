@@ -1072,6 +1072,17 @@ int EEL_Editor::peek_get_token_info(const char *name, char *sstr, size_t sstr_sz
     }
   }
 
+  if ((chkmask & KEYWORD_MASK_USER_VAR) && name[0] == '#')
+  {
+    char tmp[256];
+    int v = peek_get_named_string_value(name+1,tmp,sizeof(tmp));
+    if (v>=0)
+    {
+      snprintf(sstr,sstr_sz,"%s(%d)=\"%s\"",name,v,tmp);
+      return KEYWORD_MASK_USER_VAR;
+    }
+  }
+
   if (chkmask & (KEYWORD_MASK_BUILTIN_FUNC|KEYWORD_MASK_USER_VAR))
   {
     int rv = 0;
@@ -1660,7 +1671,7 @@ run_suggest:
         int state = m_suggestion_curline_comment_state, toklen = 0, bcnt = 0, pcnt = 0;
         const char *tok;
                                        // if no parens/brackets are open, use a peekable token that starts at cursor
-        while ((tok=sh_tokenize(&p,endp,&toklen,&state)) && cursor > tok-(!pcnt && !bcnt && (tok[0] < 0 || tok[0] == '_' || isalpha(tok[0]))))
+        while ((tok=sh_tokenize(&p,endp,&toklen,&state)) && cursor > tok-(!pcnt && !bcnt && (tok[0] < 0 || tok[0] == '_' || isalpha(tok[0]) || tok[0] == '#')))
         {
           if (!state)
           {
@@ -1709,7 +1720,8 @@ run_suggest:
         if (t<0) break;
 
         if (tok[0] == ',') comma_cnt++;
-        else if ((tok[0] < 0 || tok[0] == '_' || isalpha(tok[0])) && (cursor <= tok + toklen || (t < ntok-1 && token_list[t+1].tok[0] == '(')))
+        else if ((tok[0] < 0 || tok[0] == '_' || isalpha(tok[0]) || tok[0] == '#') &&
+            (cursor <= tok + toklen || (t < ntok-1 && token_list[t+1].tok[0] == '(')))
         {
           // if cursor is within or at end of token, or is a function (followed by open-paren)
           char buf[512];
