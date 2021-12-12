@@ -8,7 +8,7 @@
 #include "filewrite.h"
 #include "queue.h"
 #include "win32_utf8.h"
-#include "../sdks/coreaudio_channel_formats.h"
+#include "coreaudio_channel_formats.h"
 
 
 char *tag_strndup(const char *src, int len)
