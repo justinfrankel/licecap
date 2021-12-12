@@ -5748,7 +5748,7 @@ static LRESULT tabControlWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
       }
     break;
     case WM_KEYDOWN:
-      if (lParam==FVIRTKEY && 
+      if ((lParam&0xff)==FVIRTKEY &&
            (wParam==VK_LEFT || 
             wParam==VK_RIGHT || 
             wParam==VK_HOME || 
@@ -7009,7 +7009,7 @@ LRESULT SwellDialogDefaultWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
       int navdir = 0;
 
       if (wParam == VK_TAB && (lParam&~FSHIFT) == FVIRTKEY) navdir = (lParam & FSHIFT) ? -1 : 1;
-      else if (lParam == FVIRTKEY)
+      else if ((lParam&0xff) == FVIRTKEY)
       {
         if (wParam == VK_LEFT || wParam == VK_UP) navdir = -1;
         else if (wParam == VK_RIGHT || wParam == VK_DOWN) navdir = 1;
