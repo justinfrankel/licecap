@@ -8,6 +8,7 @@
 #include "filewrite.h"
 #include "queue.h"
 #include "win32_utf8.h"
+#include "../sdks/coreaudio_channel_formats.h"
 
 
 char *tag_strndup(const char *src, int len)
@@ -104,7 +105,30 @@ void UnpackXMLElement(const char *pre, wdl_xml_element *elem,
   }
   if (elem->value.Get()[0])
   {
-    InsertMetadataIncrKeyIfNeeded(metadata, key.Get(), elem->value.Get());
+    const char *k=key.Get();
+    if (!strncmp(k, "IXML:ASWG:", 10))
+    {
+      k += 5;
+    }
+    else if (!strncmp(k, "IXML:BEXT:", 10))
+    {
+      // we could rewrite this as follows, but this might overwrite an actual bext chunk so maybe not?
+      /*
+      if (!strcmp(k+10, "BWF_DESCRIPTION")) k="BWF:Description";
+      else if (!strcmp(k+10, "BWF_ORIGINATOR")) k="BWF:Originator";
+      else if (!strcmp(k+10, "BWF_ORIGINATOR_REFERENCE")) k="BWF:OriginatorReference";
+      else if (!strcmp(k+10, "BWF_ORIGINATION_DATE")) k="BWF:OriginationDate";
+      else if (!strcmp(k+10, "BWF_ORIGINATION_TIME")) k="BWF:OriginationTime";
+      else if (!strcmp(k+10, "BWF_TIME_REFERENCE")) k="BWF:TimeReference"; // todo parse lo/hi
+      else if (!strcmp(k+10, "BWF_VERSION")) k="BWF:Version";
+      else if (!strcmp(k+10, "BWF_LOUDNESS_VALUE")) k="BWF:LoudnessValue";
+      else if (!strcmp(k+10, "BWF_LOUDNESS_RANGE")) k="BWF:LoudnessRange";
+      else if (!strcmp(k+10, "BWF_MAX_TRUE_PEAK_LEVEL")) k="BWF:MaxTruePeakLevel";
+      else if (!strcmp(k+10, "BWF_MAX_MOMENTARY_LOUDNESS")) k="BWF:MaxMomentaryLoudness";
+      else if (!strcmp(k+10, "BWF_MAX_SHORT_TERM_LOUDNESS")) k="BWF:MaxShortTermLoudness";
+      */
+    }
+    InsertMetadataIncrKeyIfNeeded(metadata, k, elem->value.Get());
   }
   for (int i=0; i < elem->elements.GetSize(); ++i)
   {
@@ -323,109 +347,118 @@ WDL_INT64 _ATOI64(const char *str)
 }
 
 
-int PackIXMLChunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata)
+int PackIXMLChunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata, int padtolen)
 {
   if (!hb || !metadata) return 0;
 
-  if (!HasScheme("IXML", metadata) && !HasScheme("BWF", metadata)) return 0;
+  if (!HasScheme("IXML", metadata) &&
+    !HasScheme("ASWG", metadata) &&
+    !HasScheme("BWF", metadata))
+  {
+    return 0;
+  }
 
   int olen=hb->GetSize();
 
   WDL_FastString ixml;
-  ixml.Set("<?xml version=\"1.0\" encoding=\"UTF-8\"?><BWFXML>");
-  // metadata keys are sorted BWF<IXML,
-  // so we'll need to open/close BEXT and USER in that order
-  bool has_ixml=false, has_bext=false, has_user=false;
+  const char *ixml_open="<?xml version=\"1.0\" encoding=\"UTF-8\"?><BWFXML>";
+  const char *need_close=NULL;
+  int junklen=0;
+
   for (int i=0; i < metadata->GetSize(); ++i)
   {
     const char *key;
     const char *val=metadata->Enumerate(i, &key);
     if (!key || !key[0] || !val || !val[0]) continue;
 
-    if (!strncmp(key, "BWF:", 4) && key[4])
+    const char *sec =
+      !strncmp(key, "ASWG:", 5) ? "ASWG" :
+      !strncmp(key, "BWF:", 4) ? "BWF" :
+      !strncmp(key, "IXML:USER:", 10) ? "USER" :
+      !strncmp(key, "IXML:", 5) ? "IXML" :
+      NULL;
+    if (!sec) continue;
+
+    key += strlen(sec)+1;
+    if (!strcmp(sec, "BWF"))
     {
-      key += 4;
-
-      const char *elem=NULL;
-      if (!strcmp(key, "Description")) elem="BWF_DESCRIPTION";
-      else if (!strcmp(key, "Originator")) elem="BWF_ORIGINATOR";
-      else if (!strcmp(key, "OriginatorReference")) elem="BWF_ORIGINATOR_REFERENCE";
-      else if (!strcmp(key, "OriginationDate")) elem="BWF_ORIGINATION_DATE";
-      else if (!strcmp(key, "OriginationTime")) elem="BWF_ORIGINATION_TIME";
-      else if (!strcmp(key, "TimeReference")) elem="BWF_TIME_REFERENCE";
-      if (elem)
-      {
-        has_ixml=true;
-        if (!has_bext) { has_bext=true; ixml.Append("<BEXT>"); }
-
-        if (!strcmp(elem, "BWF_TIME_REFERENCE"))
-        {
-          WDL_UINT64 pos=_ATOI64(val);
-          int hi=pos>>32, lo=(pos&0xFFFFFFFF);
-          ixml.AppendFormatted(4096, "<%s_HIGH>%d</%s_HIGH>", elem, hi, elem);
-          ixml.AppendFormatted(4096, "<%s_LOW>%d</%s_LOW>", elem, lo, elem);
-        }
-        else
-        {
-          ixml.Append("<");
-          XMLCompliantAppend(&ixml, elem, false);
-          ixml.Append(">");
-          XMLCompliantAppend(&ixml, val, true);
-          ixml.Append("</");
-          XMLCompliantAppend(&ixml, elem, false);
-          ixml.Append(">");
-        }
-      }
+      if (!strcmp(key, "Description")) key="BWF_DESCRIPTION";
+      else if (!strcmp(key, "Originator")) key="BWF_ORIGINATOR";
+      else if (!strcmp(key, "OriginatorReference")) key="BWF_ORIGINATOR_REFERENCE";
+      else if (!strcmp(key, "OriginationDate")) key="BWF_ORIGINATION_DATE";
+      else if (!strcmp(key, "OriginationTime")) key="BWF_ORIGINATION_TIME";
+      else if (!strcmp(key, "TimeReference")) key="BWF_TIME_REFERENCE";
+      else if (!strcmp(key, "Version")) key="BWF_VERSION";
+      else if (!strcmp(key, "LoudnessValue")) key="BWF_LOUDNESS_VALUE";
+      else if (!strcmp(key, "LoudnessRange")) key="BWF_LOUDNESS_RANGE";
+      else if (!strcmp(key, "MaxTruePeakLevel")) key="BWF_MAX_TRUE_PEAK_LEVEL";
+      else if (!strcmp(key, "MaxMomentaryLoudness")) key="BWF_MAX_MOMENTARY_LOUDNESS";
+      else if (!strcmp(key, "MaxShortTermLoudness")) key="BWF_MAX_SHORT_TERM_LOUDNESS";
+      else continue;
     }
-    else if (!strncmp(key, "IXML:", 5) && key[5])
+
+    if (!ixml.GetLength()) ixml.Append(ixml_open);
+
+    if (need_close && strcmp(need_close, sec))
     {
-      key += 5;
-      has_ixml=true;
-      if (has_bext) { has_bext=false; ixml.Append("</BEXT>"); }
-
-      if (!strncmp(key, "USER", 4))
-      {
-        if (!has_user) { has_user=true; ixml.Append("<USER>"); }
-
-        const char *k, *v;
-        int klen, vlen;
-        ParseUserDefMetadata(key, val, &k, &v, &klen, &vlen);
-        ixml.Append("<");
-        XMLCompliantAppend(&ixml, k, false);
-        ixml.Append(">");
-        XMLCompliantAppend(&ixml, v, true);
-        ixml.Append("</");
-        XMLCompliantAppend(&ixml, k, false);
-        ixml.Append(">");
-      }
-      else
-      {
-        if (has_user) { has_user=false; ixml.Append("</USER>"); }
-
-        ixml.Append("<");
-        XMLCompliantAppend(&ixml, key, false);
-        ixml.Append(">");
-        XMLCompliantAppend(&ixml, val, true);
-        ixml.Append("</");
-        XMLCompliantAppend(&ixml, key, false);
-        ixml.Append(">");
-      }
-      // specs say no specific whitespace or newline needed
+      ixml.AppendFormatted(512, "</%s>", need_close);
+      need_close=NULL;
     }
+    if (!need_close && strcmp(sec, "IXML"))
+    {
+      ixml.AppendFormatted(512, "<%s>", sec);
+      need_close=sec;
+    }
+
+    if (!strcmp(key, "BWF_TIME_REFERENCE"))
+    {
+      WDL_UINT64 pos=_ATOI64(val);
+      int hi=pos>>32, lo=(pos&0xFFFFFFFF);
+      ixml.AppendFormatted(4096, "<%s_HIGH>%d</%s_HIGH>", key, hi, key);
+      ixml.AppendFormatted(4096, "<%s_LOW>%d</%s_LOW>", key, lo, key);
+      continue;
+    }
+
+    if (!strcmp(sec, "USER"))
+    {
+      const char *k, *v;
+      int klen, vlen;
+      ParseUserDefMetadata(key, val, &k, &v, &klen, &vlen);
+      key=k;
+      val=v;
+    }
+
+    if (!strncmp(val, "#junk#", 6))
+    {
+      junklen += 11+2*strlen(key)+strlen(val);
+      continue;
+    }
+
+    ixml.Append("<");
+    XMLCompliantAppend(&ixml, key, false);
+    ixml.Append(">");
+    XMLCompliantAppend(&ixml, val, true);
+    ixml.Append("</");
+    XMLCompliantAppend(&ixml, key, false);
+    ixml.Append(">");
+  }
+  if (need_close)
+  {
+    ixml.AppendFormatted(512, "</%s>", need_close);
   }
 
-  if (has_ixml)
+  if (ixml.GetLength())
   {
-    if (has_bext) ixml.Append("</BEXT>");
-    if (has_user) ixml.Append("</USER>");
     ixml.Append("</BWFXML>");
-
-    int len=ixml.GetLength()+1; // nul-terminate just in case
-    unsigned char *p=(unsigned char*)hb->Resize(olen+len+(len&1));
+    int ixmllen=ixml.GetLength();
+    int len=ixmllen+1+junklen;
+    if (len < padtolen) len=padtolen;
+    if (len&1) ++len;
+    unsigned char *p=(unsigned char*)hb->Resize(olen+len);
     if (p)
     {
-      memcpy(p+olen, ixml.Get(), len);
-      if (len&1) p[olen+len]=0;
+      memcpy(p+olen, ixml.Get(), ixmllen);
+      memset(p+olen+ixmllen, 0, len-ixmllen);
     }
   }
 
@@ -556,12 +589,14 @@ int PackXMPChunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata)
 
   xmp.Append(xmp_ftr);
 
-  int len=xmp.GetLength()+1; // nul-terminate just in case
-  unsigned char *p=(unsigned char*)hb->Resize(olen+len+(len&1));
+  int xmplen=xmp.GetLength();
+  int len=xmplen+1;
+  if (len&1) ++len;
+  unsigned char *p=(unsigned char*)hb->Resize(olen+len);
   if (p)
   {
-    memcpy(p+olen, xmp.Get(), xmp.GetLength()+1);
-    if (len&1) p[olen+len]=0;
+    memcpy(p+olen, xmp.Get(), xmplen);
+    memset(p+olen+xmplen, 0, len-xmplen);
   }
 
   return hb->GetSize()-olen;
@@ -798,18 +833,19 @@ const char *EnumMetadataSchemeFromFileType(const char *filetype, int idx)
   if (!stricmp(filetype, "bwf")) filetype="wav";
   else if (!stricmp(filetype, "opus")) filetype="ogg";
   else if (!stricmp(filetype, "aiff")) filetype="aif";
+  else if (!stricmp(filetype, "caff")) filetype="caf";
 
   static const char *WAV_SCHEMES[]=
   {
-    "BWF", "INFO", "IXML", "CART", "XMP", "AXML", "ID3",
+    "BWF", "INFO", "IXML", "ASWG", "XMP", "AXML", "CART", "ID3",
   };
   static const char *MP3_SCHEMES[]=
   {
-    "ID3", "APE", "IXML", "XMP",
+    "ID3", "APE", "IXML", "ASWG", "XMP",
   };
   static const char *FLAC_SCHEMES[]=
   {
-    "VORBIS", "BWF", "IXML", "XMP",
+    "VORBIS", "BWF", "IXML", "ASWG", "XMP",
   };
   static const char *OGG_SCHEMES[]=
   {
@@ -822,6 +858,10 @@ const char *EnumMetadataSchemeFromFileType(const char *filetype, int idx)
   static const char *AIF_SCHEMES[]=
   {
     "IFF", "XMP",
+  };
+  static const char *CAF_SCHEMES[]=
+  {
+    "CAFINFO",
   };
   static const char *RX2_SCHEMES[]=
   {
@@ -837,6 +877,7 @@ const char *EnumMetadataSchemeFromFileType(const char *filetype, int idx)
   DO_SCHEME_MAP(OGG);
   DO_SCHEME_MAP(WV);
   DO_SCHEME_MAP(AIF);
+  DO_SCHEME_MAP(CAF);
   DO_SCHEME_MAP(RX2);
 
 #undef DO_SCHEME_MAP
@@ -869,7 +910,9 @@ const char *EnumMetadataKeyFromMexKey(const char *mexkey, int idx)
   // VORBIS
   // CART
   // IXML
+  // ASWG
   // XMP
+  // CAFINFO
   // IFF
   // REX
 
@@ -881,7 +924,9 @@ const char *EnumMetadataKeyFromMexKey(const char *mexkey, int idx)
     "VORBIS:TITLE",
     "CART:Title",
     "IXML:PROJECT",
+    "ASWG:project",
     "XMP:dc/title",
+    "CAFINFO:title",
     "IFF:NAME",
     "REX:Name",
   };
@@ -893,6 +938,7 @@ const char *EnumMetadataKeyFromMexKey(const char *mexkey, int idx)
     "VORBIS:ARTIST",
     "CART:Artist",
     "XMP:dm/artist",
+    "CAFINFO:artist",
     "IFF:AUTH",
   };
   static const char *ALBUM_KEYS[]=
@@ -903,6 +949,7 @@ const char *EnumMetadataKeyFromMexKey(const char *mexkey, int idx)
     "APE:Album",
     "VORBIS:ALBUM",
     "XMP:dm/album",
+    "CAFINFO:album",
   };
   static const char *YEAR_KEYS[]= // really DATE
   {
@@ -915,6 +962,7 @@ const char *EnumMetadataKeyFromMexKey(const char *mexkey, int idx)
     "VORBIS:DATE",
     "CART:StartDate",
     "XMP:dc/date",
+    "CAFINFO:year",
   };
   static const char *GENRE_KEYS[]=
   {
@@ -924,6 +972,7 @@ const char *EnumMetadataKeyFromMexKey(const char *mexkey, int idx)
     "VORBIS:GENRE",
     "CART:Category",
     "XMP:dm/genre",
+    "CAFINFO:genre",
   };
   static const char *COMMENT_KEYS[]=
   {
@@ -933,7 +982,10 @@ const char *EnumMetadataKeyFromMexKey(const char *mexkey, int idx)
     "VORBIS:COMMENT",
     "CART:TagText",
     "IXML:NOTE",
+    "ASWG:notes",
     "XMP:dm/logComment",
+    "CAFINFO:comments",
+    "CAFINFO:comment", // spec is "comments" but ffmpeg may write "comment"
     "REX:FreeText",
   };
   static const char *DESC_KEYS[]=
@@ -949,17 +1001,21 @@ const char *EnumMetadataKeyFromMexKey(const char *mexkey, int idx)
   };
   static const char *BPM_KEYS[]=
   {
+    "ACID:BPM",
     "ID3:TBPM",
     "APE:BPM",
     "VORBIS:BPM",
     "XMP:dm/tempo",
+    "CAFINFO:tempo",
   };
   static const char *KEY_KEYS[]=
   {
+    "ACID:KEY",
     "ID3:TKEY",
     "APE:Key",
     "VORBIS:KEY",
     "XMP:dm/key",
+    "CAFINFO:key signature",
   };
   static const char *DB_CUSTOM_KEYS[]=
   {
@@ -977,6 +1033,7 @@ const char *EnumMetadataKeyFromMexKey(const char *mexkey, int idx)
     "CART:CutID",
     // "IXML:TRACK",
     "XMP:dm/trackNumber",
+    "CAFINFO:track number",
   };
 
 #define DO_MEXKEY_MAP(K) if (!strcmp(mexkey, #K)) \
@@ -999,11 +1056,28 @@ const char *EnumMetadataKeyFromMexKey(const char *mexkey, int idx)
   return NULL;
 }
 
+const char *GetMexKeyFromMetadataKey(const char *key)
+{
+  // TO_DO_IF_METADATA_UPDATE
+  static const char *mexkeys[]=
+    {"TITLE", "ARTIST", "ALBUM", "YEAR", "GENRE", "COMMENT", "DESC", "BPM", "KEY", "DB_CUSTOM", "TRACKNUMBER"};
+  for (int i=0; i < sizeof(mexkeys)/sizeof(mexkeys[0]); ++i)
+  {
+    int j=0;
+    const char *tkey=NULL;
+    while ((tkey=EnumMetadataKeyFromMexKey(mexkeys[i], j++)))
+    {
+      if (!strcmp(key, tkey)) return mexkeys[i];
+    }
+  }
+  return NULL;
+}
 
 bool HandleMexMetadataRequest(const char *mexkey, char *buf, int buflen,
   WDL_StringKeyedArray<char*> *metadata)
 {
   if (!mexkey || !mexkey[0] || !buf || !buflen || !metadata) return false;
+  buf[0]=0;
 
   if (strchr(mexkey, ':'))
   {
@@ -1425,7 +1499,7 @@ void AddMexID3Raw(WDL_StringKeyedArray<char*> *metadata,
     {
       const char *subkey=key+9;
       hb.Resize(0, false);
-      if (!stricmp(subkey, "IXML")) PackIXMLChunk(&hb, metadata);
+      if (!stricmp(subkey, "IXML")) PackIXMLChunk(&hb, metadata, 0);
       else if (!stricmp(subkey, "XMP")) PackXMPChunk(&hb, metadata);
       val=(const char*)hb.Get();
       vallen=hb.GetSize();
@@ -1513,12 +1587,14 @@ void AddMexID3Raw(WDL_StringKeyedArray<char*> *metadata,
 }
 
 
-int PackID3Chunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata, bool want_ixml_xmp)
+int PackID3Chunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata,
+  bool want_embed_otherschemes, int *ixml_lenwritten, int ixml_padtolen)
 {
   if (!hb || !metadata) return false;
 
-  bool want_ixml = want_ixml_xmp && HasScheme("IXML", metadata);
-  bool want_xmp = want_ixml_xmp && HasScheme("XMP", metadata);
+  bool want_ixml = want_embed_otherschemes &&
+    (HasScheme("IXML", metadata) || HasScheme("ASWG", metadata) || HasScheme("BWF", metadata));
+  bool want_xmp = want_embed_otherschemes && HasScheme("XMP", metadata);
   if (!HasScheme("ID3", metadata) && !want_ixml && !want_xmp) return false;
 
   int olen=hb->GetSize();
@@ -1620,8 +1696,12 @@ int PackID3Chunk(WDL_HeapBuf *hb, WDL_StringKeyedArray<char*> *metadata, bool wa
   WDL_HeapBuf ixml;
   if (want_ixml)
   {
-    PackIXMLChunk(&ixml, metadata);
-    if (ixml.GetSize()) id3len += 10+5+ixml.GetSize();
+    PackIXMLChunk(&ixml, metadata, ixml_padtolen);
+    if (ixml.GetSize())
+    {
+      if (ixml_lenwritten) *ixml_lenwritten=ixml.GetSize();
+      id3len += 10+5+ixml.GetSize();
+    }
   }
 
   WDL_HeapBuf xmp;
@@ -1869,5 +1949,122 @@ double ReadMetadataPrefPos(WDL_StringKeyedArray<char*> *metadata, double srate)
 
   return -1.0;
 }
+
+
+// nch 0 means channel count agnostic
+// nch -1 means high order ambisonic, nch must? be an integer squared, layout tag must be or'd with the number of channels
+struct ChanLayout { const char *fmts; int nch; const char *desc; int chan_layout, chan_mask; };
+static const ChanLayout CHAN_LAYOUTS[]=
+{
+  { "cw", 2, "L R",
+    kAudioChannelLayoutTag_UseChannelBitmap,
+    kAudioChannelBit_Left | kAudioChannelBit_Right },
+
+  { "cw", 4, "L R Ls Rs",
+    kAudioChannelLayoutTag_UseChannelBitmap,
+    kAudioChannelBit_Left | kAudioChannelBit_Right |
+    kAudioChannelBit_LeftSurround | kAudioChannelBit_RightSurround },
+
+  { "cw", 6, "L R C LFE Lsd Rsd",
+    kAudioChannelLayoutTag_UseChannelBitmap,
+    kAudioChannelBit_Left | kAudioChannelBit_Right | kAudioChannelBit_Center |
+    kAudioChannelBit_LFEScreen |
+    kAudioChannelBit_LeftSurroundDirect | kAudioChannelBit_RightSurroundDirect },
+
+  { "cw", 8, "L R C LFE Ls Rs Lsd Rsd",
+    kAudioChannelLayoutTag_UseChannelBitmap,
+    kAudioChannelBit_Left | kAudioChannelBit_Right | kAudioChannelBit_Center |
+    kAudioChannelBit_LFEScreen |
+    kAudioChannelBit_LeftSurround | kAudioChannelBit_RightSurround |
+    kAudioChannelBit_LeftSurroundDirect | kAudioChannelBit_RightSurroundDirect },
+
+  { "c", 2, "Mid-Side", kAudioChannelLayoutTag_MidSide, 0 },
+  { "c", 2, "Binaural", kAudioChannelLayoutTag_Binaural, 0 },
+  { "c", 4, "Ambisonic B-Format - W X Y Z", kAudioChannelLayoutTag_Ambisonic_B_Format, 0 },
+
+  { "c", 6, "MPEG 5.1A - L R C LFE Ls Rs", kAudioChannelLayoutTag_MPEG_5_1_A, 0 },
+  { "c", 6, "MPEG 5.1B - L R Ls Rs C LFE", kAudioChannelLayoutTag_MPEG_5_1_B, 0 },
+  { "c", 6, "MPEG 5.1C - L C R Ls Rs LFE", kAudioChannelLayoutTag_MPEG_5_1_C, 0 },
+  { "c", 6, "MPEG 5.1D - C L R Ls Rs LFE", kAudioChannelLayoutTag_MPEG_5_1_D, 0 },
+  { "c", 8, "MPEG 5.1A - L R C LFE Ls Rs Lc Rc", kAudioChannelLayoutTag_MPEG_7_1_A, 0 },
+  { "c", 8, "MPEG 5.1B - C Lc Rc L R Ls Rs LFE", kAudioChannelLayoutTag_MPEG_7_1_B, 0 },
+  { "c", 8, "MPEG 5.1C - L R C LFE Ls Rs Rls Rrs", kAudioChannelLayoutTag_MPEG_7_1_C, 0 },
+
+  { "c", 6, "ITU 3.2.1 - L R C LFE Ls Rs", kAudioChannelLayoutTag_ITU_3_2_1, 0 },
+  { "c", 8, "ITU 3.4.1 - L R C LFE Ls Rs Rls Rrs", kAudioChannelLayoutTag_ITU_3_4_1, 0 },
+
+  { "c", -1, "HO Ambisonic SN3D", kAudioChannelLayoutTag_HOA_ACN_SN3D, 0 },
+  { "c", -1, "HO Ambisonic N3D", kAudioChannelLayoutTag_HOA_ACN_N3D, 0 },
+
+  { "c", 8, "Atmos 5.1.2 - L R C LFE Ls Rs Ltm Rtm", kAudioChannelLayoutTag_Atmos_5_1_2, 0 },
+  { "c", 12, "Atmos 7.1.4 - L R C LFE Ls Rs Rls Rrs Ltf Rtf Ltr Rtr", kAudioChannelLayoutTag_Atmos_7_1_4, 0 },
+  { "c", 16, "Atmos 9.1.6 - L R C LFE Ls Rs Rls Rrs Lw Rw Ltf Rtf Ltm Rtm Ltr Rtr", kAudioChannelLayoutTag_Atmos_9_1_6, 0 },
+};
+
+#define LAYOUT_MASK_VALID(layout, mask) \
+  (((layout) == kAudioChannelLayoutTag_UseChannelBitmap) == ((mask) != 0))
+
+
+const char *EnumSupportedChannelLayouts(int idx, char fmt)
+{
+  int n=0;
+  for (int i=0; i < sizeof(CHAN_LAYOUTS)/sizeof(CHAN_LAYOUTS[0]); ++i)
+  {
+    WDL_ASSERT(LAYOUT_MASK_VALID(CHAN_LAYOUTS[i].chan_layout, CHAN_LAYOUTS[i].chan_mask));
+
+    if ((!fmt || strchr(CHAN_LAYOUTS[i].fmts, fmt)) && idx == n++)
+    {
+      return CHAN_LAYOUTS[i].desc;
+    }
+  }
+  return NULL;
+}
+
+
+const char *GetChannelLayoutDesc(int chan_layout, int chan_mask)
+{
+  if (!LAYOUT_MASK_VALID(chan_layout, chan_mask)) return NULL;
+
+  bool is_match=false;
+  for (int i=0; i < sizeof(CHAN_LAYOUTS)/sizeof(CHAN_LAYOUTS[0]); ++i)
+  {
+    if (CHAN_LAYOUTS[i].chan_mask != 0)
+    {
+      if (CHAN_LAYOUTS[i].chan_mask == chan_mask) is_match=true;
+    }
+    else if (CHAN_LAYOUTS[i].nch == -1)
+    {
+      // high order ambisonic layout tags are OR'd with the actual number of channels
+      if ((CHAN_LAYOUTS[i].chan_layout&0xFFFF0000) == (chan_layout&0xFFFF0000)) is_match=true;
+    }
+    else
+    {
+      if (CHAN_LAYOUTS[i].chan_layout == chan_layout) is_match=true;
+    }
+    if (is_match)
+    {
+      return CHAN_LAYOUTS[i].desc;
+    }
+  }
+  return NULL;
+}
+
+bool GetChannelLayoutFromDesc(const char *desc, int *chan_layout, int *chan_mask, int *nch)
+{
+  if (!desc || !desc[0]) return false;
+  for (int i=0; i < sizeof(CHAN_LAYOUTS)/sizeof(CHAN_LAYOUTS[0]); ++i)
+  {
+    if (!strcmp(desc, CHAN_LAYOUTS[i].desc))
+    {
+      if (chan_layout) *chan_layout=CHAN_LAYOUTS[i].chan_layout;
+      if (chan_mask) *chan_mask=CHAN_LAYOUTS[i].chan_mask;
+      if (nch) *nch=CHAN_LAYOUTS[i].nch;
+      return true;
+    }
+  }
+  return false;
+}
+
+
 
 #endif // _METADATA_H_

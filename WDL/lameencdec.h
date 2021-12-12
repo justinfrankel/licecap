@@ -65,11 +65,14 @@ class LameEncoder
     }
 
     int GetNumChannels() { return m_encoder_nch; }
+
+    int GetID3Len() const { return m_id3_len; }
+    int GetIXMLLen() const { return m_ixml_len; }
     
   private:
 
     void SetMetadata(WDL_StringKeyedArray<char*> *metadata);
-    int m_id3_len;
+    int m_id3_len, m_ixml_len;
     WDL_HeapBuf m_apetag;
 
     void *m_lamestate;
