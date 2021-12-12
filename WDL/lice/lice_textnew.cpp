@@ -1084,7 +1084,7 @@ finish_up_native_render:
         }
         else
         {
-          if (m_flags&LICE_FONT_FLAG_VERTICAL) 
+          if (m_flags&LICE_FONT_FLAG_VERTICAL)
           {
             xpos+=m_line_height+m_lsadj;
             ypos=0;
@@ -1121,15 +1121,31 @@ finish_up_native_render:
 
         if (dtFlags&DT_WORDBREAK)
         {
-          if (str == next_break)
+          if (m_flags&LICE_FONT_FLAG_VERTICAL)
           {
-            ypos += m_line_height+m_lsadj;
-            xpos=0;
-            next_break=NULL;
+            if (str == next_break)
+            {
+              xpos += m_line_height+m_lsadj;
+              ypos=0;
+              next_break=NULL;
+            }
+            if (!next_break)
+            {
+              next_break=NextWordBreak(str, strcnt, rect->bottom-rect->top-ypos);
+            }
           }
-          if (!next_break)
+          else
           {
-            next_break=NextWordBreak(str, strcnt, rect->right-rect->left-xpos);
+            if (str == next_break)
+            {
+              ypos += m_line_height+m_lsadj;
+              xpos=0;
+              next_break=NULL;
+            }
+            if (!next_break)
+            {
+              next_break=NextWordBreak(str, strcnt, rect->right-rect->left-xpos);
+            }
           }
         }
       }
@@ -1235,12 +1251,6 @@ finish_up_native_render:
   // thought: calculate length of "...", then when pos+length+widthofnextchar >= right, switch
   // might need to precalc size to make sure it's needed, though
 
-
-  if ((dtFlags&DT_WORDBREAK) && (m_flags&LICE_FONT_FLAG_VERTICAL))
-  {
-    dtFlags &= ~DT_WORDBREAK; // todo
-  }
-
   const char *next_break=NULL;
   while (*str && strcnt)
   {
@@ -1295,15 +1305,31 @@ finish_up_native_render:
 
       if (dtFlags&DT_WORDBREAK)
       {
-        if (str == next_break)
+        if (m_flags&LICE_FONT_FLAG_VERTICAL)
         {
-          ypos += m_line_height+m_lsadj;
-          xpos=start_x;
-          next_break=NULL;
+          if (str == next_break)
+          {
+            xpos += m_line_height+m_lsadj;
+            ypos=start_y;
+            next_break=NULL;
+          }
+          if (!next_break)
+          {
+            next_break=NextWordBreak(str, strcnt, use_rect.bottom-ypos);
+          }
         }
-        if (!next_break)
+        else
         {
-          next_break=NextWordBreak(str, strcnt, use_rect.right-xpos);
+          if (str == next_break)
+          {
+            ypos += m_line_height+m_lsadj;
+            xpos=start_x;
+            next_break=NULL;
+          }
+          if (!next_break)
+          {
+            next_break=NextWordBreak(str, strcnt, use_rect.right-xpos);
+          }
         }
       }
     }
