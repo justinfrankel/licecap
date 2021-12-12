@@ -740,6 +740,7 @@ static const char *adv_str(const char *str, int *strcnt, unsigned short *c)
 
 const char *LICE_CachedFont::NextWordBreak(const char *str, int strcnt, int w)
 {
+  // returns the first character of the next line
   const char *next_break=NULL;
   while (*str && strcnt)
   {
@@ -790,6 +791,7 @@ int LICE_CachedFont::DrawTextImpl(LICE_IBitmap *bm, const char *str, int strcnt,
     dtFlags &= ~LICE_DT_NEEDALPHA;
   }
 
+  if (dtFlags&DT_SINGLELINE) dtFlags &= ~DT_WORDBREAK;
 
   // if using line-spacing adjustments (m_lsadj), don't allow native rendering 
   // todo: split rendering up into invidual lines and DrawText calls
@@ -1075,7 +1077,10 @@ finish_up_native_render:
       if (c == '\r') continue;
       if (c == '\n')
       {
-        if (dtFlags & DT_SINGLELINE) c=' ';
+        if (dtFlags & DT_SINGLELINE)
+        {
+          c=' '; // different from win32 native behavior, which skips the character
+        }
         else
         {
           if (m_flags&LICE_FONT_FLAG_VERTICAL) 
@@ -1243,7 +1248,10 @@ finish_up_native_render:
     if (c == '\r') continue;
     if (c == '\n')
     {
-      if (dtFlags & DT_SINGLELINE) c=' ';
+      if (dtFlags & DT_SINGLELINE)
+      {
+        c=' '; // different from win32 native behavior, which skips the character
+      }
       else
       {
         if (m_flags&LICE_FONT_FLAG_VERTICAL) 
