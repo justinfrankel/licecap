@@ -746,7 +746,8 @@ const char *LICE_CachedFont::NextWordBreak(const char *str, int strcnt, int w)
   {
     unsigned short c;
     str=adv_str(str, &strcnt, &c);
-    if (c != '\r' && c != '\n')
+    if (c == '\n') return str;
+    if (c != '\r')
     {
       charEnt *ent=findChar(c);
       if (ent && ent->base_offset > 0 && ent->base_offset < m_cachestore.GetSize())
@@ -755,7 +756,7 @@ const char *LICE_CachedFont::NextWordBreak(const char *str, int strcnt, int w)
         if (w < 0) return next_break ? next_break : str;
       }
     }
-    if (c == ' ' || c == '\t' || c == '\r' || c == '\n') next_break=str;
+    if (c == ' ' || c == '\t' || c == '\r') next_break=str;
   }
   return str;
 }
@@ -1093,6 +1094,7 @@ finish_up_native_render:
             ypos+=m_line_height+m_lsadj;
             xpos=0;
           }
+          if (dtFlags&DT_WORDBREAK) next_break=NULL;
           continue;
         }
       }
@@ -1264,6 +1266,7 @@ finish_up_native_render:
           ypos+=m_line_height+m_lsadj;
           xpos=start_x;
         }
+        if (dtFlags&DT_WORDBREAK) next_break=NULL;
         continue;
       }
     }
