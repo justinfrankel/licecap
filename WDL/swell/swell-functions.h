@@ -686,6 +686,8 @@ SWELL_API_DEFINE(void, SWELL_MessageQueue_Clear,(HWND h))
 ** Pass a keyboard NSEvent *, and it will return a windows VK_ keycode (or ascii), and set flags, 
 ** including (possibly) FSHIFT, FCONTROL (apple key), FALT, and FVIRTKEY. The ctrl key is not checked,
 ** as SWELL generally encourages this to be used soley for a right mouse button (as modifier).
+** flags may also include 0x1000000 for arrow keys and home/end (matching the lParam behavior of win32),
+** or for numeric keypad enter
 */
 #ifdef SWELL_TARGET_OSX
 SWELL_API_DEFINE(int, SWELL_MacKeyToWindowsKey,(void *nsevent, int *flags))

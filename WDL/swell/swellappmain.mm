@@ -147,7 +147,7 @@ static bool IsMultiLineEditControl(NSView *cv, id fs)
           return;
         }
       }
-      else if (!(flag&~FVIRTKEY) && code == VK_RETURN) 
+      else if (!(flag&0xff&~FVIRTKEY) && code == VK_RETURN)
       {      
         // get default button command id, if any, if enabled
         if (!IsMultiLineEditControl(cv,dest_view))
