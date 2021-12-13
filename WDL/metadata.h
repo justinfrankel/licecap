@@ -11,6 +11,40 @@
 #include "coreaudio_channel_formats.h"
 
 
+int MetadataToArray(WDL_StringKeyedArray<char*> *metadata, WDL_TypedBuf<const char*> *metadata_arr)
+{
+  if (!metadata || !metadata_arr) return 0;
+
+  int cnt=0;
+  for (int i=0; i < metadata->GetSize(); ++i)
+  {
+    const char *k, *v=metadata->Enumerate(i, &k);
+    if (k && v)
+    {
+      metadata_arr->Add(k);
+      metadata_arr->Add(v);
+      ++cnt;
+    }
+  }
+  metadata_arr->Add(NULL);
+  return cnt;
+}
+
+int ArrayToMetadata(const char **metadata_arr, WDL_StringKeyedArray<char*> *metadata)
+{
+  if (!metadata_arr || !metadata) return 0;
+
+  int cnt=0;
+  for (; metadata_arr[0] && metadata_arr[1]; metadata_arr += 2)
+  {
+    metadata->AddUnsorted(metadata_arr[0], strdup(metadata_arr[1]));
+    ++cnt;
+  }
+  if (cnt) metadata->Resort();
+  return cnt;
+}
+
+
 char *tag_strndup(const char *src, int len)
 {
   if (!src || !len) return NULL;
