@@ -578,6 +578,8 @@ BOOL SetThreadPriority(HANDLE hand, int prio)
   {
     // this is for darwin, but might work elsewhere
     param.sched_priority = 31 + prio;
+    if (prio >= THREAD_PRIORITY_TIME_CRITICAL) // this could be _HIGHEST eventually
+      pol = SCHED_FIFO;
 
     int mt=sched_get_priority_min(pol);
     if (param.sched_priority<mt||param.sched_priority > (mt=sched_get_priority_max(pol)))param.sched_priority=mt;
