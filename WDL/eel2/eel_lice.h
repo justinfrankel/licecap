@@ -27,7 +27,6 @@ class LICE_IFont;
 EEL_LICE_FUNCDEF LICE_IBitmap *(*__LICE_CreateBitmap)(int, int, int);
 EEL_LICE_FUNCDEF void (*__LICE_Clear)(LICE_IBitmap *dest, LICE_pixel color);
 EEL_LICE_FUNCDEF void (*__LICE_Line)(LICE_IBitmap *dest, int x1, int y1, int x2, int y2, LICE_pixel color, float alpha, int mode, bool aa);
-EEL_LICE_FUNCDEF void (*__LICE_ThickFLine)(LICE_IBitmap *dest, double x1, double y1, double x2, double y2, LICE_pixel color, float alpha, int mode, int width);
 EEL_LICE_FUNCDEF bool (*__LICE_ClipLine)(int* pX1, int* pY1, int* pX2, int* pY2, int xLo, int yLo, int xHi, int yHi);
 EEL_LICE_FUNCDEF void (*__LICE_DrawText)(LICE_IBitmap *bm, int x, int y, const char *string, 
                    LICE_pixel color, float alpha, int mode);
@@ -84,7 +83,6 @@ EEL_LICE_FUNCDEF void (*__LICE_DeltaBlit)(LICE_IBitmap *dest, LICE_IBitmap *src,
 #define LICE_Blur __LICE_Blur
 #define LICE_Clear __LICE_Clear
 #define LICE_Line __LICE_Line
-#define LICE_ThickFLine __LICE_ThickFLine
 #define LICE_ClipLine __LICE_ClipLine
 #define LICE_FillRect __LICE_FillRect
 #define LICE_DrawRect __LICE_DrawRect
@@ -870,19 +868,11 @@ void eel_lice_state::gfx_line(int np, EEL_F **parms)
   int x1=(int)floor(parms[0][0]),y1=(int)floor(parms[1][0]),x2=(int)floor(parms[2][0]), y2=(int)floor(parms[3][0]);
   if (LICE_FUNCTION_VALID(LICE__GetWidth) && 
       LICE_FUNCTION_VALID(LICE__GetHeight) && 
-      LICE_FUNCTION_VALID(LICE_Line) &&
-      LICE_FUNCTION_VALID(LICE_ThickFLine) &&
-      LICE_FUNCTION_VALID(LICE_ClipLine) &&
-      LICE_ClipLine(&x1,&y1,&x2,&y2,0,0,LICE__GetWidth(dest),LICE__GetHeight(dest)))
+      LICE_FUNCTION_VALID(LICE_Line) && 
+      LICE_FUNCTION_VALID(LICE_ClipLine) && LICE_ClipLine(&x1,&y1,&x2,&y2,0,0,LICE__GetWidth(dest),LICE__GetHeight(dest))) 
   {
     SetImageDirty(dest);
-    LICE_pixel col=getCurColor();
-    float alpha=(float)*m_gfx_a;
-    int mode=getCurMode();
-    bool aa = np <= 4 || parms[4][0] >= 0.5;
-    int wid = np > 5 ? (int)(parms[5][0]+0.5) : 1;
-    if (wid > 1) LICE_ThickFLine(dest, x1, y1, x2, y2, col, alpha, mode, wid);
-    else LICE_Line(dest, x1, y1, x2, y2, col, alpha, mode, aa);
+    LICE_Line(dest,x1,y1,x2,y2,getCurColor(),(float)*m_gfx_a,getCurMode(),np< 5 || parms[4][0] > 0.5);
   } 
 }
 
@@ -2874,7 +2864,6 @@ static WDL_STATICFUNC_UNUSED void eel_lice_initfuncs(void *(*getFunc)(const char
   *(void **)&__LICE_CreateBitmap = getFunc("LICE_CreateBitmap");
   *(void **)&LICE_Clear = getFunc("LICE_Clear");
   *(void **)&LICE_Line = getFunc("LICE_LineInt");
-  *(void **)&LICE_ThickFLine = getFunc("LICE_ThickFLine");
   *(void **)&LICE_ClipLine = getFunc("LICE_ClipLine");
   *(void **)&LICE_FillRect = getFunc("LICE_FillRect");
   *(void **)&LICE_DrawRect = getFunc("LICE_DrawRect");
@@ -3011,8 +3000,8 @@ static const char *eel_lice_function_reference =
 #else
   "gfx_setcursor\tresource_id\tSets the mouse cursor. resource_id is a value like 32512 (for an arrow cursor).\0"
 #endif
-  "gfx_lineto\tx,y[,aa]\tDraws a line from gfx_x,gfx_y to x,y. Draws antialiased if aa > 0.5.\0"
-  "gfx_line\tx,y,x2,y2[,aa,wid]\tDraws a line from x,y to x2,y2. Draws antialiased if aa > 0.5. If wid > 1, draws a line wid pixels thick.\0"
+  "gfx_lineto\tx,y[,aa]\tDraws a line from gfx_x,gfx_y to x,y. If aa is 0.5 or greater, then antialiasing is used. Updates gfx_x and gfx_y to x,y.\0"
+  "gfx_line\tx,y,x2,y2[,aa]\tDraws a line from x,y to x2,y2, and if aa is not specified or 0.5 or greater, it will be antialiased. \0"
   "gfx_rectto\tx,y\tFills a rectangle from gfx_x,gfx_y to x,y. Updates gfx_x,gfx_y to x,y. \0"
   "gfx_rect\tx,y,w,h[,filled]\tFills a rectangle at x,y, w,h pixels in dimension, filled by default. \0"
   "gfx_setpixel\tr,g,b\tWrites a pixel of r,g,b to gfx_x,gfx_y.\0"
