@@ -1469,29 +1469,29 @@ static int ColorFromNSColor_Actual(NSColor *color, int valifnul)
   return RGB((int)(r*255.0),(int)(g*255.0),(int)(b*255.0));
 }
 
-#define ColorFromNSColor(a,b) (b)
-
 int GetSysColor(int idx)
 {
- // NSColors that seem to be valid: textBackgroundColor, selectedTextBackgroundColor, textColor, selectedTextColor
-  
   switch (idx)
   {
-    case COLOR_WINDOW: return ColorFromNSColor([NSColor controlColor],RGB(192,192,192));
+    case COLOR_WINDOW: return RGB(192,192,192);
+
+    case COLOR_BTNFACE:
     case COLOR_3DFACE: 
       if (SWELL_osx_is_dark_mode(1))
         return ColorFromNSColor_Actual([NSColor windowBackgroundColor],RGB(64,64,64));
-      // fall through
+    return RGB(192,192,192);
 
-    case COLOR_BTNFACE: return ColorFromNSColor([NSColor controlColor],RGB(192,192,192));
-    case COLOR_SCROLLBAR: return ColorFromNSColor([NSColor controlColor],RGB(32,32,32));
-    case COLOR_3DSHADOW: return ColorFromNSColor([NSColor selectedTextBackgroundColor],RGB(96,96,96));
-    case COLOR_3DHILIGHT: return ColorFromNSColor([NSColor selectedTextBackgroundColor],RGB(224,224,224));
-    case COLOR_BTNTEXT: return ColorFromNSColor([NSColor selectedTextBackgroundColor],RGB(0,0,0));
-    case COLOR_3DDKSHADOW: return (ColorFromNSColor([NSColor selectedTextBackgroundColor],RGB(96,96,96))>>1)&0x7f7f7f;
+    case COLOR_BTNTEXT:
+      if (SWELL_osx_is_dark_mode(1))
+        return RGB(255,255,255);
+    return RGB(0,0,0);
+
+    case COLOR_SCROLLBAR: return RGB(32,32,32);
+    case COLOR_3DSHADOW: return RGB(96,96,96);
+    case COLOR_3DHILIGHT: return RGB(224,224,224);
+    case COLOR_3DDKSHADOW: return RGB(48,48,48);
     case COLOR_INFOBK: return RGB(255,240,200);
     case COLOR_INFOTEXT: return RGB(0,0,0);
-      
   }
   return 0;
 }
