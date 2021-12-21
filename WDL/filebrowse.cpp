@@ -352,6 +352,7 @@ char *WDL_ChooseFileForOpen2(HWND parent,
       {
         char temp[4096];
         lstrcpyn_safe(temp,initialfile,sizeof(temp));
+        WDL_fixfnforopenfn(temp);
         //check for folder name
         if (WDL_remove_filepart(temp))
         {
