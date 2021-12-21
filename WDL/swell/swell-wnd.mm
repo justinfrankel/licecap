@@ -3456,14 +3456,15 @@ STANDARD_CONTROL_NEEDSDISPLAY_IMPL([self isSelectable] ? "Edit" : "Static")
   }
   else if (![self isBordered] && ![self drawsBackground]) // looks like a static text control
   {
-    NSColor *col;
+    const float alpha = ([self isEnabled] ? 1.0f : 0.5f);
     if (!m_ctlcolor_set && SWELL_osx_is_dark_mode(1))
-      col = [NSColor textColor];
+    {
+      // NSColor textColor etc produce stale values on Catalina-Monterey
+      const float a = SWELL_osx_is_dark_mode(0) ? 1.0f : 0.0f;
+      [self setTextColor:[NSColor colorWithCalibratedRed:a green:a blue:a alpha:alpha]];
+    }
     else
-      col = [self textColor];
-
-    float alpha = ([self isEnabled] ? 1.0f : 0.5f);
-    [self setTextColor:[col colorWithAlphaComponent:alpha]];
+      [self setTextColor:[[self textColor] colorWithAlphaComponent:alpha]];
   }
   else
   {
