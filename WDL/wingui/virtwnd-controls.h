@@ -33,8 +33,6 @@
 // an app should implement these
 extern int WDL_STYLE_WantGlobalButtonBorders();
 extern bool WDL_STYLE_WantGlobalButtonBackground(int *col);
-extern int WDL_STYLE_GetSysColor(int);
-extern bool WDL_Style_WantTextShadows(int *col);
 
 // this is the default, you can override per painter if you want
 extern bool WDL_STYLE_GetBackgroundGradient(double *gradstart, double *gradslope); // return values 0.0-1.0 for each, return false if no gradient desired
@@ -54,8 +52,6 @@ extern void vwnd_slider_drawknobstack(LICE_IBitmap *drawbm, double val, WDL_Virt
 
 int WDL_STYLE_WantGlobalButtonBorders() { return 0; }
 bool WDL_STYLE_WantGlobalButtonBackground(int *col) { return false; }
-int WDL_STYLE_GetSysColor(int p) { return GetSysColor(p); }
-bool WDL_Style_WantTextShadows(int *col) { return false; }
 bool WDL_STYLE_GetBackgroundGradient(double *gradstart, double *gradslope) { return false; }
 LICE_IBitmap *WDL_STYLE_GetSliderBitmap2(bool vert) { return NULL; }
 bool WDL_STYLE_AllowSliderMouseWheel() { return true; }
