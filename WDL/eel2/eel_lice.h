@@ -1683,7 +1683,7 @@ EEL_F eel_lice_state::gfx_setcursor(void* opaque, EEL_F** parms, int nparms)
       GetCursorPos(&pt);
       ScreenToClient(hwnd_standalone,&pt);
       GetClientRect(hwnd_standalone,&r);
-      do_set = PtInRect(&r,pt);
+      do_set = PtInRect(&r,pt)!=0;
     }
 
     if (do_set)
