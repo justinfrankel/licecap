@@ -39,6 +39,10 @@
 #include <unistd.h>
 #endif
 
+#ifdef __APPLE__
+#include <libkern/OSCacheControl.h>
+#endif
+
 #define NSEEL_VARS_MALLOC_CHUNKSIZE 8
 
 //#define LOG_OPT
@@ -287,6 +291,9 @@ static void eel_set_blocks_allow_execute(llBlock *llb, int exec)
       FlushInstructionCache(GetCurrentProcess(),llb,sz);
     #else
       mprotect(llb,sz,exec ? (PROT_READ|PROT_EXEC) : (PROT_READ|PROT_WRITE));
+      #ifdef __APPLE__
+      if (exec) sys_icache_invalidate(llb,sz);
+      #endif
     #endif
     WDL_ASSERT((((INT_PTR)llb) & (eel_get_page_size()-1)) == 0);
     WDL_ASSERT((sz & (eel_get_page_size()-1)) == 0);
