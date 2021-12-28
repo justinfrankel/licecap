@@ -377,16 +377,11 @@ int EEL_Editor::do_draw_line(const char *p, int *c_comment_state, int last_attr)
       int def_attr = A_NORMAL;
       bool isf=true;
       if (tok[0] == '#')
-      {
         def_attr = SYNTAX_STRINGVAR;
-        draw_string(&skipcnt,tok,1,&last_attr,def_attr);
-        tok++;
-        toklen--;
-      }
       while (toklen > 0)
       {
-        // divide up by .s, if any
-        int this_len=0;
+        // divide up by .s, if any, unless we're a string
+        int this_len=def_attr == SYNTAX_STRINGVAR ? toklen : 0;
         while (this_len < toklen && tok[this_len] != '.') this_len++;
         if (this_len > 0)
         {
