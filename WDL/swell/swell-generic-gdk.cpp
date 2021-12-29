@@ -52,7 +52,6 @@ extern "C" {
 
 #include <X11/Xatom.h>
 
-#include <GL/glew.h>
 #include <GL/gl.h>
 #include <GL/glx.h>
 
