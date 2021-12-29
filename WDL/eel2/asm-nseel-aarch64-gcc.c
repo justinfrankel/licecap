@@ -1076,7 +1076,7 @@ void _asm_megabuf(void)
     "asr w2, w3, %0\n" 
     "bic w2, w2, #7\n"  // r2 is page index*8
     "cmp w2, %1\n"
-    "bge 0f\n"
+    "bhs 0f\n"
 
     "add x2, x2, x20\n"
     "ldr x2, [x2]\n"

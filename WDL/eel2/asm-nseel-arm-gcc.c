@@ -1131,7 +1131,7 @@ __attribute__((naked)) void _asm_megabuf(void)
     "mov r2, r3, asr %0\n" 
     "bic r2, r2, #3\n"  // r2 is page index*4
     "cmp r2, %1\n"
-    "bge 0f\n"
+    "bhs 0f\n"
 
     "add r2, r2, r7\n"
     "ldr r2, [r2]\n"
