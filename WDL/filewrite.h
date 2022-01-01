@@ -117,6 +117,7 @@ public:
         else if (c <= 0xF4 && str[1] >=0x80 && str[1] <= 0xBF && str[2] >=0x80 && str[2] <= 0xBF) return TRUE;
       }
       str++;
+      if (((const char *)str-_str) >= 256) return TRUE; // long filenames get converted to wide
     }
     return FALSE;
   }
