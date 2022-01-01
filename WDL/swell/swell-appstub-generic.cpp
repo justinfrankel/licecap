@@ -67,16 +67,6 @@ __attribute__ ((visibility ("default"))) void *SWELLAPI_GetFunc(const char *name
 static INT_PTR (*s_AppMain)(int msg, INT_PTR parm1, INT_PTR parm2);
 INT_PTR SWELLAppMain(int msg, INT_PTR parm1, INT_PTR parm2)
 {
-  // remove this code in 2019 or later
-  static char chk;
-  if (!s_AppMain && !chk)
-  {
-    chk=1;
-    *(void **)&s_AppMain = dlsym(NULL,"SWELLAppMain");
-    printf("libSwell: used legacy SWELLAppMain get to get %p\n",s_AppMain);
-  }
-  // end temp code
-
   if (s_AppMain) return s_AppMain(msg,parm1,parm2);
   return 0;
 }
