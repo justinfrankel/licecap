@@ -506,6 +506,18 @@ void SetFocus(HWND hwnd)
   SetForegroundWindow(hwnd);
 }
 
+void SWELL_OnNavigationFocus(HWND ch)
+{
+  if (ch && ch->m_classname && (
+       !strcmp(ch->m_classname,"Edit") ||
+       !strcmp(ch->m_classname,"combobox")
+     ))
+  {
+    SendMessage(ch,EM_SETSEL,0,-1);
+  }
+
+}
+
 int IsChild(HWND hwndParent, HWND hwndChild)
 {
   if (!hwndParent || !hwndChild || hwndParent == hwndChild) return 0;
@@ -7008,14 +7020,7 @@ LRESULT SwellDialogDefaultWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
         {
           HWND oldfoc = GetFocus();
           SetFocus(ch);
-          if (ch != oldfoc && ch->m_classname && (
-               !strcmp(ch->m_classname,"Edit") ||
-               !strcmp(ch->m_classname,"combobox")
-             ))
-          {
-            SendMessage(ch,EM_SETSEL,0,-1);
-          }
-
+          if (oldfoc != ch) SWELL_OnNavigationFocus(ch);
           InvalidateRect(ch,NULL,FALSE);
           return 0;
         }
