@@ -527,11 +527,9 @@ int IsChild(HWND hwndParent, HWND hwndChild)
   return hwndChild == hwndParent;
 }
 
-
-HWND GetFocusIncludeMenus()
+HWND SWELL_GetFocusedChild(HWND h)
 {
-  HWND h = swell_is_app_inactive()>0 ? NULL : swell_oswindow_to_hwnd(SWELL_focused_oswindow);
-  while (h) 
+  while (h)
   {
     HWND fc = h->m_focused_child;
     if (!fc) break;
@@ -541,6 +539,12 @@ HWND GetFocusIncludeMenus()
     h = s; // descend to focused child
   }
   return h;
+}
+
+HWND GetFocusIncludeMenus()
+{
+  HWND h = swell_is_app_inactive()>0 ? NULL : swell_oswindow_to_hwnd(SWELL_focused_oswindow);
+  return SWELL_GetFocusedChild(h);
 }
 
 HWND GetForegroundWindow()
