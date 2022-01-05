@@ -167,6 +167,11 @@ int SWELL_DialogBox(SWELL_DialogResourceIndex *reshead, const char *resid, HWND 
   if (hwnd)
   {
     hwnd->Retain();
+
+    void SWELL_OnNavigationFocus(HWND ch);
+    HWND SWELL_GetFocusedChild(HWND h);
+    SWELL_OnNavigationFocus(SWELL_GetFocusedChild(hwnd));
+
     ReleaseCapture(); // force end of any captures
 
     WDL_PtrKeyedArray<int> restwnds;
