@@ -3522,7 +3522,6 @@ HWND SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags)
       
       [obj setVerticallyResizable:YES];
       NSScrollView *obj2=[[NSScrollView alloc] init];
-      [obj2 setFrame:fr];
       if (flags&WS_VSCROLL) [obj2 setHasVerticalScroller:YES];
       if (flags&WS_HSCROLL) 
       {
@@ -3535,6 +3534,7 @@ HWND SWELL_MakeEditField(int idx, int x, int y, int w, int h, int flags)
       [obj2 setAutohidesScrollers:YES];
       [obj2 setDrawsBackground:NO];
       [obj2 setDocumentView:obj];
+      [obj2 setFrame:fr];
       [m_make_owner addSubview:obj2];
       if (m_doautoright) UpdateAutoCoords([obj2 frame]);
       if (flags&SWELL_NOT_WS_VISIBLE) [obj2 setHidden:YES];
