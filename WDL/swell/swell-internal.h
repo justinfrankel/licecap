@@ -931,7 +931,7 @@ struct HDC__ {
 };
 
 HWND DialogBoxIsActive(void);
-void DestroyPopupMenus(void);
+bool DestroyPopupMenus(void);
 HWND ChildWindowFromPoint(HWND h, POINT p);
 HWND GetFocusIncludeMenus();
 

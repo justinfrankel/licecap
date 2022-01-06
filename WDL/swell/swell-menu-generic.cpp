@@ -1190,9 +1190,11 @@ static LRESULT WINAPI submenuWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
   return DefWindowProc(hwnd,uMsg,wParam,lParam);
 }
 
-void DestroyPopupMenus()
+bool DestroyPopupMenus()
 {
-  if (m_trackingMenus.GetSize()) DestroyWindow(m_trackingMenus.Get(0));
+  if (!m_trackingMenus.GetSize()) return false;
+  DestroyWindow(m_trackingMenus.Get(0));
+  return true;
 }
 
 SWELL_OSWINDOW swell_ignore_focus_oswindow;

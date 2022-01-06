@@ -1536,7 +1536,9 @@ static void swell_gdkEventHandler(GdkEvent *evt, gpointer data)
     case GDK_DELETE:
      {
        HWND hwnd = swell_oswindow_to_hwnd(((GdkEventAny*)evt)->window);
-       if (hwnd && IsWindowEnabled(hwnd) && !SendMessage(hwnd,WM_CLOSE,0,0))
+       if (hwnd && IsWindowEnabled(hwnd) &&
+           !DestroyPopupMenus() && // ignore if a menu is open, instead just close the menu
+           !SendMessage(hwnd,WM_CLOSE,0,0))
         SendMessage(hwnd,WM_COMMAND,IDCANCEL,0);
      }
     break;
