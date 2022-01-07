@@ -277,7 +277,6 @@ public:
   void gfx_getimgdim(EEL_F img, EEL_F *w, EEL_F *h);
   EEL_F gfx_setimgdim(int img, EEL_F *w, EEL_F *h);
   void gfx_blurto(EEL_F x, EEL_F y);
-  void gfx_blit(EEL_F img, EEL_F scale, EEL_F rotate);
   void gfx_blitext(EEL_F img, EEL_F *coords, EEL_F angle);
   void gfx_blitext2(int np, EEL_F **parms, int mode); // 0=blit, 1=deltablit
   void gfx_transformblit(EEL_F **parms, int div_w, int div_h, EEL_F *tab); // parms[0]=src, 1-4=x,y,w,h
@@ -648,13 +647,6 @@ static EEL_F * NSEEL_CGEN_CALL _gfx_getpixel(void *opaque, EEL_F *r, EEL_F *g, E
   eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
   if (ctx) ctx->gfx_getpixel(r, g, b);
   return r;
-}
-
-static EEL_F * NSEEL_CGEN_CALL _gfx_blit(void *opaque, EEL_F *img, EEL_F *scale, EEL_F *rotate)
-{
-  eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
-  if (ctx) ctx->gfx_blit(*img,*scale,*rotate);
-  return img;
 }
 
 static EEL_F NSEEL_CGEN_CALL _gfx_setfont(void *opaque, INT_PTR np, EEL_F **parms)
@@ -1301,7 +1293,9 @@ void eel_lice_state::gfx_blitext2(int np, EEL_F **parms, int blitmode)
   const bool isFromFB = bm == m_framebuffer;
   SetImageDirty(dest);
  
-  if (bm == dest && CoordsSrcDestOverlap(coords))
+  if (bm == dest &&
+      (blitmode != 0 || np > 1) && // legacy behavior to matech previous gfx_blit(3parm), do not use temp buffer
+      CoordsSrcDestOverlap(coords))
   {
     if (!m_framebuffer_extra && LICE_FUNCTION_VALID(__LICE_CreateBitmap)) m_framebuffer_extra=__LICE_CreateBitmap(0,bmw,bmh);
     if (m_framebuffer_extra)
@@ -1387,35 +1381,6 @@ void eel_lice_state::gfx_blitext(EEL_F img, EEL_F *coords, EEL_F angle)
   {
     LICE_ScaledBlit(dest,bm,(int)coords[4],(int)coords[5],(int)coords[6],(int)coords[7],
       (float)coords[0],(float)coords[1],(float)coords[2],(float)coords[3], (float)*m_gfx_a,getCurModeForBlit(isFromFB));
-  }
-}
-
-void eel_lice_state::gfx_blit(EEL_F img, EEL_F scale, EEL_F rotate)
-{
-  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest,"gfx_blit");
-  if (!dest
-#ifdef DYNAMIC_LICE
-    ||!LICE_ScaledBlit || !LICE_RotatedBlit||!LICE__GetWidth||!LICE__GetHeight
-#endif
-    ) return;
-
-  LICE_IBitmap *bm=GetImageForIndex(img,"gfx_blit:src");
-  
-  if (!bm) return;
-  
-  SetImageDirty(dest);
-  const bool isFromFB = bm == m_framebuffer;
-  
-  int bmw=LICE__GetWidth(bm);
-  int bmh=LICE__GetHeight(bm);
-  if (fabs(rotate)>0.000000001)
-  {
-    LICE_RotatedBlit(dest,bm,(int)*m_gfx_x,(int)*m_gfx_y,(int) (bmw*scale),(int) (bmh*scale),0.0f,0.0f,(float)bmw,(float)bmh,(float)rotate,true, (float)*m_gfx_a,getCurModeForBlit(isFromFB),
-        0.0f,0.0f);
-  }
-  else
-  {
-    LICE_ScaledBlit(dest,bm,(int)*m_gfx_x,(int)*m_gfx_y,(int) (bmw*scale),(int) (bmh*scale),0.0f,0.0f,(float)bmw,(float)bmh, (float)*m_gfx_a,getCurModeForBlit(isFromFB));
   }
 }
 
@@ -1974,9 +1939,8 @@ void eel_lice_register()
   NSEEL_addfunc_retptr("gfx_getimgdim",3,NSEEL_PProc_THIS,&_gfx_getimgdim);
   NSEEL_addfunc_retval("gfx_setimgdim",3,NSEEL_PProc_THIS,&_gfx_setimgdim);
   NSEEL_addfunc_retval("gfx_loadimg",2,NSEEL_PProc_THIS,&_gfx_loadimg);
-  NSEEL_addfunc_retptr("gfx_blit",3,NSEEL_PProc_THIS,&_gfx_blit);
   NSEEL_addfunc_retptr("gfx_blitext",3,NSEEL_PProc_THIS,&_gfx_blitext);
-  NSEEL_addfunc_varparm("gfx_blit",4,NSEEL_PProc_THIS,&_gfx_blit2);
+  NSEEL_addfunc_varparm("gfx_blit",3,NSEEL_PProc_THIS,&_gfx_blit2);
   NSEEL_addfunc_varparm("gfx_setfont",1,NSEEL_PProc_THIS,&_gfx_setfont);
   NSEEL_addfunc_varparm("gfx_getfont",1,NSEEL_PProc_THIS,&_gfx_getfont);
   NSEEL_addfunc_varparm("gfx_set",1,NSEEL_PProc_THIS,&_gfx_set);
@@ -3016,9 +2980,13 @@ static const char *eel_lice_function_reference =
   "gfx_getfont\t[#str]\tReturns current font index. If a string is passed, it will receive the actual font face used by this font, if available.\0"
   "gfx_printf\t\"format\"[, ...]\tFormats and draws a string at gfx_x, gfx_y, and updates gfx_x/gfx_y accordingly (the latter only if the formatted string contains newline). For more information on format strings, see sprintf()\0"
   "gfx_blurto\tx,y\tBlurs the region of the screen between gfx_x,gfx_y and x,y, and updates gfx_x,gfx_y to x,y.\0"
-  "gfx_blit\tsource,scale,rotation\tIf three parameters are specified, copies the entirity of the source bitmap to gfx_x,gfx_y using current opacity and copy mode (set with gfx_a, gfx_mode). You can specify scale (1.0 is unscaled) and rotation (0.0 is not rotated, angles are in radians).\nFor the \"source\" parameter specify -1 to use the main framebuffer as source, or an image index (see gfx_loadimg()).\0"
   "gfx_blit\tsource, scale, rotation[, srcx, srcy, srcw, srch, destx, desty, destw, desth, rotxoffs, rotyoffs]\t"
-                   "srcx/srcy/srcw/srch specify the source rectangle (if omitted srcw/srch default to image size), destx/desty/destw/desth specify dest rectangle (if not specified, these will default to reasonable defaults -- destw/desth default to srcw/srch * scale). \0"
+      "Copies from source (-1 = main framebuffer, or an image from gfx_loadimg() etc), using current opacity and copy mode (set with gfx_a, gfx_mode).\n"
+      "If destx/desty are not specified, gfx_x/gfx_y will be used as the destination position.\n"
+      "scale (1.0 is unscaled) will be used only if destw/desth are not specified.\n"
+      "rotation is an angle in radians\n"
+      "srcx/srcy/srcw/srch specify the source rectangle (if omitted srcw/srch default to image size)\n"
+      "destx/desty/destw/desth specify destination rectangle (if not specified destw/desth default to srcw/srch * scale). \0"
   "gfx_blitext\tsource,coordinatelist,rotation\tDeprecated, use gfx_blit instead.\0"
   "gfx_getimgdim\timage,w,h\tRetreives the dimensions of image (representing a filename: index number) into w and h. Sets these values to 0 if an image failed loading (or if the filename index is invalid).\0"
   "gfx_setimgdim\timage,w,h\tResize image referenced by index 0.." EEL_LICE_DOC_MAXHANDLE ", width and height must be 0-8192. The contents of the image will be undefined after the resize.\0"
