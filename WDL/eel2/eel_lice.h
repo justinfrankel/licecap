@@ -1273,8 +1273,8 @@ void eel_lice_state::gfx_blitext2(int np, EEL_F **parms, int blitmode)
   
   // 0=img, 1=scale, 2=rotate
   double coords[8];
-  const double sc = blitmode==0 ? parms[1][0] : 1.0,
-            angle = blitmode==0 ? parms[2][0] : 0.0;
+  const double sc = blitmode==0 && np > 1 ? parms[1][0] : 1.0,
+            angle = blitmode==0 && np > 2 ? parms[2][0] : 0.0;
   if (blitmode==0)
   {
     parms+=2;
@@ -1940,7 +1940,7 @@ void eel_lice_register()
   NSEEL_addfunc_retval("gfx_setimgdim",3,NSEEL_PProc_THIS,&_gfx_setimgdim);
   NSEEL_addfunc_retval("gfx_loadimg",2,NSEEL_PProc_THIS,&_gfx_loadimg);
   NSEEL_addfunc_retptr("gfx_blitext",3,NSEEL_PProc_THIS,&_gfx_blitext);
-  NSEEL_addfunc_varparm("gfx_blit",3,NSEEL_PProc_THIS,&_gfx_blit2);
+  NSEEL_addfunc_varparm("gfx_blit",1,NSEEL_PProc_THIS,&_gfx_blit2);
   NSEEL_addfunc_varparm("gfx_setfont",1,NSEEL_PProc_THIS,&_gfx_setfont);
   NSEEL_addfunc_varparm("gfx_getfont",1,NSEEL_PProc_THIS,&_gfx_getfont);
   NSEEL_addfunc_varparm("gfx_set",1,NSEEL_PProc_THIS,&_gfx_set);
@@ -2980,7 +2980,7 @@ static const char *eel_lice_function_reference =
   "gfx_getfont\t[#str]\tReturns current font index. If a string is passed, it will receive the actual font face used by this font, if available.\0"
   "gfx_printf\t\"format\"[, ...]\tFormats and draws a string at gfx_x, gfx_y, and updates gfx_x/gfx_y accordingly (the latter only if the formatted string contains newline). For more information on format strings, see sprintf()\0"
   "gfx_blurto\tx,y\tBlurs the region of the screen between gfx_x,gfx_y and x,y, and updates gfx_x,gfx_y to x,y.\0"
-  "gfx_blit\tsource, scale, rotation[, srcx, srcy, srcw, srch, destx, desty, destw, desth, rotxoffs, rotyoffs]\t"
+  "gfx_blit\tsource[, scale, rotation, srcx, srcy, srcw, srch, destx, desty, destw, desth, rotxoffs, rotyoffs]\t"
       "Copies from source (-1 = main framebuffer, or an image from gfx_loadimg() etc), using current opacity and copy mode (set with gfx_a, gfx_mode).\n"
       "If destx/desty are not specified, gfx_x/gfx_y will be used as the destination position.\n"
       "scale (1.0 is unscaled) will be used only if destw/desth are not specified.\n"
