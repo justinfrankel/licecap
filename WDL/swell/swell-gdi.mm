@@ -237,7 +237,10 @@ static void *ALIGN_FBUF(void *inbuf)
 
 HDC SWELL_CreateMemContext(HDC hdc, int w, int h)
 {
-  void *buf=calloc(w*4*h+ALIGN_EXTRA,1);
+  // we always allocate an extra row, because StretchBlt() will sometimes pass
+  // rowspan*h to CGDataProviderCreateWithData() with an X offset (and smaller width),
+  // which confuses guard malloc (and is generally possibly unsafe)
+  void *buf=calloc(w*4*(h+1)+ALIGN_EXTRA,1); 
   if (WDL_NOT_NORMALLY(!buf)) return 0;
   CGContextRef c=CGBitmapContextCreate(ALIGN_FBUF(buf),w,h,8,w*4, __GetBitmapColorSpace(), kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Host);
   if (WDL_NOT_NORMALLY(!c))
