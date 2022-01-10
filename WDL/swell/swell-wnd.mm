@@ -5514,7 +5514,18 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     SWELL_END_TRY(;)
     return rv;
   }
-  else if (msg==WM_KEYDOWN || msg==WM_KEYUP) return 69;
+  else if (msg==WM_KEYDOWN || msg==WM_KEYUP)
+  {
+    // if not ctrl/cmd/opt modified, and not tab, and listview/treeview, do not bubble it up
+    // (fixes triggering of menu items when searching for text etc)
+    if (!(lParam & (FCONTROL|FALT|FLWIN)) && !(wParam == VK_TAB && (lParam&FVIRTKEY)))
+    {
+      id fr = [[(NSView *)hwnd window] firstResponder];
+      if ([fr isKindOfClass:[NSTableView class]] ||
+          [fr isKindOfClass:[NSOutlineView class]]) return 1;
+    }
+    return 69;
+  }
   else if (msg == WM_DISPLAYCHANGE)
   {
     if ([(id)hwnd isKindOfClass:[NSView class]])
