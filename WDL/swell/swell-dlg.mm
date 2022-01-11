@@ -3920,7 +3920,7 @@ static bool mtl_init()
       if (cnt>0)
       {
         state=1;
-        SetTimer(NULL,1,1,metalUpdateProc);
+        SetTimer(NULL,0,1,metalUpdateProc);
       }
     }
   }
