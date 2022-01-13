@@ -5523,6 +5523,15 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
       id fr = [[(NSView *)hwnd window] firstResponder];
       if ([fr isKindOfClass:[NSTableView class]] ||
           [fr isKindOfClass:[NSOutlineView class]]) return 1;
+
+      if (wParam >= VK_LEFT && wParam <= VK_DOWN && [fr isKindOfClass:[NSButton class]])
+      {
+        // do not bubble up left/right for any
+        if (wParam == VK_LEFT || wParam == VK_RIGHT) return 1;
+
+        // do not bubble up left/down for non-NSPopUpButton
+        if (![fr isKindOfClass:[NSPopUpButton class]]) return 1;
+      }
     }
     return 69;
   }
