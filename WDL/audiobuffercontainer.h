@@ -27,6 +27,7 @@ struct PinMapPin
   void clear() { memset(state,0,sizeof(state)); }
   void clear_chan(unsigned int ch) { if (WDL_NORMALLY(ch < PINMAP_PIN_MAX_CHANNELS)) state[ch/STATE_ENT_BITS] &= ~make_mask(ch); }
   void set_chan(unsigned int ch) { if (WDL_NORMALLY(ch < PINMAP_PIN_MAX_CHANNELS)) state[ch/STATE_ENT_BITS] |= make_mask(ch); }
+  void tog_chan(unsigned int ch) { if (WDL_NORMALLY(ch < PINMAP_PIN_MAX_CHANNELS)) state[ch/STATE_ENT_BITS] ^= make_mask(ch); }
   void set_chan_lt(unsigned int cnt)
   {
     if (WDL_NOT_NORMALLY(cnt > PINMAP_PIN_MAX_CHANNELS)) cnt = PINMAP_PIN_MAX_CHANNELS;
@@ -36,6 +37,7 @@ struct PinMapPin
       else { state[x] = full_mask(); cnt -= STATE_ENT_BITS; }
     }
   }
+  void set_excl(unsigned int ch) { clear(); set_chan(ch); }
 
   bool has_chan(unsigned int ch) const { return WDL_NORMALLY(ch < PINMAP_PIN_MAX_CHANNELS) && (state[ch/STATE_ENT_BITS] & make_mask(ch)); }
   bool has_chan_lt(unsigned int cnt) const
@@ -78,7 +80,6 @@ struct PinMapPin
       s = state[x / STATE_ENT_BITS];
     }
     while (x < maxch);
-
 
     *ch = x;
     return false;
