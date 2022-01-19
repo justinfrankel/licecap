@@ -131,7 +131,7 @@ public:
   // true if this mapper is a straight 1:1 passthrough
   bool IsStraightPassthrough() const;
 
-  char* SaveStateNew(int* pLen); // owned
+  const char *SaveStateNew(int* pLen); // owned
   bool LoadState(const char* buf, int len);
 
   WDL_UINT64 m_mapping[CHANNELPINMAPPER_MAXPINS];
