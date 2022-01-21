@@ -1989,7 +1989,8 @@ int AddFontResourceEx(LPCTSTR str, DWORD fl, void *pdv)
 
 bool SWELL_osx_is_dark_mode(int mode) // mode=0 for enabled, 1=allowed
 {
-  static char c;
+  static DWORD lastchk;
+  static char last_res,c;
   if (!c)
   {
     NSUserDefaults *def = SWELL_GDI_GetOSXVersion() >= 0x10d0 ? [NSUserDefaults standardUserDefaults] : NULL;
@@ -1998,7 +1999,13 @@ bool SWELL_osx_is_dark_mode(int mode) // mode=0 for enabled, 1=allowed
   if (c<0) return false;
   if (mode == 1) return true;
 
-  return [[[NSUserDefaults standardUserDefaults] stringForKey:@"AppleInterfaceStyle"] isEqualToString:@"Dark"];
+  const DWORD now = GetTickCount();
+  if (!last_res || (now-lastchk) > 1000)
+  {
+    lastchk = now;
+    last_res = [[[NSUserDefaults standardUserDefaults] stringForKey:@"AppleInterfaceStyle"] isEqualToString:@"Dark"] ? 1 : -1;
+  }
+  return last_res>0;
 }
 
 
