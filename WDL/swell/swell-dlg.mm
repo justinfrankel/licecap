@@ -385,6 +385,7 @@ void SWELL_DoDialogColorUpdates(HWND hwnd, DLGPROC d, bool isUpdate)
             {
               [[(NSBox*)ch titleCell] setTextColor:staticFg];
               //[(NSBox*)ch setBorderColor:staticFg]; // see comment at SWELL_MakeGroupBox
+              [ch setNeedsDisplay:YES];
             }
             else
             {

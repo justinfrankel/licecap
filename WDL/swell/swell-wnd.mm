@@ -5555,8 +5555,7 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
           if (d) SWELL_DoDialogColorUpdates(hwnd,d,true);
         }
       }
-      if ([(id)hwnd respondsToSelector:@selector(swellWantsMetal)] && [(SWELL_hwndChild *)hwnd swellWantsMetal])
-        InvalidateRect((HWND)hwnd,NULL,FALSE);
+      InvalidateRect((HWND)hwnd,NULL,FALSE);
     }
   }
   else if (msg == WM_CTLCOLORSTATIC && wParam)
@@ -5587,9 +5586,6 @@ void SWELL_BroadcastMessage(UINT uMsg, WPARAM wParam, LPARAM lParam)
     if (v && [v respondsToSelector:@selector(onSwellMessage:p1:p2:)])
     {
       [(SWELL_hwndChild *)v onSwellMessage:uMsg p1:wParam p2:lParam];
-      
-      if (uMsg == WM_DISPLAYCHANGE)
-        InvalidateRect((HWND)v,NULL,FALSE);
     }
   }  
 }
