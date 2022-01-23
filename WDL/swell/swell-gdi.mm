@@ -146,40 +146,6 @@ static CGColorRef CreateColor(int col, float alpha=1.0f)
 
 char g_swell_disable_retina;
 
-int SWELL_IsRetinaHWND(HWND hwnd)
-{
-  if (!hwnd || SWELL_GDI_GetOSXVersion() < 0x1070) return 0;
-
-  int retina_disabled = g_swell_disable_retina;
-  NSWindow *w=NULL;
-  if ([(id)hwnd isKindOfClass:[NSView class]])
-  {
-    if (retina_disabled &&
-        [(id)hwnd isKindOfClass:[SWELL_hwndChild class]] &&
-        ((SWELL_hwndChild*)hwnd)->m_glctx != NULL)
-      retina_disabled = 0;
-
-    w = [(NSView *)hwnd window];
-  }
-  else if ([(id)hwnd isKindOfClass:[NSWindow class]]) w = (NSWindow *)hwnd;
-
-  if (retina_disabled) return 0;
-
-  if (w)
-  {
-    NSRect r=NSMakeRect(0,0,1,1);
-#if MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_6
-    NSRect str = [w convertRectToBacking:r];
-#else
-    NSRect (*tmp)(id receiver, SEL operation, NSRect) = (NSRect (*)(id, SEL, NSRect))objc_msgSend_stret;
-    NSRect str = tmp(w,sel_getUid("convertRectToBacking:"),r);
-#endif
-
-    if (str.size.width > 1.9) return 1;
-  }
-  return 0;
-}
-
 int SWELL_IsRetinaDC(HDC hdc)
 {
   if (g_swell_disable_retina) return 0;
