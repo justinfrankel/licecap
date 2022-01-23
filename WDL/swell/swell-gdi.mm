@@ -1992,7 +1992,7 @@ bool SWELL_osx_is_dark_mode(int mode) // mode=0 for enabled, 1=allowed
   static char c;
   if (!c)
   {
-    NSUserDefaults *def = SWELL_GetOSXVersion() >= 0x10d0 ? [NSUserDefaults standardUserDefaults] : NULL;
+    NSUserDefaults *def = SWELL_GDI_GetOSXVersion() >= 0x10d0 ? [NSUserDefaults standardUserDefaults] : NULL;
     c = (def && [def objectForKey:@"NSRequiresAquaSystemAppearance"] && [def boolForKey:@"NSRequiresAquaSystemAppearance"] == NO) ? 1 : -1;
   }
   if (c<0) return false;
