@@ -46,14 +46,14 @@ const char *nseel_builtin_function_reference=
     "stack_peek\tindex\tReturns a reference to the item on the top of the stack (if index is 0), or to the Nth item on the stack if index is greater than 0. \0"
     "stack_exch\t&value\tExchanges a value with the top of the stack, and returns a reference to the parameter (with the new value).\0"
 #ifdef NSEEL_EEL1_COMPAT_MODE
-    "rand\tmax\tReturns a psuedorandom non-negative integer number less than the parameter.\0"
+    "rand\tmax\tReturns a pseudorandom non-negative integer number less than the parameter.\0"
     "sigmoid\tvalue,constraint\tReturns 1.0/(1+exp(-x * (constraint))), or 0 if a divide by 0 would occur.\0"
     "band\tx,y\tReturns 1 if both x and y evaluate to nonzero, 0 if otherwise. Both parameters are always evaluated.\0"
     "bor\tx,y\tReturns 1 if either x or y evaluate to nonzero, 0 if otherwise. Both parameters are always evaluated.\0"
     "exec2\tx,y\tEvaluates x, then evaluates and returns y.\0"
     "exec3\tx,y,z\tEvaluates x, evaluates y, then evaluates and returns z.\0"
 #else
-    "rand\t[max]\tReturns a psuedorandom real number between 0 and the parameter, inclusive. If the parameter is omitted or less than 1.0, 1.0 is used as a maximum instead.\0"
+    "rand\t[max]\tReturns a pseudorandom real number between 0 and the parameter, inclusive. If the parameter is omitted or less than 1.0, 1.0 is used as a maximum instead.\0"
 
 #endif
 ;
