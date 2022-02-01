@@ -135,7 +135,7 @@ EEL_F NSEEL_CGEN_CALL nseel_int_rand(EEL_F f)
     #else
       #include "asm-nseel-x86-msvc.c"
     #endif
-  #elif !defined(__LP64__)
+  #elif !defined(__LP64__) && !defined(_WIN6$)
     #define EEL_F_SUFFIX "l"
     #define FUNCTION_MARKER "\n.byte 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90\n"
     #include "asm-nseel-x86-gcc.c"
