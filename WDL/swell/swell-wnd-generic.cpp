@@ -7112,7 +7112,6 @@ static int menuBarHitTest(HWND hwnd, int mousex, int mousey, RECT *rOut, int for
 
 static RECT g_menubar_lastrect;
 static HWND g_menubar_active;
-static POINT g_menubar_startpt;
 static bool g_menubar_active_drag;
 
 HWND swell_window_wants_all_input()
@@ -7156,7 +7155,6 @@ static void runMenuBar(HWND hwnd, HMENU__ *menu, int x, const RECT *use_r, int f
   mbr.bottom = 0;
   mbr.top = -g_swell_ctheme.menubar_height;
   menu->sel_vis = x;
-  GetCursorPos(&g_menubar_startpt);
   g_menubar_active = hwnd;
   g_menubar_active_drag=true;
   for (;;)
@@ -7318,9 +7316,12 @@ LRESULT DefWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
           POINT pt;
           GetCursorPos(&pt);
-          pt.x -= g_menubar_startpt.x;
-          pt.y -= g_menubar_startpt.y;
-          if (pt.x*pt.x+ pt.y*pt.y > 4*4) 
+
+          RECT r;
+          GetWindowContentViewRect(hwnd,&r);
+          r.bottom = r.top + g_swell_ctheme.menubar_height;
+
+          if (!PtInRect(&r,pt))
           {
             DestroyPopupMenus();
             return 0;
