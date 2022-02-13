@@ -406,7 +406,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "/usr/bin/php ../WDL/swell/swell_resgen.php licecap.rc";
+			shellScript = "../WDL/swell/swell_resgen.sh licecap.rc";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
