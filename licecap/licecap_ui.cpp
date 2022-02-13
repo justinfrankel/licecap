@@ -366,42 +366,6 @@ void EnsureNotCompletelyOffscreen(RECT *r)
   }
 }
 
-void FixRectForScreen(RECT *r, int minw, int minh)
-{
- 
-  RECT scr;
-  my_getViewport(&scr, r,true);
-  
- 
-  if (r->right > scr.right) 
-  {
-    r->left += scr.right-r->right;
-    r->right=scr.right;
-  }
-  if (r->bottom > scr.bottom) 
-  {
-    r->top += scr.bottom-r->bottom;
-    r->bottom=scr.bottom;
-  }
-  if (r->left < scr.left)
-  {
-    r->right += scr.left-r->left;
-    r->left=scr.left;
-    if (r->right > scr.right)  r->right=scr.right;
-  }
-  if (r->top < scr.top)
-  {
-    r->bottom += scr.top-r->top;
-    r->top=scr.top;
-    if (r->bottom > scr.bottom)  r->bottom=scr.bottom;
-  }
-  
-  if (r->right-r->left<minw) r->right=r->left+minw;
-  if (r->bottom-r->top<minh) r->bottom=r->top+minh;
-  
-  EnsureNotCompletelyOffscreen(r);
-}
-
 
 bool g_frate_valid;
 double g_frate_avg;
