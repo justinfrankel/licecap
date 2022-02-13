@@ -1162,6 +1162,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
       SetTimer(hwndDlg,1,30,NULL);
 
+      if (!GetAsyncKeyState(VK_SHIFT))
       {
         char buf[1024];
         GetPrivateProfileString("licecap","wnd_r","",buf,sizeof(buf),g_ini_file.Get());
