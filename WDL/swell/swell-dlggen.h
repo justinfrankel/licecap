@@ -115,9 +115,12 @@ struct SWELL_DlgResourceEntry
 #define SS_TYPEMASK 0x1FL
 #define SS_NOTIFY 0x0100L
 
-#define BS_CENTER 0x0300L
 #define BS_LEFTTEXT 0x0020L
-#define BS_LEFT 0x100L
+
+#define BS_LEFT   0x100L
+#define BS_CENTER 0x300L
+#define BS_XPOSITION_MASK BS_CENTER
+
 #define BS_GROUPBOX      0x20000000
 #define BS_DEFPUSHBUTTON 0x10000000
 #define BS_PUSHBUTTON    0x8000000
@@ -157,16 +160,17 @@ struct SWELL_DlgResourceEntry
 #define TVS_LINESATROOT 0
 #define TVS_SHOWSELALWAYS 0
 #define TVS_HASBUTTONS 0
-#define BS_FLAT 0
-#define TVS_DISABLEDRAGDROP 0
 #define TVS_TRACKSELECT 0
 #define TVS_NONEVENHEIGHT 0
+#define TVS_NOTOOLTIPS 0
+#define BS_FLAT 0
 #define SS_SUNKEN 0
 #define BS_RIGHT 0
 #define WS_EX_STATICEDGE 0
 #define WS_EX_RIGHT 0
 #define SS_CENTERIMAGE 0                                       
 #define SS_NOPREFIX 0
+#define WS_CLIPCHILDREN 0
 
 // more ignore flags for vc11+
 #define LVS_ALIGNLEFT 0 /* 0x0800 */

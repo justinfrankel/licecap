@@ -18,6 +18,32 @@
 
 // d0 is return value?
 
+
+#define GLUE_HAS_FPREG2 1
+
+static const unsigned int GLUE_COPY_FPSTACK_TO_FPREG2[] = {
+  0xeeb01b40  // fcpyd d1, d0
+};
+
+static unsigned int GLUE_POP_STACK_TO_FPREG2[] = {
+     0xed9d1b00,//  vldr d1, [sp]
+     0xe28dd008,//  add sp, sp, #8
+};
+
+#define GLUE_MAX_SPILL_REGS 8
+#define GLUE_SAVE_TO_SPILL_SIZE(x) (4)
+#define GLUE_RESTORE_SPILL_TO_FPREG2_SIZE(x) (4)
+
+static void GLUE_RESTORE_SPILL_TO_FPREG2(void *b, int ws)
+{
+  *(unsigned int *)b = 0xeeb01b48 + ws; // fcpyd d1, d8+ws
+}
+static void GLUE_SAVE_TO_SPILL(void *b, int ws)
+{
+  *(unsigned int *)b = 0xeeb08b40 + (ws<<12); // fcpyd d8+ws, d0
+}
+
+
 #define GLUE_MAX_FPSTACK_SIZE 0 // no stack support
 #define GLUE_MAX_JMPSIZE ((1<<25) - 1024) // maximum relative jump size
 
@@ -40,11 +66,12 @@ static const unsigned int GLUE_JMP_IF_P1_NZ[]=
   0x1A000000,  // branch if Z clear
 };
 
+#define GLUE_MOV_PX_DIRECTVALUE_TOFPREG2_SIZE 12 // wr=-2, sets d1
 #define GLUE_MOV_PX_DIRECTVALUE_SIZE 8
-static void GLUE_MOV_PX_DIRECTVALUE_GEN(void *b, INT_PTR v, unsigned int wv) 
-{   
+static void GLUE_MOV_PX_DIRECTVALUE_GEN(void *b, INT_PTR v, int wv)
+{
   // requires ARMv6thumb2 or later
-  const unsigned int reg_add = wv << 12;
+  const unsigned int reg_add = wdl_max(wv,0) << 12;
   static const unsigned int tab[2] = {
     0xe3000000, // movw r0, #0000
     0xe3400000, // movt r0, #0000
@@ -53,6 +80,7 @@ static void GLUE_MOV_PX_DIRECTVALUE_GEN(void *b, INT_PTR v, unsigned int wv)
   unsigned int *p=(unsigned int *)b;
   p[0] = tab[0] | reg_add | (v&0xfff) | ((v&0xf000)<<4);
   p[1] = tab[1] | reg_add | ((v>>16)&0xfff) | ((v&0xf0000000)>>12);
+  if (wv == -2) p[2] = 0xed901b00; // fldd d1, [r0]
 }
 
 const static unsigned int GLUE_FUNC_ENTER[1] = { 0xe92d4010 }; // push {r4, lr} 
@@ -203,7 +231,8 @@ static void eel_callcode32(INT_PTR bp, INT_PTR cp, INT_PTR rt)
           "pop {r1, lr}\n"
           "mov sp, r1\n"
             ::"r" (cp), "r" (bp), "r" (rt), "r" (__consttab) : 
-             "r5", "r6", "r7", "r8", "r10");
+             "r5", "r6", "r7", "r8", "r10", 
+             "d8","d9","d10","d11","d12","d13","d14","d15");
 };
 #endif
 
@@ -263,18 +292,11 @@ static void GLUE_POP_FPSTACK_TO_WTP_TO_PX(unsigned char *buf, int wv)
   memcpy(buf + GLUE_SET_PX_FROM_WTP_SIZE,GLUE_POP_FPSTACK_TO_WTP,sizeof(GLUE_POP_FPSTACK_TO_WTP));
 };
 
-static unsigned int GLUE_POP_STACK_TO_FPSTACK[2] = 
-{ 
-  0xed9d0b00, // fldd d0, [sp]
-  0xe28dd008, // add sp, sp, #8
-};
-
-
 static const unsigned int GLUE_SET_P1_Z[] =  { 0xe3a00000 }; // mov r0, #0
 static const unsigned int GLUE_SET_P1_NZ[] = { 0xe3a00001 }; // mov r0, #1
 
 
-static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
+static void *GLUE_realAddress(void *fn, int *size)
 {
   static const unsigned int sig[3] = { 0xe1a00000, 0xe1a01001, 0xe1a02002 };
   unsigned char *p = (unsigned char *)fn;
@@ -299,14 +321,6 @@ static void  __attribute__((unused)) glue_setscr(unsigned int v)
   asm volatile ( "fmxr fpscr, %0" :: "r"(v));
 }
 
-void eel_setfp_round() 
-{ 
-  // glue_setscr(glue_getscr()|(3<<22));
-}
-void eel_setfp_trunc() 
-{ 
-  // glue_setscr(glue_getscr()&~(3<<22));
-}
 void eel_enterfp(int s[2]) 
 {
   s[0] = glue_getscr();

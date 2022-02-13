@@ -100,6 +100,7 @@ class JNL_IConnection
     virtual short get_remote_port(void)=0; // this returns the remote port of connection
 
     virtual void set_interface(int useInterface)=0; // call before connect if needed
+    virtual SOCKET get_socket() const = 0;
   };
 
   #define JNL_Connection_PARENTDEF : public JNL_IConnection
@@ -159,6 +160,8 @@ class JNL_Connection JNL_Connection_PARENTDEF
     short get_remote_port(void); // this returns the remote port of connection
   
     void set_interface(int useInterface); // call before connect if needed
+
+    SOCKET get_socket() const { return m_socket; }
 
   protected:
     SOCKET m_socket;

@@ -26,7 +26,7 @@ void plMatrixTranslate(pl_Float m[], pl_Float x, pl_Float y, pl_Float z) {
   m[0+3] = x; m[4+3] = y; m[8+3] = z;
 }
 
-void plMatrixMultiply(pl_Float *dest, pl_Float src[]) {
+void plMatrixMultiply(pl_Float *dest, const pl_Float src[]) {
   pl_Float temp[16];
   pl_uInt i;
   memcpy(temp,dest,sizeof(pl_Float)*16);

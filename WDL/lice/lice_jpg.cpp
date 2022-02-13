@@ -31,6 +31,7 @@ static void LICEJPEG_reset_error_mgr(j_common_ptr cinfo)
   cinfo->err->msg_code = 0;
 }
 
+#ifdef _WIN32
 static void LICEJPEG_init_source(j_decompress_ptr cinfo) {}
 static unsigned char EOI_data[2] = { 0xFF, 0xD9 };
 static boolean LICEJPEG_fill_input_buffer(j_decompress_ptr cinfo)
@@ -52,6 +53,7 @@ static void LICEJPEG_skip_input_data(j_decompress_ptr cinfo, long num_bytes)
   }
 }
 static void LICEJPEG_term_source(j_decompress_ptr cinfo) {}
+#endif
 
 
 LICE_IBitmap *LICE_LoadJPGFromResource(HINSTANCE hInst, const char *resid, LICE_IBitmap *bmp)
@@ -189,7 +191,7 @@ LICE_IBitmap *LICE_LoadJPG(const char *filename, LICE_IBitmap *bmp)
       fp = _wfopen(wf,L"rb");
   }
 #endif
-  if (!fp) fp = fopen(filename,"rb");
+  if (!fp) fp = WDL_fopenA(filename,"rb");
 
   if (!fp) return 0;
 

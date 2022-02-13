@@ -21,6 +21,13 @@ typedef unsigned long long WDL_UINT64;
   #define WDL_INT64_CONST(x) (x##LL)
 #endif
 
+#ifdef _WIN32
+  #define WDL_PRI_UINT64 "I64u"
+  #define WDL_PRI_INT64 "I64d"
+#else
+  #define WDL_PRI_UINT64 "llu"
+  #define WDL_PRI_INT64 "lld"
+#endif
 
 #if !defined(_MSC_VER) ||  _MSC_VER > 1200
 #define WDL_DLGRET INT_PTR CALLBACK
@@ -31,6 +38,7 @@ typedef unsigned long long WDL_UINT64;
 
 #ifdef _WIN32
 #include <windows.h>
+#include <stdio.h>
 #else
 #include <stdint.h>
 typedef intptr_t INT_PTR;
@@ -98,6 +106,7 @@ typedef bool WDL_bool;
 #define wdl_max(x,y) ((x)<(y)?(y):(x))
 #define wdl_min(x,y) ((x)<(y)?(x):(y))
 #define wdl_abs(x) ((x)<0 ? -(x) : (x))
+#define wdl_clamp(x,minv,maxv) ((x) < (minv) ? (minv) : ((x) > (maxv) ? (maxv) : (x)))
 #endif
 
 #ifndef _WIN32
@@ -173,5 +182,47 @@ static WDL_bool WDL_STATICFUNC_UNUSED WDL_TICKS_IN_RANGE_ENDING_AT(WDL_TICKTYPE 
   return (current - refstart) < (WDL_TICKTYPE)len;
   //return ((refend-1) - current) < (WDL_TICKTYPE)len;
 }
+
+// use this if you want validate that nothing that includes wdltypes.h calls fopen() directly on win32
+// #define WDL_CHECK_FOR_NON_UTF8_FOPEN
+
+#if defined(WDL_CHECK_FOR_NON_UTF8_FOPEN) && !defined(_WDL_WIN32_UTF8_H_)
+  #ifdef fopen
+    #undef fopen
+  #endif
+  #include <stdio.h>
+  static WDL_STATICFUNC_UNUSED FILE *WDL_fopenA(const char *fn, const char *mode) { return fopen(fn,mode); }
+  #define fopen this_should_be_fopenUTF8_include_win32_utf8.h
+#else
+  // callers of WDL_fopenA don't mind being non-UTF8-compatible on win32
+  // (this could map to either fopen() or fopenUTF8()
+  #define WDL_fopenA(fn,mode) fopen(fn,mode)
+#endif
+
+#ifndef WDL_ALLOW_UNSIGNED_DEFAULT_CHAR
+typedef char wdl_assert_failed_unsigned_char[((char)-1) > 0 ? -1 : 1];
+#endif
+
+// wdl_log() / printf() wrapper. no-op on release builds
+#if !defined(_DEBUG) && !defined(WDL_LOG_ON_RELEASE)
+  static void WDL_STATICFUNC_UNUSED WDL_VARARG_WARN(printf,1,2) wdl_log(const char *format, ...) { }
+#elif defined(_WIN32)
+  static void WDL_STATICFUNC_UNUSED WDL_VARARG_WARN(printf,1,2) wdl_log(const char *format, ...)
+  {
+    int rv;
+    va_list va;
+
+    char tmp[3800];
+    va_start(va,format);
+    tmp[0]=0;
+    rv=_vsnprintf(tmp,sizeof(tmp),format,va); // returns -1  if over, and does not null terminate, ugh
+    va_end(va);
+
+    if (rv < 0 || rv>=(int)sizeof(tmp)-1) tmp[sizeof(tmp)-1]=0;
+    OutputDebugStringA(tmp);
+  }
+#else
+  #define wdl_log printf
+#endif
 
 #endif

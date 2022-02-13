@@ -237,7 +237,7 @@ static const unsigned int GLUE_SET_P1_Z[] =  { 0x38600000 }; // li r3, 0
 static const unsigned int GLUE_SET_P1_NZ[] = { 0x38600001 }; // li r3, 1
 
 
-static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
+static void *GLUE_realAddress(void *fn, int *size)
 {
   // magic numbers: mr r0,r0 ; mr r1,r1 ; mr r2, r2
   static const unsigned char sig[12] = { 0x7c, 0x00, 0x03, 0x78, 0x7c, 0x21, 0x0b, 0x78, 0x7c, 0x42, 0x13, 0x78 };

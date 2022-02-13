@@ -451,7 +451,7 @@ void WDL_VWnd_Painter::GetPaintInfo(RECT *rclip, int *xoffsdraw, int *yoffsdraw)
 
 void WDL_VWnd_Painter::tintRect(LICE_IBitmap *bmOut, const RECT *clipr, int xoffs, int yoffs, bool isCopy)
 {
-  if (m_bgbmtintcolor>=0)
+  if (m_bgbmtintcolor>=0 || isCopy)
   {
     if (isCopy)
     {

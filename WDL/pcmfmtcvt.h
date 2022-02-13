@@ -209,7 +209,7 @@ static inline void double_to_i24(PCMFMTCVT_DBL_TYPE *vv, unsigned char *i24)
   }
 }
 
-static void pcmToFloats(void *src, int items, int bps, int src_spacing, float *dest, int dest_spacing)
+static WDL_STATICFUNC_UNUSED void pcmToFloats(void *src, int items, int bps, int src_spacing, float *dest, int dest_spacing)
 {
   if (bps == 32)
   {
@@ -244,7 +244,7 @@ static void pcmToFloats(void *src, int items, int bps, int src_spacing, float *d
   }
 }
 
-static void floatsToPcm(float *src, int src_spacing, int items, void *dest, int bps, int dest_spacing)
+static WDL_STATICFUNC_UNUSED void floatsToPcm(float *src, int src_spacing, int items, void *dest, int bps, int dest_spacing)
 {
   if (bps==32)
   {
@@ -280,7 +280,7 @@ static void floatsToPcm(float *src, int src_spacing, int items, void *dest, int 
 }
 
 
-static void pcmToDoubles(void *src, int items, int bps, int src_spacing, PCMFMTCVT_DBL_TYPE *dest, int dest_spacing, int byteadvancefor24=0)
+static WDL_STATICFUNC_UNUSED void pcmToDoubles(void *src, int items, int bps, int src_spacing, PCMFMTCVT_DBL_TYPE *dest, int dest_spacing, int byteadvancefor24=0)
 {
   if (bps == 32)
   {
@@ -315,7 +315,7 @@ static void pcmToDoubles(void *src, int items, int bps, int src_spacing, PCMFMTC
   }
 }
 
-static void doublesToPcm(PCMFMTCVT_DBL_TYPE *src, int src_spacing, int items, void *dest, int bps, int dest_spacing, int byteadvancefor24=0)
+static WDL_STATICFUNC_UNUSED void doublesToPcm(PCMFMTCVT_DBL_TYPE *src, int src_spacing, int items, void *dest, int bps, int dest_spacing, int byteadvancefor24=0)
 {
   if (bps==32)
   {

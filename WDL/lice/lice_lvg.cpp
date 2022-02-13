@@ -1,3 +1,6 @@
+#ifndef WDL_NO_DEFINE_MINMAX
+#define WDL_NO_DEFINE_MINMAX
+#endif
 #include "lice.h"
 #include <stdio.h>
 #include <math.h>
@@ -605,7 +608,7 @@ void *LICE_LoadLVG(const char *filename)
       fp = _wfopen(wf,L"rb");
   }
 #endif
-  if (!fp) fp = fopen(filename,"rb");
+  if (!fp) fp = WDL_fopenA(filename,"rb");
 
   if (fp)
   {

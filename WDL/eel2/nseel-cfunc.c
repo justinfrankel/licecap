@@ -134,59 +134,11 @@ EEL_F NSEEL_CGEN_CALL nseel_int_rand(EEL_F f)
       //nasm
     #else
       #include "asm-nseel-x86-msvc.c"
-
-      void eel_setfp_round() 
-      { 
-        short oldsw;
-        __asm
-        {
-          fnstcw [oldsw]
-          mov ax, [oldsw]
-          and ax, 0xF3FF // round to nearest
-          mov [oldsw], ax
-          fldcw [oldsw]
-        }
-      }
-      void eel_setfp_trunc() 
-      { 
-        short oldsw;
-        __asm
-        {
-          fnstcw [oldsw]
-          mov ax, [oldsw]
-          or ax, 0xC00 // truncate
-          mov [oldsw], ax
-          fldcw [oldsw]
-        }
-      }
     #endif
-  #elif !defined(__LP64__)
+  #elif !defined(__LP64__) && !defined(_WIN64)
+    #define EEL_F_SUFFIX "l"
     #define FUNCTION_MARKER "\n.byte 0x89,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90,0x90\n"
     #include "asm-nseel-x86-gcc.c"
-    void eel_setfp_round()
-    {
-	__asm__(
-		"subl $16, %esp\n"
-		"fnstcw (%esp)\n"
-		"mov (%esp), %ax\n"
-		"and $0xF3FF, %ax\n" // set round to nearest
-		"mov %ax, 4(%esp)\n"
-		"fldcw 4(%esp)\n"
-		"addl $16, %esp\n"
-	);
-    }
-    void eel_setfp_trunc()
-    {
-	__asm__(
-		"subl $16, %esp\n"
-		"fnstcw (%esp)\n"
-		"mov (%esp), %ax\n"
-		"or $0xC00, %ax\n" // set to truncate
-		"mov %ax, 4(%esp)\n"
-		"fldcw 4(%esp)\n"
-		"addl $16, %esp\n"
-	);
-   }
   #endif
 #endif
 

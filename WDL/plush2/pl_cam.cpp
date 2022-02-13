@@ -55,20 +55,22 @@ void pl_Cam::SetTarget(pl_Float x, pl_Float y, pl_Float z) {
     dz /= cos((Pan-180.0f)*(PL_PI/180.0));
     Pitch = (pl_Float) (-atan(dy/dz)*(180.0/PL_PI));
   } else {
-    Pan = 0.0f;
-    Pitch = -90.0f;
+    Pan = 90.0f;
+    Pitch = (pl_Float) (atan2(dy,-dx) * (180.0 / PL_PI));
+    Roll = -90.0f;
   }
+  GenMatrix = true;
 }
 
-void pl_Cam::RecalcFrustum() 
+void pl_Cam::RecalcFrustum(int fbw, int fbh)
 {
-  int fbw=frameBuffer->getWidth();
-  int fbh=frameBuffer->getHeight();
-  int cx = CenterX + fbw/2;
-  int cy = CenterY + fbh/2;
+  const int cx = (CenterX*m_lastFBScaling)/256 + fbw/2;
+  const int cy = (CenterY*m_lastFBScaling)/256 + fbh/2;
+  m_lastCX = cx;
+  m_lastCY = cy;
 
   m_adj_asp = 1.0 / AspectRatio;
-  m_fovfactor = fbw/tan(plMin(plMax(Fov,1.0),179.0)*(PL_PI/360.0));
+  m_fovfactor = CalcFOVFactor(fbw);
   memset(m_clipPlanes,0,sizeof(m_clipPlanes));
 
   /* Back */
@@ -208,13 +210,34 @@ pl_uInt pl_Cam::_ClipToPlane(pl_uInt numVerts, pl_Float  *plane)
   return outvert;
 }
 
+bool pl_Cam::ProjectCoordinate(pl_Float x, pl_Float y, pl_Float z, pl_Float *screen_x, pl_Float *screen_y, pl_Float *dist)
+{
+  x -= X;
+  y -= Y;
+  z -= Z;
+  plMatrixApply(CamMatrix,x,y,z,&x,&y,&z);
 
+  if (dist) *dist = sqrt(x*x + y*y + z*z);
 
+  if (!m_lastFBWidth || !m_lastFBHeight || z < 0.0000000001) return false;
+
+  const double iz = 1.0/z;
+  double ytmp = CalcFOVFactor(m_lastFBWidth) * iz;
+  double xtmp = ytmp*x;
+  ytmp *= y*m_adj_asp;
+
+  xtmp += CenterX + m_lastFBWidth/2;
+  ytmp += CenterY + m_lastFBHeight/2;
+
+  if (screen_x) *screen_x = xtmp;
+  if (screen_y) *screen_y = ytmp;
+
+  return xtmp >= 0 && xtmp < m_lastFBWidth && ytmp >= 0 && ytmp < m_lastFBHeight;
+}
 
 
 void pl_Cam::ClipRenderFace(pl_Face *face, pl_Obj *obj) {
-  int cx = CenterX + (frameBuffer->getWidth())/2;
-  int cy = CenterY + (frameBuffer->getHeight())/2;
+  const int cx = m_lastCX, cy = m_lastCY;
 
   {
     pl_Vertex *vlist=obj->Vertices.Get();
@@ -278,43 +301,16 @@ void pl_Cam::ClipRenderFace(pl_Face *face, pl_Obj *obj) {
         (newface.Scrx[2] - newface.Scrx[0]) * 
         (newface.Scry[1] - newface.Scry[0]) );
 
-      if (frameBuffer->Extended(LICE_EXT_SUPPORTS_ID,(void*)(INT_PTR)LICE_EXT_DRAWTRIANGLE_ACCEL))
-      {
-        LICE_Ext_DrawTriangle_acceldata ac;
-        ac.mat = newface.Material;
-        int x,y;
-        for(x=0;x<3;x++) for(y=0;y<3;y++) ac.VertexShades[x][y]=newface.Shades[x][y];
-        for(x=0;x<3;x++) 
-        {
-          ac.scrx[x]=newface.Scrx[x];
-          ac.scry[x]=newface.Scry[x];
-          ac.scrz[x]=newface.Scrz[x];
-        }
-        for(x=0;x<2;x++)
-        {
-          int tidx=x?newface.Material->TexMapIdx : newface.Material->Tex2MapIdx;
-          if (tidx<0 || tidx>=PLUSH_MAX_MAPCOORDS)tidx=PLUSH_MAX_MAPCOORDS-1;
-          for(y=0;y<3;y++)
-          {
-            ac.mapping_coords[x][y][0]=newface.MappingU[tidx][y];
-            ac.mapping_coords[x][y][1]=newface.MappingV[tidx][y];
-          }
-        }
-          
-        frameBuffer->Extended(LICE_EXT_DRAWTRIANGLE_ACCEL,&ac);
-      }
-      else PutFace(&newface);
+      PutFace(&newface);
     }
   }
 }
 
 pl_sInt pl_Cam::ClipNeeded(pl_Face *face, pl_Obj *obj) {
+  const int fbw=m_fBuffer.m_w, fbh=m_fBuffer.m_h;
+  const int cx = m_lastCX, cy = m_lastCY;
   double dr,dl,db,dt; 
   double f;
-  int fbw=(frameBuffer->getWidth());
-  int fbh=(frameBuffer->getHeight());
-  int cx = CenterX + fbw/2;
-  int cy = CenterY + fbh/2;
   dr = (fbw-cx);
   dl = (-cx);
   db = (fbh-cy);
@@ -352,13 +348,25 @@ pl_sInt pl_Cam::ClipNeeded(pl_Face *face, pl_Obj *obj) {
 
 
 void pl_Cam::Begin(LICE_IBitmap *fb, bool want_zbclear, pl_ZBuffer zbclear) {
-  if (frameBuffer||!fb) return;
+  if (WDL_NOT_NORMALLY(m_fBuffer.m_buf) || WDL_NOT_NORMALLY(!fb)) return;
+
+  m_lastFBWidth=fb->getWidth();
+  m_lastFBHeight=fb->getHeight();
+  m_lastFBScaling = (int)fb->Extended(LICE_EXT_GET_SCALING,NULL);
+  if (m_lastFBScaling==0 || WDL_NOT_NORMALLY(m_lastFBScaling > 1024)) m_lastFBScaling=256;
+
+  m_fBuffer.m_buf = fb->getBits();
+  m_fBuffer.m_span = fb->getRowSpan();
+  m_fBuffer.m_w = fb->getWidth() * m_lastFBScaling / 256;
+  m_fBuffer.m_h = fb->getHeight() * m_lastFBScaling / 256;
+  m_fBuffer.m_flipped = fb->isFlipped();
 
   if (WantZBuffer)
   {
-    int zbsz=fb->getWidth()*fb->getHeight();
-    pl_ZBuffer *zb=zBuffer.Resize(zbsz);
-    if (want_zbclear)
+    int zbsz=m_fBuffer.m_w*m_fBuffer.m_h;
+    pl_ZBuffer *zb=zBuffer.ResizeOK(zbsz);
+    if (!zb) zBuffer.Resize(0);
+    else if (want_zbclear)
     {
       if (!zbclear) memset(zb,0,zbsz*sizeof(pl_ZBuffer));
       else
@@ -372,14 +380,16 @@ void pl_Cam::Begin(LICE_IBitmap *fb, bool want_zbclear, pl_ZBuffer zbclear) {
   pl_Float tempMatrix[16];
   _numlights = 0;
   _numfaces = _numfaces_sorted = 0;
-  frameBuffer = fb;
-  plMatrixRotate(_cMatrix,2,-Pan);
-  plMatrixRotate(tempMatrix,1,-Pitch);
-  plMatrixMultiply(_cMatrix,tempMatrix);
-  plMatrixRotate(tempMatrix,3,-Roll);
-  plMatrixMultiply(_cMatrix,tempMatrix);
+  if (GenMatrix)
+  {
+    plMatrixRotate(CamMatrix,2,-Pan);
+    plMatrixRotate(tempMatrix,1,-Pitch);
+    plMatrixMultiply(CamMatrix,tempMatrix);
+    plMatrixRotate(tempMatrix,3,-Roll);
+    plMatrixMultiply(CamMatrix,tempMatrix);
+  }
   
-  RecalcFrustum();
+  RecalcFrustum(m_fBuffer.m_w, m_fBuffer.m_h);
 
   RenderTrisIn=RenderTrisCulled=RenderTrisOut=0;
   RenderPixelsOut=0.0;
@@ -387,7 +397,7 @@ void pl_Cam::Begin(LICE_IBitmap *fb, bool want_zbclear, pl_ZBuffer zbclear) {
 }
 
 void pl_Cam::RenderLight(pl_Light *light) {
-  if (!light||!frameBuffer) return;
+  if (!light||WDL_NOT_NORMALLY(!m_fBuffer.m_buf)) return;
 
   pl_Float *pl, xp, yp, zp;
   if (light->Type == PL_LIGHT_NONE) return;
@@ -397,18 +407,18 @@ void pl_Cam::RenderLight(pl_Light *light) {
     xp = light->Xp;
     yp = light->Yp;
     zp = light->Zp;
-    MACRO_plMatrixApply(_cMatrix,xp,yp,zp,pl[0],pl[1],pl[2]);
+    MACRO_plMatrixApply(CamMatrix,xp,yp,zp,pl[0],pl[1],pl[2]);
   } else if (light->Type & PL_LIGHT_POINT) {
     xp = light->Xp-X;
     yp = light->Yp-Y;
     zp = light->Zp-Z;
-    MACRO_plMatrixApply(_cMatrix,xp,yp,zp,pl[0],pl[1],pl[2]);
+    MACRO_plMatrixApply(CamMatrix,xp,yp,zp,pl[0],pl[1],pl[2]);
   }
   _lights.Get()[_numlights++].light = light;
 }
 
-void pl_Cam::RenderObject(pl_Obj *obj, pl_Float *bmatrix, pl_Float *bnmatrix) {
-  if (!obj||!frameBuffer) return;
+void pl_Cam::RenderObject(pl_Obj *obj, const pl_Float *bmatrix, const pl_Float *bnmatrix) {
+  if (!obj||WDL_NOT_NORMALLY(!m_fBuffer.m_buf)) return;
 
   pl_Float oMatrix[16], nMatrix[16], tempMatrix[16];
   
@@ -418,15 +428,18 @@ void pl_Cam::RenderObject(pl_Obj *obj, pl_Float *bmatrix, pl_Float *bnmatrix) {
     plMatrixMultiply(nMatrix,tempMatrix);
     plMatrixRotate(tempMatrix,3,obj->Za);
     plMatrixMultiply(nMatrix,tempMatrix);
+    memcpy(obj->RotMatrix,nMatrix,sizeof(pl_Float)*16);
+
     memcpy(oMatrix,nMatrix,sizeof(pl_Float)*16);
-  } else memcpy(nMatrix,obj->RotMatrix,sizeof(pl_Float)*16);
-
-  if (bnmatrix) plMatrixMultiply(nMatrix,bnmatrix);
-
-  if (obj->GenMatrix) {
     plMatrixTranslate(tempMatrix, obj->Xp, obj->Yp, obj->Zp);
     plMatrixMultiply(oMatrix,tempMatrix);
-  } else memcpy(oMatrix,obj->Matrix,sizeof(pl_Float)*16);
+    memcpy(obj->Matrix,oMatrix,sizeof(pl_Float)*16);
+  } else {
+    memcpy(oMatrix,obj->Matrix,sizeof(pl_Float)*16);
+    memcpy(nMatrix,obj->RotMatrix,sizeof(pl_Float)*16);
+  }
+
+  if (bnmatrix) plMatrixMultiply(nMatrix,bnmatrix);
   if (bmatrix) plMatrixMultiply(oMatrix,bmatrix);
 
   {
@@ -438,8 +451,8 @@ void pl_Cam::RenderObject(pl_Obj *obj, pl_Float *bmatrix, pl_Float *bnmatrix) {
 
   plMatrixTranslate(tempMatrix, -X, -Y, -Z);
   plMatrixMultiply(oMatrix,tempMatrix);
-  plMatrixMultiply(oMatrix,_cMatrix);
-  plMatrixMultiply(nMatrix,_cMatrix);
+  plMatrixMultiply(oMatrix,CamMatrix);
+  plMatrixMultiply(nMatrix,CamMatrix);
   
   {
     pl_Vertex *vertex = obj->Vertices.Get();
@@ -699,7 +712,7 @@ int pl_Cam::sortFwdFunc(const void *a, const void *b)
 }
 
 void pl_Cam::End() {
-  if (!frameBuffer) return;
+  if (WDL_NOT_NORMALLY(!m_fBuffer.m_buf)) return;
 
   SortToCurrent();
 
@@ -713,7 +726,8 @@ void pl_Cam::End() {
     }
     f++;
   }
-  frameBuffer=0;
+
+  m_fBuffer.m_buf = NULL;
   _numfaces=0;
   _numlights = 0;
 }

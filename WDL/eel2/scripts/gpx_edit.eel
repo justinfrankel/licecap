@@ -1,0 +1,208 @@
+// does not work for all .gpx files
+// writes to output on every mouseup after edit
+// move points with mouse, alt+click to delete
+// click/drag to pan
+// mousewheel to zoom
+
+tab = 10000;
+tabsz = 0;
+
+is_dirty = 0;
+circle_size = 5;
+
+function scale(v) global() ( (v - this.min) / (this.max-this.min) );
+function unscale(v) global() ( v * (this.max-this.min) + this.min);
+function zoom(sc) global() local(c h) (
+  h = (this.max - this.min) * sc;
+  c = (this.max + this.min) * .5;
+  this.max = c + h*.5;
+  this.min = c - h*.5;
+);
+function include(v) global() ( this.min = min(v,this.min); this.max = max(v,this.max); );
+
+function scroll(amt) global() ( amt *= (this.max-this.min); this.max += amt; this.min += amt; );
+function zoom_view(sc) ( v_lon.zoom(sc); v_lat.zoom(sc); );
+function scroll_view(dx, dy) ( v_lat.scroll(-dy/gfx_h); v_lon.scroll(-dx/gfx_w); );
+
+function hit_test(x,y,p) global(tab tabsz circle_size gfx_w gfx_h v_lat.scale v_lon.scale) local(p hit) (
+  hit = -1;
+  while (p < tabsz && hit < 0) (
+    sqr(v_lat.scale(tab[p*2+1])*gfx_h-y)+sqr(v_lon.scale(tab[p*2])*gfx_w-x) < circle_size*circle_size ? hit = p;
+    p += 1;
+  );
+  hit
+);
+
+function linearize(p,sz, slon, slat, elon, elat, rev) local(x) global()
+(
+  rev ? ( x=slon; slon=elon; elon=x; x=slat; slat=elat; elat=x; );
+  elon = (elon - slon) / sz;
+  elat = (elat - slat) / sz;
+  loop(sz,
+    p[0] = slon;
+    p[1] = slat;
+    slon += elon;
+    slat += elat;
+    p += 2;
+  );
+);
+
+function make_lowpass(f filtsize filtpos) global() local(windowpos sincpos x)
+(
+  x = 0;
+  loop(filtsize,
+    x == filtsize/2 ? (
+      f[x] = 1.0;
+    ) : (
+      windowpos = 2 * x * $pi / filtsize;
+      sincpos = filtpos * $pi * (x - filtsize/2);
+
+      // blackman-harris * window
+      f[x] = (0.35875 - 0.48829 * cos(windowpos) + 0.14128 * cos(2*windowpos) - 0.01168 * cos(3*windowpos)) * sin(sincpos) / sincpos;
+    );
+    x+=1;
+  );
+);
+
+function lowpass() local(src sz i j lpf_pos v sx sy filt p) global(tab tabsz)
+(
+  lpf_pos>0.001 ? lpf_pos *= 0.95 : lpf_pos = 0.9;
+  sz = 64;
+  src = tab+tabsz*2 + sz*4 + 1024;
+  filt = src + tabsz*2 + sz*4 + 1024;
+  make_lowpass(filt, sz, lpf_pos);
+  memcpy(src, tab, tabsz*2);
+  i = src;
+  j = src + tabsz*2;
+  loop(sz/2,
+    memcpy(i-2,i,2);
+    memcpy(j,j-2,2);
+    j+=2;
+    i-=2;
+  );
+  i = 0;
+  loop(tabsz,
+    tab[i*2] != 10000 ? (
+      p = j = sx = sy = 0;
+      loop(sz,
+        v = src[(i+j-sz/2)*2];
+        v != 10000 ? (
+          p += filt[j];
+          sx += v * filt[j];
+          sy += src[(i+j-sz/2)*2 + 1] * filt[j];
+        );
+        j+=1;
+      );
+      tab[i*2] = sx/p;
+      tab[i*2+1] = sy/p;
+    );
+    i+=1;
+  );
+
+);
+
+function do_file(srcfn, destfn) local(fp fpout p lat lon skipping) (
+  (fp = fopen(srcfn,"r")) > 0 ? (
+    destfn < 0 || (fpout = fopen(destfn,"w")) > 0 ? (
+      p = tab;
+      skipping = 0;
+      while (fgets(fp,#line)) (
+        match("%s<trkpt lat=\"%f\" lon=\"%f\">%s",#line,#lead,lat,lon,#trail) ? (
+          destfn < 0 ? ( tabsz+=1; v_lat.include(p[1] = -lat); v_lon.include(p[0] = lon);) : 
+            ( !(skipping = p[0] == 10000) ? fprintf(fpout,"%s<trkpt lat=\"%.7f\" lon=\"%.7f\">%s",#lead,-p[1],p[0],#trail); );
+          p += 2;
+        ) : destfn >= 0 ? ( skipping ? ( match("*</trkpt>*",#line) ? skipping = 0; ) : fwrite(fpout,#line,0) );
+      );
+      destfn >= 0 ? fclose(fpout);
+    );
+    fclose(fp);
+  );
+);
+
+
+function run() (
+  mouse_wheel ? ( zoom_view(mouse_wheel < 0 ? 1.1 : 1/1.1); mouse_wheel = 0;);
+  (mouse_cap&1)? (
+    !(last_mouse_cap & 1) ? (
+      cap_mode >= 0 && (mouse_cap&4) ? (
+        tmp = hit_test(mouse_x,mouse_y,0);
+        tmp >= 0 ? (
+          tmp < cap_mode ? (
+            cap_cnt = cap_mode+cap_cnt - tmp;
+            cap_mode = tmp;
+          ) : (
+            cap_cnt = max(cap_mode+cap_cnt, tmp) - cap_mode;
+          );
+        ) : cap_mode = tmp;
+      ) : (
+        cap_mode = hit_test(mouse_x,mouse_y,0);
+        cap_mode >= 0 ? (
+          cap_cnt = 1;
+          while (hit_test(mouse_x,mouse_y,cap_mode+cap_cnt) >= 0) ( cap_cnt += 1; );
+        );
+      );
+      cap_start_lon = v_lon.unscale(mouse_x/gfx_w);
+      cap_start_lat = v_lat.unscale(mouse_y/gfx_h);
+    ) : cap_mode >= 0 ? (
+      cap_cnt > 1 && (mouse_cap&4) ? (
+        linearize(tab + cap_mode*2,cap_cnt, cap_start_lon, cap_start_lat, 
+          v_lon.unscale(mouse_x/gfx_w), v_lat.unscale(mouse_y/gfx_h),
+          mouse_cap&8);
+      ) : (
+        tab[cap_mode*2] = v_lon.unscale(mouse_x/gfx_w);
+        tab[cap_mode*2+1] = v_lat.unscale(mouse_y/gfx_h);
+      );
+      is_dirty = 1;
+    ) : scroll_view(mouse_x-last_mouse_x,mouse_y-last_mouse_y);
+  ) : (
+    (last_mouse_cap & 1) && (last_mouse_cap & 16) && cap_mode >= 0 ? (
+      tab[cap_mode*2] = 10000;
+      is_dirty = 1;
+    );
+    is_dirty ? ( do_file(argv[1], argv[2]); is_dirty = 0; );
+  );
+  last_mouse_cap = mouse_cap;
+  last_mouse_x = mouse_x;
+  last_mouse_y = mouse_y;
+
+  p = tab;
+  hadprev = dist = 0;
+  loop(tabsz,
+    p[0] != 10000 ? (
+      x = v_lon.scale(p[0])*gfx_w;
+      y = v_lat.scale(p[1])*gfx_h;
+      hadprev ? (
+        gfx_set(0,.5,.7);
+        gfx_line(v_lon.scale(llon)*gfx_w,v_lat.scale(llat)*gfx_h,x,y);
+        dist += sqrt(sqr((p[0] - llon) * cos(llat*$pi/180.0)*69.172) + sqr((p[1] - llat)*60));
+      );
+      cap_mode == (p-tab)/2 ? gfx_set(1,0,1) : gfx_set(0,1,0);
+      gfx_circle(x,y,circle_size);
+      llon = p[0];
+      llat = p[1];
+      hadprev = 1;
+    );
+    p += 2;
+  );
+
+  gfx_x=gfx_y=0;
+  gfx_set(1,1,0);
+  gfx_printf("distance (approx) %.2f mi\n",dist);
+
+  gfx_update();
+  c = gfx_getchar();
+  c == 'l' ? ( lowpass(); is_dirty = 1; );
+  c >= 0 && c != 27 ? defer("run()");
+);
+
+argc < 2 ? printf("Usage: %s file.gpx output.gpx\n",argv[0]) : (
+  v_lat.min = v_lon.min = 100000;
+  v_lat.max = v_lon.max = -100000;
+  do_file(argv[1],-1);
+  tabsz > 0 ? (
+    zoom_view(1.3);
+    gfx_init("gpx edit",1024,768);
+    defer("run()");
+  ) : printf("Error: %s has no <trkpt lines matching\n",argv[1]);
+);
+

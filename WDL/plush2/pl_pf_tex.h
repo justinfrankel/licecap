@@ -5,7 +5,7 @@ PLMTexTri
 #else
 PLTexTri
 #endif
-(LICE_pixel *gmem, int swidth, pl_Face *TriFace, pl_ZBuffer *zbuf, int zfb_width,
+(LICE_pixel *gmem, int swidth, pl_Face *TriFace, pl_ZBuffer *zbuf, int zfb_width, bool zb_update,
                      int solidalpha, int solidcomb, LICE_IBitmap *tex, pl_Float *texscales, int texalpha, int texcomb, int texmap
 #ifdef PL_PF_MULTITEX
                      , LICE_IBitmap *tex2, int tex2alpha, int tex2comb, int texmap2
@@ -344,7 +344,7 @@ PLTexTri
         if (Xlen < 0) n += Xlen;
         if (zfb_width) do {
             if (*zbuf < ZL) {
-              *zbuf = (pl_ZBuffer) ZL;
+              if (zb_update) *zbuf = (pl_ZBuffer) ZL;
 
  #ifdef PL_PF_MULTITEX
              TextureMakePixel2((LICE_pixel_chan *)gmem,solidcomb,solidalpha,solidalpha2,CL, bilinear, 

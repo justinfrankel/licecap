@@ -42,6 +42,7 @@ public:
 
   virtual void highlight_line(int line);
 
+  void GoToLine(int line, bool dosel);
 
   enum
   {
@@ -83,6 +84,15 @@ protected:
   void draw_message(const char *str);
   void draw_status_state();
 
+  virtual const char *sh_tokenize(const char **ptr, const char *endptr, int *lenOut, int *state) {
+    while (**ptr == ' ' || **ptr == '\t') (*ptr)++;
+    const char *ret = *ptr;
+    while (**ptr && (**ptr != ' ' && **ptr != '\t')) (*ptr)++;
+    *lenOut = (int) (*ptr - ret);
+    if (state) *state = 0;
+    return *ptr > ret ? ret : NULL;
+  }
+
 #ifdef WDL_IS_FAKE_CURSES
   virtual LRESULT onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
   static LRESULT _onMouseMessage(void *user_data, HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -92,7 +102,8 @@ protected:
   }
 #endif
   
-  void runSearch();
+  virtual int search_line(const char *str, const WDL_FastString *line, int startpos, bool backwards, int *match_len); // returns offset of next match, or -1 if none
+  void runSearch(bool backwards, bool replaceAll);
 
   void indentSelect(int amt);
   void removeSelect();
@@ -107,7 +118,7 @@ protected:
 
   virtual int GetCommentStateForLineStart(int line); // pass current line, returns flags (which will be passed as c_comment_state)
 
-  virtual void draw_line_highlight(int y, const char *p, int *c_comment_state);
+  virtual void draw_line_highlight(int y, const char *p, int *c_comment_state, int line_n);
   virtual void draw_top_line();
   virtual void draw_bottom_line();
   virtual bool LineCanAffectOtherLines(const char *txt, int spos, int slen) // if multiline comment etc
@@ -140,10 +151,14 @@ protected:
   int m_undoStack_pos;
   int m_clean_undopos;
   
-  enum uiState { UI_STATE_NORMAL=0,
+  enum uiState {
+    UI_STATE_NORMAL=0,
     UI_STATE_MESSAGE, 
-    UI_STATE_SEARCH, UI_STATE_SEARCH2, 
-    UI_STATE_SAVE_AS_NEW, UI_STATE_SAVE_ON_CLOSE 
+    UI_STATE_SEARCH,
+    UI_STATE_REPLACE,
+    UI_STATE_GOTO_LINE,
+    UI_STATE_SAVE_AS_NEW,
+    UI_STATE_SAVE_ON_CLOSE
   };
   uiState m_ui_state; 
 
@@ -164,8 +179,14 @@ protected:
 
   int GetPaneDims(int* paney, int* paneh);
 
-  static char s_search_string[256];
+  int m_line_editor_edited;
+  void run_line_editor(int c, WDL_FastString *fs);
+  WDL_FastString m_search_string, m_replace_string;
+
+public:
   static int s_overwrite;
+  static int s_search_mode;
+protected:
   static WDL_FastString s_fake_clipboard;
 
   class refcntString

@@ -9,6 +9,7 @@
 #include "netinc.h"
 
 #include "util.h"
+#include "../wdlcstring.h"
 
 int JNL::open_socketlib()
 {
@@ -32,5 +33,6 @@ unsigned int JNL::ipstr_to_addr(const char *cp)
 void JNL::addr_to_ipstr(unsigned int addr, char *host, int maxhostlen) 
 { 
   struct in_addr a; a.s_addr=addr;
-  char *p=::inet_ntoa(a); strncpy(host,p?p:"",maxhostlen);
+  char *p=::inet_ntoa(a);
+  lstrcpyn_safe(host,p?p:"",maxhostlen);
 }

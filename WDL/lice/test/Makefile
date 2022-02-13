@@ -4,6 +4,8 @@ CC=gcc
 CXX=g++
 WDL_PATH=../..
 
+CFLAGS += -D_FILE_OFFSET_BITS=64
+
 ifdef NOSWELL
 CFLAGS += -D_LICE_NO_SYSBITMAPS_
 SWELL_OBJS =
@@ -18,13 +20,14 @@ else
     LFLAGS += $(shell pkg-config --libs gdk-3.0) -lX11 -lXi
   endif
   ifndef NOFREETYPE
-    CFLAGS += -DSWELL_FREETYPE $(shell freetype-config --cflags)
-    LFLAGS += $(shell freetype-config --libs)
+    CFLAGS += -DSWELL_FREETYPE $(shell pkg-config --cflags freetype2)
+    LFLAGS += $(shell pkg-config --libs freetype2)
   endif
 
   SWELL_OBJS = swell-wnd-generic.o swell-gdi-lice.o swell.o swell-misc-generic.o \
                swell-dlg-generic.o swell-menu-generic.o swell-kb-generic.o \
-               swell-gdi-generic.o swell-ini.o swell-generic-gdk.o
+               swell-gdi-generic.o swell-ini.o swell-generic-gdk.o \
+               swell-appstub-generic.o swell-miscdlg-generic.o
 
   LFLAGS += -ldl
 
@@ -33,8 +36,8 @@ endif
 
 CXXFLAGS=$(CFLAGS)
 
-vpath %.c $(WDL_PATH)/zlib $(WDL_PATH)/libpng $(WDL_PATH)/jpeglib  $(WDL_PATH)/giflib $(WDL_PATH)/tinyxml
-vpath %.cpp $(WDL_PATH)/lice $(WDL_PATH)/plush2 $(WDL_PATH)/tinyxml
+vpath %.c $(WDL_PATH)/zlib $(WDL_PATH)/libpng $(WDL_PATH)/jpeglib  $(WDL_PATH)/giflib
+vpath %.cpp $(WDL_PATH)/lice $(WDL_PATH)/plush2
 
 ZLIB_OBJS = compress.o adler32.o crc32.o deflate.o infback.o inffast.o inflate.o inftrees.o trees.o uncompr.o zutil.o ioapi.o zip.o unzip.o
 
@@ -46,17 +49,15 @@ JPEGLIB_OBJS = jcomapi.o jdapimin.o jdapistd.o jdatadst.o jdatasrc.o jdcoefct.o 
 
 GIFLIB_OBJS = dgif_lib.o egif_lib.o gifalloc.o gif_hash.o 
 
-LICEOBJS = lice.o lice_gif.o lice_gif_write.o lice_image.o lice_jpg.o lice_png.o lice_pcx.o lice_palette.o lice_line.o lice_arc.o lice_text.o lice_textnew.o lice_texgen.o
+LICEOBJS = lice.o lice_gif.o lice_gif_write.o lice_image.o lice_jpg.o lice_png.o lice_pcx.o lice_palette.o lice_line.o lice_arc.o lice_text.o lice_textnew.o lice_texgen.o lice_colorspace.o
 
 PLUSH_OBJS = pl_cam.o pl_make.o pl_math.o pl_obj.o pl_putface.o pl_read_3ds.o pl_read_cob.o pl_read_jaw.o pl_spline.o
-
-SVG_OBJS = svgtiny_colors.o tinystr.o tinyxml.o tinyxmlerror.o tinyxmlparser.o lice_svg.o
 
 .phony: clean default
 
 default: test
 
-test: $(LICEOBJS) $(JPEGLIB_OBJS) $(PNGLIB_OBJS) $(ZLIB_OBJS) $(GIFLIB_OBJS) $(SWELL_OBJS) $(PLUSH_OBJS) $(SVG_OBJS) main.o fly.o
+test: $(LICEOBJS) $(JPEGLIB_OBJS) $(PNGLIB_OBJS) $(ZLIB_OBJS) $(GIFLIB_OBJS) $(SWELL_OBJS) $(PLUSH_OBJS) main.o fly.o
 	$(CXX) $(CFLAGS) -o $@ $^ $(LFLAGS)
 
 
@@ -64,4 +65,4 @@ imgs2gif: $(LICEOBJS) $(JPEGLIB_OBJS) $(PNGLIB_OBJS) $(ZLIB_OBJS) $(GIFLIB_OBJS)
 	$(CXX) $(CFLAGS) -o $@ $^ $(LFLAGS)
 
 clean: 
-	-rm $(LICEOBJS) $(JPEGLIB_OBJS) $(PNGLIB_OBJS) $(ZLIB_OBJS) $(GIFLIB_OBJS) imgs2gif.o imgs2gif $(SWELL_OBJS) $(PLUSH_OBJS) $(SVG_OBJS) test main.o fly.o
+	-rm $(LICEOBJS) $(JPEGLIB_OBJS) $(PNGLIB_OBJS) $(ZLIB_OBJS) $(GIFLIB_OBJS) imgs2gif.o imgs2gif $(SWELL_OBJS) $(PLUSH_OBJS) test main.o fly.o

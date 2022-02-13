@@ -3,7 +3,6 @@
 
 #include "wdltypes.h"
 
-class WDL_String;
 class WDL_FastString;
 class WDL_HeapBuf;
 class WDL_FastQueue;
@@ -49,13 +48,12 @@ int ProjectContextFormatString(char *outbuf, size_t outbuf_size, const char *fmt
 int cfg_decode_binary(ProjectStateContext *ctx, WDL_HeapBuf *hb); // 0 on success, doesnt clear hb
 void cfg_encode_binary(ProjectStateContext *ctx, const void *ptr, int len);
 
-int cfg_decode_textblock(ProjectStateContext *ctx, WDL_String *str); // 0 on success, appends to str
 int cfg_decode_textblock(ProjectStateContext *ctx, WDL_FastString *str); // 0 on success, appends to str
-void cfg_encode_textblock(ProjectStateContext *ctx, const char *text);
+void cfg_encode_textblock(ProjectStateContext *ctx, const char *text); // long lines get split by newlines
+void cfg_encode_textblock2(ProjectStateContext *ctx, const char *text); // preserves newlines/long lines/etc (requires recent cfg_decode_textblock())
 
-char getConfigStringQuoteChar(const char *in); // returns 0 if no quote char available!
+char getConfigStringQuoteChar(const char *in, bool prefer_quoteless=true); // returns 0 if no quote char available!
 bool configStringWantsBlockEncoding(const char *in); // returns true if over 1k long, has newlines, or contains all quote chars
-void makeEscapedConfigString(const char *in, WDL_String *out);
 void makeEscapedConfigString(const char *in, WDL_FastString *out);
 
 

@@ -48,7 +48,9 @@ static void WDL_SetThreadName(const char* threadName) {
 extern "C" 
 {
   void *objc_getClass(const char *p);
+#ifndef _OBJC_OBJC_H_
   void *sel_getUid(const char *p);
+#endif
   void objc_msgSend(void);
 };
 

@@ -258,7 +258,13 @@ int ProjectContextFormatString(char *outbuf, size_t outbuf_size, const char *fmt
       case 's':
       {
         const char *str=va_arg(va,const char *);
-        const char qc = outbuf_size >= 3 && c != 's' ? getConfigStringQuoteChar(str) : ' ';
+        bool prefer_quoteless = true;
+        if (c == 'p' && *fmt == '~') // %p~ to bias towards "string" (legacy)
+        {
+          prefer_quoteless = false;
+          fmt++;
+        }
+        const char qc = outbuf_size >= 3 && c != 's' ? getConfigStringQuoteChar(str, prefer_quoteless) : ' ';
         
         if (qc != ' ')
         {
@@ -270,7 +276,7 @@ int ProjectContextFormatString(char *outbuf, size_t outbuf_size, const char *fmt
         {
           char v = *str++;
           if (!qc && v == '`') v = '\'';
-          outbuf[wroffs++] = v != '\n' ? v : ' ';
+          outbuf[wroffs++] = v != '\n' && v != '\r' ? v : ' ';
           outbuf_size--;
         }
 
@@ -390,13 +396,9 @@ int ProjectContextFormatString(char *outbuf, size_t outbuf_size, const char *fmt
       default:
         want_abort=true;
       break;
-    }   
+    }
     if (want_abort)
     {
-#if defined(_WIN32) && defined(_DEBUG)
-      OutputDebugString("ProjectContextFormatString(): falling back to stock vsnprintf because of:");
-      OutputDebugString(ofmt);
-#endif
       fmt=ofmt;
       break;
     }
@@ -1153,32 +1155,6 @@ void cfg_encode_binary(ProjectStateContext *ctx, const void *ptr, int len)
 }
 
 
-int cfg_decode_textblock(ProjectStateContext *ctx, WDL_String *str) // 0 on success, appends to str
-{
-  int child_count=1;
-  bool did_firstline=!!str->Get()[0];
-  for (;;)
-  {
-    char linebuf[4096];
-    if (ctx->GetLine(linebuf,sizeof(linebuf))) break;
-
-    const char *p = linebuf;
-    while (*p == ' ' || *p == '\t') p++;
-    if (*p == '\'' || *p == '"' || *p == '`') p++; // skip a quote if any
-
-    if (!p[0]) continue;
-    else if (p[0] == '<') child_count++; 
-    else if (p[0] == '>') { if (child_count-- == 1) return 0; }
-    else if (child_count == 1 && p[0] == '|')
-    {     
-      if (!did_firstline) did_firstline=true;
-      else str->Append("\r\n");
-      str->Append(++p);
-    }
-  }
-  return -1;  
-}
-
 int cfg_decode_textblock(ProjectStateContext *ctx, WDL_FastString *str) // 0 on success, appends to str
 {
   int child_count=1;
@@ -1195,34 +1171,38 @@ int cfg_decode_textblock(ProjectStateContext *ctx, WDL_FastString *str) // 0 on 
     if (!p[0]) continue;
     else if (p[0] == '<') child_count++; 
     else if (p[0] == '>') { if (child_count-- == 1) return 0; }
-    else if (child_count == 1 && p[0] == '|')
-    {     
-      if (!did_firstline) did_firstline=true;
-      else str->Append("\r\n");
-      str->Append(++p);
+    else if (child_count == 1)
+    {
+      const char *prefix = did_firstline ? "\r\n" : "";
+      // lines can have a prefix immediately before | to specify the line ending of the previous line
+      switch (p[0])
+      {
+        case 'c': prefix=""; p++; break;
+        case 'n': prefix="\n"; p++; break;
+        case 'r': prefix="\r"; p++; break;
+        case 'R': prefix="\n\r"; p++; break;
+      }
+
+      if (p[0] == '|')
+      {
+        if (*prefix) str->Append(prefix);
+        str->Append(++p);
+        did_firstline=true;
+      }
     }
   }
   return -1;  
 
 }
 
-
-void cfg_encode_textblock(ProjectStateContext *ctx, const char *text)
+void cfg_encode_textblock(ProjectStateContext *ctx, const char *txt) // splits long lines
 {
-  WDL_String tmpcopy(text);
-  char *txt=(char*)tmpcopy.Get();
   while (*txt)
   {
-    char *ntext=txt;
-    while (*ntext && *ntext != '\r' && *ntext != '\n') ntext++;
-    if (ntext > txt || *ntext)
-    {
-      char ov=*ntext;
-      *ntext=0;
-      ctx->AddLine("|%s",txt);
-      *ntext=ov;
-    }
-    txt=ntext;
+    int l = 0;
+    while (txt[l] && l < 4000 && txt[l] != '\r' && txt[l] != '\n') l++;
+    ctx->AddLine("|%.*s",l,txt);
+    txt += l;
     if (*txt == '\r')
     {
       if (*++txt== '\n') txt++;
@@ -1234,7 +1214,42 @@ void cfg_encode_textblock(ProjectStateContext *ctx, const char *text)
   }
 }
 
-char getConfigStringQuoteChar(const char *p)
+void cfg_encode_textblock2(ProjectStateContext *ctx, const char *txt) // preserves long lines, line endings
+{
+  char prefix = ' ';
+  while (*txt)
+  {
+    int l = 0;
+    while (txt[l] && l < 2000 && txt[l] != '\r' && txt[l] != '\n') l++;
+    ctx->AddLine("%c|%.*s",prefix,l,txt);
+    txt += l;
+    if (*txt == '\r')
+    {
+      prefix = 'r';
+      if (*++txt== '\n')
+      {
+        txt++;
+        prefix = ' ';
+      }
+    }
+    else if (*txt == '\n')
+    {
+      prefix = 'n';
+      if (*++txt == '\r')
+      {
+        txt++;
+        prefix = 'R';
+      }
+    }
+    else if (*txt) prefix = 'c';
+    else break;
+
+    if (!*txt)
+      ctx->AddLine("%c|",prefix);
+  }
+}
+
+char getConfigStringQuoteChar(const char *p, bool prefer_quoteless)
 {
   if (!p || !*p) return '"';
 
@@ -1246,11 +1261,12 @@ char getConfigStringQuoteChar(const char *p)
     if (c=='"') flags|=1;
     else if (c=='\'') flags|=2;
     else if (c=='`') flags|=4;
-    else if (c == ' ' || c == '\t') flags |= 8;
+    else if (c == ' ' || c == '\t' || c == '\n' || c == '\r') flags |= 8;
   }
-#ifndef PROJECTCONTEXT_USE_QUOTES_WHEN_NO_SPACES
-  if (!(flags & 8) && fc != '"' && fc != '\'' && fc != '`' && fc != '#' && fc != ';') return ' ';
-#endif
+  if (prefer_quoteless || flags == 7)
+  {
+    if (!(flags & 8) && fc != '"' && fc != '\'' && fc != '`' && fc != '#' && fc != ';') return ' ';
+  }
 
   if (!(flags & 1)) return '"';
   if (!(flags & 2)) return '\'';
@@ -1273,37 +1289,6 @@ bool configStringWantsBlockEncoding(const char *in) // returns true if over 1k l
     }
   }
   return true;
-}
-
-void makeEscapedConfigString(const char *in, WDL_String *out)
-{
-  char c;
-  if (!in || !*in) out->Set("\"\"");
-  else if ((c = getConfigStringQuoteChar(in)))
-  {
-    if (c == ' ') 
-    {
-      out->Set(in);
-    }
-    else
-    {
-      out->Set(&c,1);
-      out->Append(in);
-      out->Append(&c,1);
-    }
-  }
-  else  // ick, change ` into '
-  {
-    out->Set("`");
-    out->Append(in);
-    out->Append("`");
-    char *p=out->Get()+1;
-    while (*p && p[1])
-    {
-      if (*p == '`') *p='\'';
-      p++;
-    }
-  }
 }
 
 void makeEscapedConfigString(const char *in, WDL_FastString *out)
@@ -1332,6 +1317,7 @@ void makeEscapedConfigString(const char *in, WDL_FastString *out)
     while (*p && p[1])
     {
       if (*p == '`') *p='\'';
+      else if (*p == '\r' || *p == '\n') *p=' ';
       p++;
     }
   }

@@ -6,11 +6,18 @@
 ARCH := $(shell uname -m)
 UNAME_S := $(shell uname -s)
 
+ifeq ($(ARCH), aarch64)
+  ifeq ($(shell $(CC) -dumpmachine | cut -f 1 -d -), arm)
+    # helper for armv7l userspace on aarch64 cpu
+    ARCH := armv7l
+  endif
+endif
+
 PKG_CONFIG = pkg-config
 
 COMPILER=GCC
 
-CFLAGS = -pipe -fvisibility=hidden -fno-math-errno -fPIC -DPIC -Wall -Wshadow -Wno-unused-function -Wno-multichar
+CFLAGS = -pipe -fvisibility=hidden -fno-math-errno -fPIC -DPIC -Wall -Wshadow -Wno-unused-function -Wno-multichar -Wtype-limits
 
 CFLAGS += -DSWELL_MAKING_DYLIB
 
@@ -20,6 +27,7 @@ ifeq ($(UNAME_S),Darwin)
   COMPILER=CLANG
 else
   DLL_EXT=.so
+  CFLAGS += -D_FILE_OFFSET_BITS=64
 endif
 
 ifeq ($(COMPILER),CLANG)
@@ -42,11 +50,15 @@ ifndef DEPRECATED_WARNINGS
   CFLAGS +=  -Wno-deprecated-declarations
 endif
 
-ifneq ($(filter arm%,$(ARCH)),)
-  CFLAGS += -fsigned-char -marm
-endif
-ifeq ($(ARCH),aarch64)
+ifeq ($(ARCH),arm64)
   CFLAGS += -fsigned-char
+else
+  ifneq ($(filter arm%,$(ARCH)),)
+    CFLAGS += -fsigned-char -marm
+  endif
+  ifeq ($(ARCH),aarch64)
+    CFLAGS += -fsigned-char
+  endif
 endif
 
 
@@ -127,6 +139,7 @@ ifndef NOGDK
       LINKEXTRA += -lfontconfig
     endif
   endif
+  LINKEXTRA += -lGL
 endif
 
 CXXFLAGS = $(CFLAGS)
@@ -161,4 +174,4 @@ libSwell.colortheme: swell-gdi-generic.cpp $(SWELL_HEADERS)
 	./make-theme > libSwell.colortheme
 
 clean: 
-	-rm $(OBJS) libSwell$(DLL_EXT) make-theme libSwell.colortheme
+	-rm -f -- $(OBJS) libSwell$(DLL_EXT) make-theme libSwell.colortheme

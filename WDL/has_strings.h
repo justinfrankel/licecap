@@ -5,17 +5,18 @@
 #define WDL_HASSTRINGS_EXPORT
 #endif
 
-static bool hasStrings_isNonWordChar(int c)
+WDL_HASSTRINGS_EXPORT bool hasStrings_isNonWordChar(int c)
 {
   // treat as whitespace when searching for " foo "
   switch (c)
   {
+    case 0:
+    case 1:
     case ' ':
     case '\t':
     case '.':
     case '/':
     case '\\':
-
       return true;
 
     default:
@@ -23,7 +24,9 @@ static bool hasStrings_isNonWordChar(int c)
   }
 }
 
-WDL_HASSTRINGS_EXPORT bool WDL_hasStrings(const char *name, const LineParser *lp)
+WDL_HASSTRINGS_EXPORT bool WDL_hasStringsEx(const char *name, const LineParser *lp,
+    int (*cmp_func)(const char *a, int apos, const char *b, int blen)  // if set, returns length of matched string (0 if no match)
+    )
 {
   if (!lp) return true;
   const int ntok = lp->getnumtokens();
@@ -123,6 +126,9 @@ WDL_HASSTRINGS_EXPORT bool WDL_hasStrings(const char *name, const LineParser *lp
             break;
           }
         }
+
+        bool use_cmp_func = cmp_func != NULL && !(stack[stacktop]&1);
+
         if (!wc_left && !wc_right && *n)
         {
           switch (lp->gettoken_quotingchar(x))
@@ -132,22 +138,28 @@ WDL_HASSTRINGS_EXPORT bool WDL_hasStrings(const char *name, const LineParser *lp
               { // if a quoted string has no whitespace in it, treat as whole word search
                 const char *p = n;
                 while (*p && *p != ' ' && *p != '\t') p++;
-                if (!*p) wc_left=wc_right=2;
+                if (!*p)
+                {
+                  wc_left=wc_right=2;
+                  use_cmp_func = false;
+                }
               }
             break;
           }
 
         }
 
+        const int min_len = use_cmp_func ? 1 : ln;
         if (wc_left>0)
         {
           unsigned char lastchar = 1;
-          while (lt>=ln)
+          while (lt>=min_len)
           {
-            if ((lastchar < 2 || (wc_left>1 && hasStrings_isNonWordChar(lastchar))) && !strnicmp(t,n,ln)) 
+            int lln;
+            if ((lastchar < 2 || (wc_left>1 && hasStrings_isNonWordChar(lastchar))) && (lln = use_cmp_func ? cmp_func(t,t-name,n,ln) : strnicmp(t,n,ln) ? 0 : ln))
             {
               if (wc_right == 0) break;
-              const unsigned char nc=((const unsigned char*)t)[ln];
+              const unsigned char nc=((const unsigned char*)t)[lln];
               if (nc < 2 || (wc_right > 1 && hasStrings_isNonWordChar(nc))) break;
             }
             lastchar = *(unsigned char*)t++;
@@ -156,12 +168,13 @@ WDL_HASSTRINGS_EXPORT bool WDL_hasStrings(const char *name, const LineParser *lp
         }
         else
         {
-          while (lt>=ln)
+          while (lt>=min_len)
           {
-            if (!strnicmp(t,n,ln)) 
+            const int lln = use_cmp_func ? cmp_func(t,t-name,n,ln) : strnicmp(t,n,ln) ? 0 : ln;
+            if (lln)
             {
               if (wc_right == 0) break;
-              const unsigned char nc=((const unsigned char*)t)[ln];
+              const unsigned char nc=((const unsigned char*)t)[lln];
               if (nc < 2 || (wc_right > 1 && hasStrings_isNonWordChar(nc))) break;
             }
             t++;
@@ -169,7 +182,7 @@ WDL_HASSTRINGS_EXPORT bool WDL_hasStrings(const char *name, const LineParser *lp
           }
         }
 
-        matched_local = ((lt-ln)>=0) ^ (stack[stacktop]&1);
+        matched_local = ((lt-min_len)>=0) ^ (stack[stacktop]&1);
         stack[stacktop]=0;
       }
     }
@@ -181,6 +194,11 @@ WDL_HASSTRINGS_EXPORT bool WDL_hasStrings(const char *name, const LineParser *lp
   }
 
   return matched_local!=0;
+}
+
+WDL_HASSTRINGS_EXPORT bool WDL_hasStrings(const char *name, const LineParser *lp)
+{
+  return WDL_hasStringsEx(name,lp,NULL);
 }
 
 WDL_HASSTRINGS_EXPORT bool WDL_makeSearchFilter(const char *flt, LineParser *lp)

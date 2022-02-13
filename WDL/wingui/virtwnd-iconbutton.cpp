@@ -79,12 +79,12 @@ void WDL_VirtualIconButton::SetTextLabel(const char *text, int align, LICE_IFont
   if (!m_iconCfg || m_forcetext) RequestRedraw(NULL); 
 } 
 
-void WDL_VirtualIconButton::SetCheckState(char state)
+void WDL_VirtualIconButton::SetCheckState(char state, bool redraw)
 {
   if (state != m_checkstate)
   {
     m_checkstate=state;
-    RequestRedraw(NULL);
+    if (redraw) RequestRedraw(NULL);
   }
 }
 
@@ -328,6 +328,7 @@ void WDL_VirtualIconButton::OnPaint(LICE_IBitmap *drawbm, int origin_x, int orig
     if (m_checkstate>=0 && !m_iconCfg)
     {
       RECT tr=r2;
+      tr.left+=2;
       int sz=tr.bottom-tr.top;
       int adj = 2*rscale/WDL_VWND_SCALEBASE;
       r2.left+=sz+adj;
@@ -661,13 +662,13 @@ void WDL_VirtualComboBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin
     if (m_font && m_items.Get(m_curitem)&&m_items.Get(m_curitem)[0])
     {
       RECT tr=r;
-      tr.left+=2;
+      tr.left+=3;
       tr.right-=16;
       m_font->SetTextColor(tcol);
       if (m_align == 0)
       {
         RECT r2={0,};
-        m_font->DrawText(drawbm,m_items.Get(m_curitem),-1,&tr,DT_SINGLELINE|DT_CALCRECT|DT_NOPREFIX);
+        m_font->DrawText(drawbm,m_items.Get(m_curitem),-1,&r2,DT_SINGLELINE|DT_CALCRECT|DT_NOPREFIX);
         m_font->DrawText(drawbm,m_items.Get(m_curitem),-1,&tr,DT_SINGLELINE|DT_VCENTER|(r2.right < tr.right-tr.left ? DT_CENTER : DT_LEFT)|DT_NOPREFIX);
       }
       else
@@ -689,7 +690,7 @@ void WDL_VirtualComboBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin
       int a=(bs/4)&~1;
 
       LICE_Line(drawbm,l,r.top,l,r.bottom-1,pencol,1.0f,LICE_BLIT_MODE_COPY,false);
-      LICE_Line(drawbm,l-1,r.top,l-1,r.bottom-1,pencol2,1.0f,LICE_BLIT_MODE_COPY,false);
+      if (pencol2!=pencol) LICE_Line(drawbm,l-1,r.top,l-1,r.bottom-1,pencol2,1.0f,LICE_BLIT_MODE_COPY,false);
 
       LICE_Line(drawbm,l+bs/2-a,r.top+bs/2-a/2,
                        l+bs/2,r.top+bs/2+a/2,tcol,1.0f,LICE_BLIT_MODE_COPY,true);
@@ -712,6 +713,8 @@ void WDL_VirtualComboBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin
 
 WDL_VirtualStaticText::WDL_VirtualStaticText()
 {
+  calculate_text=NULL;
+  calculate_text_ctx=NULL;
   m_dotint=false;
   m_bkbm=0;
   m_margin_r=m_margin_l=0;
@@ -730,12 +733,12 @@ WDL_VirtualStaticText::~WDL_VirtualStaticText()
 {
 }
 
-void WDL_VirtualStaticText::SetText(const char *text) 
+void WDL_VirtualStaticText::SetText(const char *text, bool redraw)
 { 
   if (strcmp(m_text.Get(),text?text:""))
   {
     m_text.Set(text?text:"");
-    if (m_font) RequestRedraw(NULL); 
+    if (redraw && m_font) RequestRedraw(NULL); 
   }
 }
 
@@ -785,6 +788,7 @@ int WDL_VirtualStaticText::OnMouseDown(int xpos, int ypos)
 
 void WDL_VirtualStaticText::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect, int rscale)
 {
+  if (calculate_text) calculate_text(this,calculate_text_ctx, &m_text);
   RECT r=m_position;
   ScaleRect(&r,rscale);
   r.left+=origin_x;

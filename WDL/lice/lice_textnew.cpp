@@ -1,3 +1,6 @@
+#ifndef WDL_NO_DEFINE_MINMAX
+#define WDL_NO_DEFINE_MINMAX
+#endif
 #include "lice_text.h"
 #include <math.h>
 
@@ -678,6 +681,7 @@ bool LICE_CachedFont::DrawGlyph(LICE_IBitmap *bm, unsigned short c,
 }
 
 
+#ifndef LICE_TEXT_NONATIVE
 static int LICE_Text_IsWine()
 {
   static int isWine=-1;
@@ -695,6 +699,7 @@ static int LICE_Text_IsWine()
 #endif
   return isWine>0;
 }
+#endif
 
 #ifdef _WIN32
 static BOOL LICE_Text_HasUTF8(const char *_str)
@@ -724,6 +729,38 @@ static BOOL LICE_Text_HasUTF8(const char *_str)
         rect->right = (rect->right * 256) / __sc; \
         rect->bottom = (rect->bottom * 256) / __sc; \
       }
+
+
+static const char *adv_str(const char *str, int *strcnt, unsigned short *c)
+{
+  int charlen=utf8char(str, c);
+  if (strcnt && *strcnt > 0) *strcnt=wdl_max(*strcnt-charlen, 0);
+  return str+charlen;
+}
+
+const char *LICE_CachedFont::NextWordBreak(const char *str, int strcnt, int w)
+{
+  // returns the first character of the next line
+  const char *next_break=NULL;
+  while (*str && strcnt)
+  {
+    unsigned short c;
+    str=adv_str(str, &strcnt, &c);
+    if (c == '\n') return str;
+    if (c != '\r')
+    {
+      charEnt *ent=findChar(c);
+      if (ent && ent->base_offset > 0 && ent->base_offset < m_cachestore.GetSize())
+      {
+        w -= ent->advance;
+        if (w < 0) return next_break ? next_break : str;
+      }
+    }
+    if (c == ' ' || c == '\t' || c == '\r') next_break=str;
+  }
+  return str;
+}
+
 
 int LICE_CachedFont::DrawTextImpl(LICE_IBitmap *bm, const char *str, int strcnt, 
                                RECT *rect, UINT dtFlags)
@@ -755,6 +792,7 @@ int LICE_CachedFont::DrawTextImpl(LICE_IBitmap *bm, const char *str, int strcnt,
     dtFlags &= ~LICE_DT_NEEDALPHA;
   }
 
+  if (dtFlags&DT_SINGLELINE) dtFlags &= ~DT_WORDBREAK;
 
   // if using line-spacing adjustments (m_lsadj), don't allow native rendering 
   // todo: split rendering up into invidual lines and DrawText calls
@@ -762,6 +800,10 @@ int LICE_CachedFont::DrawTextImpl(LICE_IBitmap *bm, const char *str, int strcnt,
 
   int ret=0;
   if (!bm || !bm->Extended('YUVx',NULL)) if (((m_flags&LICE_FONT_FLAG_FORCE_NATIVE) && m_font && !forceWantAlpha &&!LICE_Text_IsWine() &&
+#ifndef _WIN32
+      // swell does not support DT_WORDBREAK at the moment
+      !(dtFlags & DT_WORDBREAK) &&
+#endif
       !(dtFlags & LICE_DT_USEFGALPHA) &&
       !(m_flags&LICE_FONT_FLAG_PRECALCALL) && !LICE_FONT_FLAGS_HAS_FX(m_flags) &&
       (!m_lsadj || (dtFlags&DT_SINGLELINE))) || 
@@ -1000,6 +1042,26 @@ finish_up_native_render:
   }
 #endif
 
+  // ensure all glyphs rendered
+  const char *tstr=str;
+  int tcnt=strcnt;
+  while (*tstr && tcnt)
+  {
+    unsigned short c;
+    tstr=adv_str(tstr, &tcnt, &c);
+
+    if (c != '\r' && c != '\n')
+    {
+      charEnt *ent=findChar(c);
+      if (!ent)
+      {
+        const int os=m_extracharlist.GetSize();
+        RenderGlyph(c);
+        if (m_extracharlist.GetSize() != os) ent=findChar(c);
+      }
+      if (ent && ent->base_offset == 0) RenderGlyph(c);
+    }
+  }
 
   if (dtFlags & DT_CALCRECT)
   {
@@ -1007,24 +1069,22 @@ finish_up_native_render:
     int ypos=0;
     int max_xpos=0;
     int max_ypos=0;
+    const char *next_break=NULL;
     while (*str && strcnt)
     {
-      unsigned short c=' ';
-      int charlen = utf8char(str,&c);
-      str += charlen;
-      if (strcnt>0)
-      {
-        strcnt -= charlen;
-        if (strcnt<0) strcnt=0;
-      }
+      unsigned short c;
+      str=adv_str(str, &strcnt, &c);
 
       if (c == '\r') continue;
       if (c == '\n')
       {
-        if (dtFlags & DT_SINGLELINE) c=' ';
+        if (dtFlags & DT_SINGLELINE)
+        {
+          c=' '; // different from win32 native behavior, which skips the character
+        }
         else
         {
-          if (m_flags&LICE_FONT_FLAG_VERTICAL) 
+          if (m_flags&LICE_FONT_FLAG_VERTICAL)
           {
             xpos+=m_line_height+m_lsadj;
             ypos=0;
@@ -1034,40 +1094,58 @@ finish_up_native_render:
             ypos+=m_line_height+m_lsadj;
             xpos=0;
           }
+          if (dtFlags&DT_WORDBREAK) next_break=NULL;
           continue;
         }
       }
 
       charEnt *ent = findChar(c);
-      if (!ent) 
+      if (ent && ent->base_offset > 0 && ent->base_offset < m_cachestore.GetSize())
       {
-        const int os=m_extracharlist.GetSize();
-        RenderGlyph(c);
-        if (m_extracharlist.GetSize()!=os)
-          ent = findChar(c);
-      }
-
-      if (ent && ent->base_offset>=0)
-      {
-        if (ent->base_offset == 0) RenderGlyph(c);      
-
-        if (ent->base_offset > 0)
+        if (m_flags&LICE_FONT_FLAG_VERTICAL)
         {
-          if (m_flags&LICE_FONT_FLAG_VERTICAL) 
+          const int yext = ypos + ent->height - ent->left_extra;
+          ypos += ent->advance;
+          if (xpos+ent->width>max_xpos) max_xpos=xpos+ent->width;
+          if (ypos>max_ypos) max_ypos=ypos;
+          if (yext>max_ypos) max_ypos=yext;
+        }
+        else
+        {
+          const int xext = xpos + ent->width - ent->left_extra;
+          xpos += ent->advance;
+          if (ypos+ent->height>max_ypos) max_ypos=ypos+ent->height;
+          if (xpos>max_xpos) max_xpos=xpos;
+          if (xext>max_xpos) max_xpos=xext;
+        }
+
+        if (dtFlags&DT_WORDBREAK)
+        {
+          if (m_flags&LICE_FONT_FLAG_VERTICAL)
           {
-            const int yext = ypos + ent->height - ent->left_extra;
-            ypos += ent->advance;
-            if (xpos+ent->width>max_xpos) max_xpos=xpos+ent->width;
-            if (ypos>max_ypos) max_ypos=ypos;
-            if (yext>max_ypos) max_ypos=yext;
+            if (str == next_break)
+            {
+              xpos += m_line_height+m_lsadj;
+              ypos=0;
+              next_break=NULL;
+            }
+            if (!next_break)
+            {
+              next_break=NextWordBreak(str, strcnt, rect->bottom-rect->top-ypos);
+            }
           }
           else
           {
-            const int xext = xpos + ent->width - ent->left_extra;
-            xpos += ent->advance;
-            if (ypos+ent->height>max_ypos) max_ypos=ypos+ent->height;         
-            if (xpos>max_xpos) max_xpos=xpos;
-            if (xext>max_xpos) max_xpos=xext;
+            if (str == next_break)
+            {
+              ypos += m_line_height+m_lsadj;
+              xpos=0;
+              next_break=NULL;
+            }
+            if (!next_break)
+            {
+              next_break=NextWordBreak(str, strcnt, rect->right-rect->left-xpos);
+            }
           }
         }
       }
@@ -1173,20 +1251,19 @@ finish_up_native_render:
   // thought: calculate length of "...", then when pos+length+widthofnextchar >= right, switch
   // might need to precalc size to make sure it's needed, though
 
+  const char *next_break=NULL;
   while (*str && strcnt)
   {
-    unsigned short c=' ';
-    int charlen = utf8char(str,&c);
-    str += charlen;
-    if (strcnt>0)
-    {
-      strcnt -= charlen;
-      if (strcnt<0) strcnt=0;
-    }
+    unsigned short c;
+    str=adv_str(str, &strcnt, &c);
+
     if (c == '\r') continue;
     if (c == '\n')
     {
-      if (dtFlags & DT_SINGLELINE) c=' ';
+      if (dtFlags & DT_SINGLELINE)
+      {
+        c=' '; // different from win32 native behavior, which skips the character
+      }
       else
       {
         if (m_flags&LICE_FONT_FLAG_VERTICAL) 
@@ -1199,42 +1276,60 @@ finish_up_native_render:
           ypos+=m_line_height+m_lsadj;
           xpos=start_x;
         }
+        if (dtFlags&DT_WORDBREAK) next_break=NULL;
         continue;
       }
     }
 
     charEnt *ent = findChar(c);
-    if (!ent) 
+    if (ent && ent->base_offset > 0 && ent->base_offset < m_cachestore.GetSize())
     {
-      const int os=m_extracharlist.GetSize();
-      RenderGlyph(c);
-      if (m_extracharlist.GetSize()!=os)
-        ent = findChar(c);
-    }
+      if (isVertRev) ypos -= ent->height;
 
-    if (ent && ent->base_offset>=0)
-    {
-      if (ent->base_offset==0) RenderGlyph(c);
+      bool drawn = DrawGlyph(bm,c,xpos,ypos,&use_rect);
 
-      if (ent->base_offset > 0 && ent->base_offset < m_cachestore.GetSize())
+      if (m_flags&LICE_FONT_FLAG_VERTICAL)
       {
-        if (isVertRev) ypos -= ent->height;
-       
-        bool drawn = DrawGlyph(bm,c,xpos,ypos,&use_rect);
-
-        if (m_flags&LICE_FONT_FLAG_VERTICAL) 
+        if (!isVertRev)
         {
-          if (!isVertRev)
+          ypos += ent->advance;
+        }
+        else ypos += ent->height - ent->advance;
+        if (drawn && xpos+ent->width > max_xpos) max_xpos=xpos;
+      }
+      else
+      {
+        xpos += ent->advance;
+        if (drawn && ypos+ent->height>max_ypos) max_ypos=ypos+ent->height;
+      }
+
+      if (dtFlags&DT_WORDBREAK)
+      {
+        if (m_flags&LICE_FONT_FLAG_VERTICAL)
+        {
+          if (str == next_break)
           {
-            ypos += ent->advance;
+            xpos += m_line_height+m_lsadj;
+            ypos=start_y;
+            next_break=NULL;
           }
-          else ypos += ent->height - ent->advance;
-          if (drawn && xpos+ent->width > max_xpos) max_xpos=xpos;
+          if (!next_break)
+          {
+            next_break=NextWordBreak(str, strcnt, use_rect.bottom-ypos);
+          }
         }
         else
         {
-          xpos += ent->advance;
-          if (drawn && ypos+ent->height>max_ypos) max_ypos=ypos+ent->height;         
+          if (str == next_break)
+          {
+            ypos += m_line_height+m_lsadj;
+            xpos=start_x;
+            next_break=NULL;
+          }
+          if (!next_break)
+          {
+            next_break=NextWordBreak(str, strcnt, use_rect.right-xpos);
+          }
         }
       }
     }

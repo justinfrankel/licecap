@@ -18,7 +18,6 @@ void nseel_asm_1pdd(void)
     FUNCTION_MARKER
    :: );
 }
-void nseel_asm_1pdd_end(void){}
 
 void nseel_asm_2pdd(void)
 {
@@ -28,15 +27,15 @@ void nseel_asm_2pdd(void)
     "mov x3, 0xdead\n" 
     "movk x3, 0xbeef, lsl 16\n"  
     "movk x3, 0xbeef, lsl 32\n"  
-    "fmov d1, d0\n" 
-    "ldr d0, [x1]\n" 
+    "fmov d2, d0\n"
+    "fmov d0, d1\n"
+    "fmov d1, d2\n"
     "str x30, [sp, #-16]!\n"
     "blr x3\n" 
     "ldr x30, [sp], #16\n"
     FUNCTION_MARKER
    :: );
 };
-void nseel_asm_2pdd_end(void){}
 
 void nseel_asm_2pdds(void)
 {
@@ -54,7 +53,6 @@ void nseel_asm_2pdds(void)
     FUNCTION_MARKER
    :: );
 }
-void nseel_asm_2pdds_end(void){}
 
 #else // 32 bit floating point calls
 
@@ -63,19 +61,6 @@ void nseel_asm_2pdds_end(void){}
 #endif
 
 //---------------------------------------------------------------------------------------------------------------
-
-
-
-// do nothing, eh
-void nseel_asm_exec2(void)
-{
-  __asm__ __volatile__(
-    FUNCTION_MARKER
-    FUNCTION_MARKER
-  );
-}
-void nseel_asm_exec2_end(void) { }
-
 
 
 void nseel_asm_invsqrt(void)
@@ -104,7 +89,6 @@ void nseel_asm_invsqrt(void)
     FUNCTION_MARKER
   );
 }
-void nseel_asm_invsqrt_end(void) {}
 
 void nseel_asm_dbg_getstackptr(void)
 {
@@ -115,7 +99,6 @@ void nseel_asm_dbg_getstackptr(void)
     FUNCTION_MARKER
   );
 }
-void nseel_asm_dbg_getstackptr_end(void) {}
 
 
 //---------------------------------------------------------------------------------------------------------------
@@ -127,7 +110,6 @@ void nseel_asm_sqr(void)
     FUNCTION_MARKER
   );
 }
-void nseel_asm_sqr_end(void) {}
 
 
 //---------------------------------------------------------------------------------------------------------------
@@ -139,8 +121,18 @@ void nseel_asm_abs(void)
     FUNCTION_MARKER
   );
 }
-void nseel_asm_abs_end(void) {}
 
+
+#define FLUSH_TO_ZERO \
+  "ldr x1, [x1]\n" \
+  "mov     x3, #0x10000000000000\n" \
+  "mov     x2, #0x20000000000000\n" \
+  "add     x1, x1, x3\n" \
+  "and     x1, x1, #0x7ff0000000000000\n" \
+  "cmp     x1, x2\n" \
+  "bgt     0f\n" \
+  "str     xzr, [x0]\n" \
+  "0:\n"
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_assign(void)
@@ -150,10 +142,10 @@ void nseel_asm_assign(void)
    "ldr d0, [x0]\n"
    "mov x0, x1\n"
    "str d0, [x1]\n"
+    FLUSH_TO_ZERO
     FUNCTION_MARKER
   );
 }
-void nseel_asm_assign_end(void) {}
 //
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_assign_fromfp(void)
@@ -162,10 +154,10 @@ void nseel_asm_assign_fromfp(void)
     FUNCTION_MARKER
    "mov x0, x1\n"
    "str d0, [x1]\n"
+    FLUSH_TO_ZERO
     FUNCTION_MARKER
   );
 }
-void nseel_asm_assign_fromfp_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_assign_fast(void)
@@ -178,7 +170,6 @@ void nseel_asm_assign_fast(void)
     FUNCTION_MARKER
   );
 }
-void nseel_asm_assign_fast_end(void) {}
 //
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_assign_fast_fromfp(void)
@@ -190,7 +181,6 @@ void nseel_asm_assign_fast_fromfp(void)
     FUNCTION_MARKER
   );
 }
-void nseel_asm_assign_fast_fromfp_end(void) {}
 
 
 
@@ -199,12 +189,10 @@ void nseel_asm_add(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-   "ldr d1, [x1]\n"
    "fadd d0, d1, d0\n"
     FUNCTION_MARKER
   );
 }
-void nseel_asm_add_end(void) {}
 
 void nseel_asm_add_op(void)
 {
@@ -214,10 +202,10 @@ void nseel_asm_add_op(void)
    "fadd d0, d1, d0\n"
    "mov x0, x1\n"
    "str d0, [x1]\n"
+    FLUSH_TO_ZERO
     FUNCTION_MARKER
   );
 }
-void nseel_asm_add_op_end(void) {}
 
 void nseel_asm_add_op_fast(void)
 {
@@ -230,7 +218,6 @@ void nseel_asm_add_op_fast(void)
     FUNCTION_MARKER
   );
 }
-void nseel_asm_add_op_fast_end(void) {}
 
 
 //---------------------------------------------------------------------------------------------------------------
@@ -238,12 +225,10 @@ void nseel_asm_sub(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-   "ldr d1, [x1]\n"
    "fsub d0, d1, d0\n"
     FUNCTION_MARKER
   );
 }
-void nseel_asm_sub_end(void) {}
 
 void nseel_asm_sub_op(void)
 {
@@ -253,10 +238,10 @@ void nseel_asm_sub_op(void)
    "fsub d0, d1, d0\n"
    "mov x0, x1\n"
    "str d0, [x1]\n"
+    FLUSH_TO_ZERO
     FUNCTION_MARKER
   );
 }
-void nseel_asm_sub_op_end(void) {}
 
 void nseel_asm_sub_op_fast(void)
 {
@@ -269,19 +254,16 @@ void nseel_asm_sub_op_fast(void)
     FUNCTION_MARKER
   );
 }
-void nseel_asm_sub_op_fast_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_mul(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-   "ldr d1, [x1]\n"
-   "fmul d0, d0, d1\n"
+   "fmul d0, d1, d0\n"
     FUNCTION_MARKER
   );
 }
-void nseel_asm_mul_end(void) {}
 
 void nseel_asm_mul_op(void)
 {
@@ -291,10 +273,10 @@ void nseel_asm_mul_op(void)
    "fmul d0, d0, d1\n"
    "mov x0, x1\n"
    "str d0, [x1]\n"
+    FLUSH_TO_ZERO
     FUNCTION_MARKER
   );
 }
-void nseel_asm_mul_op_end(void) {}
 
 void nseel_asm_mul_op_fast(void)
 {
@@ -307,19 +289,16 @@ void nseel_asm_mul_op_fast(void)
     FUNCTION_MARKER
   );
 }
-void nseel_asm_mul_op_fast_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_div(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-   "ldr d1, [x1]\n"
    "fdiv d0, d1, d0\n"
     FUNCTION_MARKER
   );
 }
-void nseel_asm_div_end(void) {}
 
 void nseel_asm_div_op(void)
 {
@@ -329,10 +308,10 @@ void nseel_asm_div_op(void)
    "fdiv d0, d1, d0\n"
    "mov x0, x1\n"
    "str d0, [x1]\n"
+    FLUSH_TO_ZERO
     FUNCTION_MARKER
   );
 }
-void nseel_asm_div_op_end(void) {}
 
 void nseel_asm_div_op_fast(void)
 {
@@ -345,14 +324,12 @@ void nseel_asm_div_op_fast(void)
     FUNCTION_MARKER
   );
 }
-void nseel_asm_div_op_fast_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_mod(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
     "fabs d0, d0\n"
     "fabs d1, d1\n"
     "fcvtzu w1, d0\n"
@@ -363,13 +340,11 @@ void nseel_asm_mod(void)
     FUNCTION_MARKER
   );
 }
-void nseel_asm_mod_end(void) {}
 
 void nseel_asm_shl(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
     "fcvtzs w0, d1\n"
     "fcvtzs w1, d0\n"
     "lsl w0, w0, w1\n"
@@ -377,13 +352,11 @@ void nseel_asm_shl(void)
     FUNCTION_MARKER
   );
 }
-void nseel_asm_shl_end(void) {}
 
 void nseel_asm_shr(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
     "fcvtzs w0, d1\n"
     "fcvtzs w1, d0\n"
     "asr w0, w0, w1\n"
@@ -391,7 +364,6 @@ void nseel_asm_shr(void)
     FUNCTION_MARKER
   );
 }
-void nseel_asm_shr_end(void) {}
 
 void nseel_asm_mod_op(void)
 {
@@ -413,121 +385,100 @@ void nseel_asm_mod_op(void)
   );
 
 }
-void nseel_asm_mod_op_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_or(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
-    "fcvtzs w0, d0\n"
-    "fcvtzs w1, d1\n"
-    "orr w0, w0, w1\n"
-    "scvtf d0, w0\n"
+    "fcvtzs x0, d0\n"
+    "fcvtzs x1, d1\n"
+    "orr x0, x0, x1\n"
+    "scvtf d0, x0\n"
     FUNCTION_MARKER
   );
 }
-void nseel_asm_or_end(void) {}
 
 void nseel_asm_or0(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "fcvtzs w0, d0\n"
-    "scvtf d0, w0\n"
+    "fcvtzs x0, d0\n"
+    "scvtf d0, x0\n"
     FUNCTION_MARKER
   );
 }
-void nseel_asm_or0_end(void) {}
 
 void nseel_asm_or_op(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
     "ldr d1, [x1]\n"
-    "fcvtzs w0, d0\n"
-    "fcvtzs w3, d1\n"
-    "orr w0, w0, w3\n"
-    "scvtf d0, w0\n"
+    "fcvtzs x0, d0\n"
+    "fcvtzs x3, d1\n"
+    "orr x0, x0, x3\n"
+    "scvtf d0, x0\n"
     "mov x0, x1\n"
     "str d0, [x1]\n"
     FUNCTION_MARKER
   );
 }
-void nseel_asm_or_op_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_xor(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
-    "fcvtzs w0, d0\n"
-    "fcvtzs w1, d1\n"
-    "eor w0, w0, w1\n"
-    "scvtf d0, w0\n"
+    "fcvtzs x0, d0\n"
+    "fcvtzs x1, d1\n"
+    "eor x0, x0, x1\n"
+    "scvtf d0, x0\n"
     FUNCTION_MARKER
   );
 }
-void nseel_asm_xor_end(void) {}
 
 void nseel_asm_xor_op(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
     "ldr d1, [x1]\n"
-    "fcvtzs w0, d0\n"
-    "fcvtzs w3, d1\n"
-    "eor w0, w0, w3\n"
-    "scvtf d0, w0\n"
+    "fcvtzs x0, d0\n"
+    "fcvtzs x3, d1\n"
+    "eor x0, x0, x3\n"
+    "scvtf d0, x0\n"
     "mov x0, x1\n"
     "str d0, [x1]\n"
     FUNCTION_MARKER
   );
 }
-void nseel_asm_xor_op_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_and(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
-    "fcvtzs w0, d0\n"
-    "fcvtzs w1, d1\n"
-    "and w0, w0, w1\n"
-    "scvtf d0, w0\n"
+    "fcvtzs x0, d0\n"
+    "fcvtzs x1, d1\n"
+    "and x0, x0, x1\n"
+    "scvtf d0, x0\n"
     FUNCTION_MARKER
   );}
-void nseel_asm_and_end(void) {}
 
 void nseel_asm_and_op(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
     "ldr d1, [x1]\n"
-    "fcvtzs w0, d0\n"
-    "fcvtzs w3, d1\n"
-    "and w0, w0, w3\n"
-    "scvtf d0, w0\n"
+    "fcvtzs x0, d0\n"
+    "fcvtzs x3, d1\n"
+    "and x0, x0, x3\n"
+    "scvtf d0, x0\n"
     "mov x0, x1\n"
     "str d0, [x1]\n"
     FUNCTION_MARKER
   );
 }
-void nseel_asm_and_op_end(void) {}
 
-
-//---------------------------------------------------------------------------------------------------------------
-void nseel_asm_uplus(void) // this is the same as doing nothing, it seems
-{
-  __asm__ __volatile__(
-    FUNCTION_MARKER
-    FUNCTION_MARKER
-  );
-}
-void nseel_asm_uplus_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_uminus(void)
@@ -538,7 +489,6 @@ void nseel_asm_uminus(void)
     FUNCTION_MARKER
   );
 }
-void nseel_asm_uminus_end(void) {}
 
 
 //---------------------------------------------------------------------------------------------------------------
@@ -555,7 +505,6 @@ void nseel_asm_sign(void)
     :: 
   );
 }
-void nseel_asm_sign_end(void) {}
 
 
 
@@ -569,7 +518,6 @@ void nseel_asm_bnot(void)
     FUNCTION_MARKER
   );
 }
-void nseel_asm_bnot_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_if(void)
@@ -590,7 +538,6 @@ void nseel_asm_if(void)
     FUNCTION_MARKER
   :: );
 }
-void nseel_asm_if_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_repeat(void)
@@ -627,7 +574,6 @@ void nseel_asm_repeat(void)
 #endif
   );
 }
-void nseel_asm_repeat_end(void) {}
 
 void nseel_asm_repeatwhile(void)
 {
@@ -665,7 +611,6 @@ void nseel_asm_repeatwhile(void)
 #endif
   );
 }
-void nseel_asm_repeatwhile_end(void) {}
 
 
 void nseel_asm_band(void)
@@ -684,7 +629,6 @@ void nseel_asm_band(void)
     FUNCTION_MARKER
   :: );
 }
-void nseel_asm_band_end(void) {}
 
 void nseel_asm_bor(void)
 {
@@ -702,14 +646,12 @@ void nseel_asm_bor(void)
     FUNCTION_MARKER
   :: );
 }
-void nseel_asm_bor_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_equal(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
     "ldr d2, [x21]\n"
     "fsub d0, d0, d1\n"
     "fabs d0, d0\n"
@@ -719,34 +661,29 @@ void nseel_asm_equal(void)
     :: 
   );
 }
-void nseel_asm_equal_end(void) {}
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_equal_exact(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
     "fcmp d1, d0\n"
     "cset w0, eq\n"
     FUNCTION_MARKER
     :: 
   );
 }
-void nseel_asm_equal_exact_end(void) {}
 //
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_notequal_exact(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
     "fcmp d1, d0\n"
     "cset w0, ne\n"
     FUNCTION_MARKER
     :: 
   );
 }
-void nseel_asm_notequal_exact_end(void) {}
 //
 //
 //
@@ -755,7 +692,6 @@ void nseel_asm_notequal(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
     "ldr d2, [x21]\n"
     "fsub d0, d0, d1\n"
     "fabs d0, d0\n"
@@ -765,7 +701,6 @@ void nseel_asm_notequal(void)
     :: 
   );
 }
-void nseel_asm_notequal_end(void) {}
 
 
 //---------------------------------------------------------------------------------------------------------------
@@ -773,28 +708,24 @@ void nseel_asm_below(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
     "fcmp d1, d0\n"
     "cset w0, lt\n"
     FUNCTION_MARKER
     ::
   );
 }
-void nseel_asm_below_end(void) {}
 
 //---------------------------------------------------------------------------------------------------------------
 void nseel_asm_beloweq(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
     "fcmp d1, d0\n"
     "cset w0, le\n"
     FUNCTION_MARKER
     ::
   );
 }
-void nseel_asm_beloweq_end(void) {}
 
 
 //---------------------------------------------------------------------------------------------------------------
@@ -802,27 +733,23 @@ void nseel_asm_above(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
     "fcmp d1, d0\n"
     "cset w0, gt\n"
     FUNCTION_MARKER
     ::
   );
 }
-void nseel_asm_above_end(void) {}
 
 void nseel_asm_aboveeq(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
     "fcmp d1, d0\n"
     "cset w0, ge\n"
     FUNCTION_MARKER
     ::
   );
 }
-void nseel_asm_aboveeq_end(void) {}
 
 
 
@@ -837,7 +764,6 @@ void nseel_asm_min(void)
     FUNCTION_MARKER
   );
 }
-void nseel_asm_min_end(void) {}
 
 void nseel_asm_max(void)
 {
@@ -851,33 +777,28 @@ void nseel_asm_max(void)
   );
 }
 
-void nseel_asm_max_end(void) {}
 
 
 void nseel_asm_min_fp(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
     "fcmp d1, d0\n"
     "fcsel d0, d1, d0, lt\n"
     FUNCTION_MARKER
   );
 }
-void nseel_asm_min_fp_end(void) {}
 
 void nseel_asm_max_fp(void)
 {
   __asm__ __volatile__(
     FUNCTION_MARKER
-    "ldr d1, [x1]\n"
     "fcmp d1, d0\n"
     "fcsel d0, d1, d0, gt\n"
     FUNCTION_MARKER
   );
 }
 
-void nseel_asm_max_fp_end(void) {}
 
 
 
@@ -910,7 +831,6 @@ void _asm_generic3parm(void)
   ::
  ); 
 }
-void _asm_generic3parm_end(void) {}
 
 void _asm_generic3parm_retd(void)
 {
@@ -937,7 +857,6 @@ void _asm_generic3parm_retd(void)
   ::
  ); 
 }
-void _asm_generic3parm_retd_end(void) {}
 
 
 void _asm_generic2parm(void)
@@ -961,7 +880,6 @@ void _asm_generic2parm(void)
   ::
  ); 
 }
-void _asm_generic2parm_end(void) {}
 
 
 void _asm_generic2parm_retd(void)
@@ -985,7 +903,34 @@ void _asm_generic2parm_retd(void)
   ::
  ); 
 }
-void _asm_generic2parm_retd_end(void) {}
+
+void _asm_generic2xparm_retd(void)
+{
+  __asm__ __volatile__(
+    FUNCTION_MARKER
+    "str x30, [sp, #-16]!\n" // input: r0 last, r1=second to last
+    "mov x2, x1\n"
+    "mov x3, x0\n"
+
+    "mov x0, 0xdead\n"  // r0 is first parm (context)
+    "movk x0, 0xbeef, lsl 16\n"
+    "movk x0, 0xbeef, lsl 32\n"
+
+    "mov x1, 0xdead\n"  // second parm
+    "movk x1, 0xbeef, lsl 16\n"
+    "movk x1, 0xbeef, lsl 32\n"
+
+    "mov x4, 0xdead\n"
+    "movk x4, 0xbeef, lsl 16\n"
+    "movk x4, 0xbeef, lsl 32\n"
+
+    "blr x4\n"
+    "ldr x30, [sp], #16\n"
+    FUNCTION_MARKER
+  ::
+ );
+}
+
 
 void _asm_generic1parm(void)
 {
@@ -1008,7 +953,6 @@ void _asm_generic1parm(void)
   ::
  ); 
 }
-void _asm_generic1parm_end(void) {}
 
 
 
@@ -1034,7 +978,6 @@ void _asm_generic1parm_retd(void)
   ::
  ); 
 }
-void _asm_generic1parm_retd_end(void) {}
 
 
 
@@ -1049,7 +992,7 @@ void _asm_megabuf(void)
     "asr w2, w3, %0\n" 
     "bic w2, w2, #7\n"  // r2 is page index*8
     "cmp w2, %1\n"
-    "bge 0f\n"
+    "bhs 0f\n"
 
     "add x2, x2, x20\n"
     "ldr x2, [x2]\n"
@@ -1081,7 +1024,6 @@ void _asm_megabuf(void)
  ); 
 }
 
-void _asm_megabuf_end(void) {}
 
 void _asm_gmegabuf(void)
 {
@@ -1111,7 +1053,6 @@ void _asm_gmegabuf(void)
  ); 
 }
 
-void _asm_gmegabuf_end(void) {}
 
 void nseel_asm_fcall(void)
 {
@@ -1126,7 +1067,6 @@ void nseel_asm_fcall(void)
     FUNCTION_MARKER
   );
 }
-void nseel_asm_fcall_end(void) {}
 
 
 
@@ -1158,7 +1098,6 @@ void nseel_asm_stack_push(void)
     FUNCTION_MARKER
   );
 }
-void nseel_asm_stack_push_end(void) {}
 
 void nseel_asm_stack_pop(void)
 {
@@ -1184,7 +1123,6 @@ void nseel_asm_stack_pop(void)
     FUNCTION_MARKER
   );
 }
-void nseel_asm_stack_pop_end(void) {}
 
 
 
@@ -1210,7 +1148,6 @@ void nseel_asm_stack_pop_fast(void)
     FUNCTION_MARKER
   );
 }
-void nseel_asm_stack_pop_fast_end(void) {}
 
 void nseel_asm_stack_peek(void)
 {
@@ -1235,7 +1172,6 @@ void nseel_asm_stack_peek(void)
     FUNCTION_MARKER
   );
 }
-void nseel_asm_stack_peek_end(void) {}
 
 
 void nseel_asm_stack_peek_top(void)
@@ -1249,7 +1185,6 @@ void nseel_asm_stack_peek_top(void)
     FUNCTION_MARKER
   );
 }
-void nseel_asm_stack_peek_top_end(void) {}
 
 
 void nseel_asm_stack_peek_int(void)
@@ -1277,7 +1212,6 @@ void nseel_asm_stack_peek_int(void)
     FUNCTION_MARKER
   );
 }
-void nseel_asm_stack_peek_int_end(void) {}
 
 void nseel_asm_stack_exch(void)
 {
@@ -1294,7 +1228,6 @@ void nseel_asm_stack_exch(void)
     FUNCTION_MARKER
   );
 }
-void nseel_asm_stack_exch_end(void) {}
 
 
 void nseel_asm_booltofp(void)
@@ -1308,7 +1241,6 @@ void nseel_asm_booltofp(void)
     FUNCTION_MARKER
   );
 }
-void nseel_asm_booltofp_end(void){ }
 
 void nseel_asm_fptobool(void)
 {
@@ -1322,7 +1254,6 @@ void nseel_asm_fptobool(void)
     :: 
           );
 }
-void nseel_asm_fptobool_end(void){ }
 
 void nseel_asm_fptobool_rev(void)
 {
@@ -1336,5 +1267,4 @@ void nseel_asm_fptobool_rev(void)
     :: 
           );
 }
-void nseel_asm_fptobool_rev_end(void){ }
 

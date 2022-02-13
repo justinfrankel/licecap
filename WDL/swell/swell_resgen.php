@@ -287,7 +287,7 @@ function swell_rc2cpp_menu($fp) // returns array with ["data"] and optionally ["
   return $rv;
 }
 
-if (count($argv)<2) die("usage: mac_resgen.php [--force] file.rc ...\n");
+if (count($argv)<2) die("usage: swell_resgen.php [--force] file.rc ...\n");
 
 $x=1;
 $forcemode = 0;
@@ -352,6 +352,6 @@ for (; $x < count($argv); $x ++)
 
    if (!$quiet) echo "$srcfn: $f\n";
 }
-if (!$quiet || $proc || $err) echo "processed $proc, skipped $skipped, error $err\n";
+if (!$quiet || $err) echo "processed $proc, skipped $skipped, error $err\n";
 
 ?>

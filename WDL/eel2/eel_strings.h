@@ -246,6 +246,9 @@ class eel_string_context_state
       if (!opaque) return -1.0;
       eel_string_context_state *_this = EEL_STRING_GET_CONTEXT_POINTER(opaque);
       if (!_this) return -1.0;
+#ifdef EEL_STRING_NAMEDSTRINGCALLBACK_HOOK
+      EEL_STRING_NAMEDSTRINGCALLBACK_HOOK
+#endif
 
       EEL_STRING_MUTEXLOCK_SCOPE
       if (!name || !name[0])
@@ -489,7 +492,9 @@ int eel_format_strings(void *opaque, const char *fmt, const char *fmt_end, char 
           *op=0;
         }
         else
+        {
           snprintf(op,64,fs,v);
+        }
       }
 
       while (*op) op++;

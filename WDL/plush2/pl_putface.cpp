@@ -10,10 +10,10 @@
 #define SWAP(a,b,t) { t ____tmp=(a); (a)=(b); (b)=____tmp; }
 
 #define PUTFACE_SORT() \
-  char i0 = 0; char i1 = 1; char i2 = 2; char stat; \
+  int i0 = 0; int i1 = 1; int i2 = 2; int stat; \
   if (TriFace->Scry[0] > TriFace->Scry[1]) {  i0 = 1; i1 = 0;  } \
-  if (TriFace->Scry[i0] > TriFace->Scry[2]) { SWAP(i0,i2,char); } \
-  if (TriFace->Scry[i1] > TriFace->Scry[i2]) { SWAP(i1,i2,char); } \
+  if (TriFace->Scry[i0] > TriFace->Scry[2]) { SWAP(i0,i2,int); } \
+  if (TriFace->Scry[i1] > TriFace->Scry[i2]) { SWAP(i1,i2,int); } \
   int Scrx[3] = {(int)(TriFace->Scrx[0]*(1<<XPOS_BITS)), (int)(TriFace->Scrx[1]*(1<<XPOS_BITS)),(int)(TriFace->Scrx[2]*(1<<XPOS_BITS))}; \
   int Scry[3] = {(int) (TriFace->Scry[0]+0.5), (int) (TriFace->Scry[1]+0.5), (int) (TriFace->Scry[2]+0.5)}; \
 
@@ -363,7 +363,7 @@ template<class Comb> class PLSolidPutFace
 {
   public:
 #ifndef PLUSH_NO_SOLIDGOURAUD
-  static void SolidGouraud(LICE_pixel *gmem, int swidth, pl_Face *TriFace, int alpha, pl_ZBuffer *zbuf, int zfb_width) 
+  static void SolidGouraud(LICE_pixel *gmem, int swidth, pl_Face *TriFace, int alpha, pl_ZBuffer *zbuf, int zfb_width, bool zb_update)
   {
     pl_Float dZL=0, dZ1=0, dZ2=0;
     pl_sInt32 dX1=0, dX2=0, C1[3], C2[3], dC1[3]={0}, dC2[3]={0}, dCL[3]={0}, C3[3];
@@ -469,7 +469,7 @@ template<class Comb> class PLSolidPutFace
           zbuf += XL1-XL2;
           do {
             if (*zbuf < ZL) {
-              *zbuf = (pl_ZBuffer) ZL;
+              if (zb_update) *zbuf = (pl_ZBuffer) ZL;
 
               Comb::doPix((LICE_pixel_chan *)gmem,CL[0]>>16,CL[1]>>16,CL[2]>>16,255,alpha);
             }
@@ -505,7 +505,7 @@ template<class Comb> class PLSolidPutFace
 #endif
 
 #ifndef PLUSH_NO_SOLIDFLAT
-  static void Solid(LICE_pixel *gmem, int swidth, pl_Face *TriFace, int alpha, pl_ZBuffer *zbuf, int zfb_width) 
+  static void Solid(LICE_pixel *gmem, int swidth, pl_Face *TriFace, int alpha, pl_ZBuffer *zbuf, int zfb_width, bool zb_update)
   {
     pl_sInt32 dX1=0, dX2=0;
     pl_Float dZL=0, dZ1=0, dZ2=0;
@@ -586,7 +586,7 @@ template<class Comb> class PLSolidPutFace
           zbuf += XL1-XL2;
           do {
             if (*zbuf < ZL) {
-              *zbuf = (pl_ZBuffer) ZL;
+              if (zb_update) *zbuf = (pl_ZBuffer) ZL;
               Comb::doPix((LICE_pixel_chan *)gmem,col0,col1,col2,255,alpha);
             }
             gmem++; 
@@ -618,20 +618,25 @@ template<class Comb> class PLSolidPutFace
 
 void pl_Cam::PutFace(pl_Face *TriFace)
 {
-  LICE_pixel *gmem = frameBuffer->getBits();
+  LICE_pixel *gmem = m_fBuffer.m_buf;
+  if (WDL_NOT_NORMALLY(!gmem)) return;
   
   int zfb_width = 0;
+  int zBufferable = TriFace->Material->zBufferable;
   pl_ZBuffer *zb = NULL;
-  if (zBuffer.GetSize()&&TriFace->Material->zBufferable)
+  if (zBufferable &&
+      zBuffer.GetSize() &&
+      WDL_NORMALLY(zBuffer.GetSize() >= m_fBuffer.m_w*m_fBuffer.m_h)
+      )
   {
-    zfb_width = frameBuffer->getWidth();
+    zfb_width = m_fBuffer.m_w;
     zb = zBuffer.Get();
   }
   
-  int swidth = frameBuffer->getRowSpan();
-  if (frameBuffer->isFlipped())
+  int swidth = m_fBuffer.m_span;
+  if (m_fBuffer.m_flipped)
   {
-    gmem += swidth*(frameBuffer->getHeight()-1);
+    gmem += swidth*(m_fBuffer.m_h-1);
     swidth=-swidth;
   }
 
@@ -655,7 +660,7 @@ void pl_Cam::PutFace(pl_Face *TriFace)
     int tidx2 = mat->Tex2MapIdx;
     if (tidx2<0 || tidx2>=PLUSH_MAX_MAPCOORDS)tidx2=PLUSH_MAX_MAPCOORDS-1;
 
-    PLMTexTri(gmem,swidth,TriFace,zb,zfb_width,(int) (mat->SolidOpacity*256.0),mat->SolidCombineMode,
+    PLMTexTri(gmem,swidth,TriFace,zb,zfb_width,zBufferable!=2,(int) (mat->SolidOpacity*256.0),mat->SolidCombineMode,
       mat->Texture,texsc,(int) (mat->TexOpacity*256.0),mat->TexCombineMode,tidx,
       mat->Texture2,(int) (mat->Tex2Opacity*256.0),mat->Tex2CombineMode,tidx2
       );
@@ -676,19 +681,20 @@ void pl_Cam::PutFace(pl_Face *TriFace)
     if (tidx<0 || tidx>=PLUSH_MAX_MAPCOORDS)tidx=PLUSH_MAX_MAPCOORDS-1;
     pl_Float texsc[2];
     memcpy(texsc,mat->Texture ? mat->TexScaling : mat->Tex2Scaling,sizeof(texsc));
-    PLTexTri(gmem,swidth,TriFace,zb,zfb_width,(int) (mat->SolidOpacity*256.0),mat->SolidCombineMode,tex,texsc,talpha,tcomb,tidx);
+    PLTexTri(gmem,swidth,TriFace,zb,zfb_width,zBufferable!=2,(int) (mat->SolidOpacity*256.0),mat->SolidCombineMode,tex,texsc,talpha,tcomb,tidx);
     return;
   }
 #endif
 
   int alpha=(int) (mat->SolidOpacity*256.0);
   if (!alpha) return;
+
 #ifndef PLUSH_NO_SOLIDGOURAUD
 #ifndef PLUSH_NO_SOLIDFLAT
   if (mat->Smoothing)
 #endif
   {
-    #define __LICE__ACTION(comb) PLSolidPutFace<comb>::SolidGouraud(gmem,swidth,TriFace,alpha,zb,zfb_width);
+    #define __LICE__ACTION(comb) PLSolidPutFace<comb>::SolidGouraud(gmem,swidth,TriFace,alpha,zb,zfb_width, zBufferable!=2);
     __LICE_ACTION_CONSTANTALPHA(mat->SolidCombineMode,alpha,true);
     #undef __LICE__ACTION
     return;
@@ -697,7 +703,7 @@ void pl_Cam::PutFace(pl_Face *TriFace)
 
 #ifndef PLUSH_NO_SOLIDFLAT
 
-  #define __LICE__ACTION(comb) PLSolidPutFace<comb>::Solid(gmem,swidth,TriFace,alpha,zb,zfb_width);
+  #define __LICE__ACTION(comb) PLSolidPutFace<comb>::Solid(gmem,swidth,TriFace,alpha,zb,zfb_width, zBufferable!=2);
   __LICE_ACTION_CONSTANTALPHA(mat->SolidCombineMode,alpha,true);
   #undef __LICE__ACTION
 

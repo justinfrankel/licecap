@@ -2,7 +2,7 @@
 #define _WDL_WIN32_HELPERS_H_
 
 
-static HMENU InsertSubMenu(HMENU hMenu, int pos, const char *name, int flags=0)
+static WDL_STATICFUNC_UNUSED HMENU InsertSubMenu(HMENU hMenu, int pos, const char *name, int flags=0)
 {
   HMENU sub = NULL;
   if (hMenu) 
@@ -13,12 +13,12 @@ static HMENU InsertSubMenu(HMENU hMenu, int pos, const char *name, int flags=0)
   return sub;
 }
 
-static void InsertMenuString(HMENU hMenu, int pos, const char *name, int idx, int flags=0)
+static WDL_STATICFUNC_UNUSED void InsertMenuString(HMENU hMenu, int pos, const char *name, int idx, int flags=0)
 {
   if (hMenu) InsertMenu(hMenu,pos,flags|MF_BYPOSITION|MF_STRING, idx, name);
 }
 
-static void InsertMenuSeparator(HMENU hMenu, int pos)
+static WDL_STATICFUNC_UNUSED void InsertMenuSeparator(HMENU hMenu, int pos)
 {
   if (hMenu) InsertMenu(hMenu,pos,MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
 }

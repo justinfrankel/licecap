@@ -377,8 +377,6 @@ LICE_IBitmap *LICE_LoadGIF(const char *filename, LICE_IBitmap *bmp=NULL, int *nf
 
 LICE_IBitmap *LICE_LoadPCX(const char *filename, LICE_IBitmap *bmp=NULL); // returns a bitmap (bmp if nonzero) on success
 
-LICE_IBitmap *LICE_LoadSVG(const char *filename, LICE_IBitmap *bmp=NULL);
-
 // bitmap saving
 bool LICE_WritePNG(const char *filename, LICE_IBitmap *bmp, bool wantalpha=true);
 bool LICE_WriteJPG(const char *filename, LICE_IBitmap *bmp, int quality=95, bool force_baseline=true);
@@ -604,7 +602,7 @@ void* LICE_CreateOctree(int maxcolors);
 void LICE_DestroyOctree(void* octree);
 void LICE_ResetOctree(void *octree, int maxcolors); // resets back to stock, but with spares (to avoid mallocs)
 int LICE_BuildOctree(void* octree, LICE_IBitmap* bmp);
-int LICE_BuildOctreeForAlpha(void* octree, LICE_IBitmap* bmp, int minalpha);
+int LICE_BuildOctreeForAlpha(void* octree, LICE_IBitmap* bmp, unsigned int minalpha);
 int LICE_BuildOctreeForDiff(void* octree, LICE_IBitmap* bmp, LICE_IBitmap* refbmp, LICE_pixel mask=LICE_RGBA(255,255,255,0));
 int LICE_FindInOctree(void* octree, LICE_pixel color);
 int LICE_ExtractOctreePalette(void* octree, LICE_pixel* palette);

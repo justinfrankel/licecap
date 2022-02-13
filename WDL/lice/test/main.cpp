@@ -5,6 +5,9 @@
   See lice.h for license and other information
 */
 
+#ifndef WDL_NO_DEFINE_MINMAX
+#define WDL_NO_DEFINE_MINMAX
+#endif
 #include "../lice.h"
 #include "../../plush2/plush.h"
 #include "../../MersenneTwister.h"
@@ -877,12 +880,6 @@ static void DoPaint(HWND hwndDlg, HDC dc)
       break;
     case 19:
       //SVG loading
-      {
-        static LICE_IBitmap* svgbmp = 0;
-
-        if (!svgbmp) svgbmp = LICE_LoadSVG("c:\\test.svg", 0);
-        if (svgbmp) LICE_Blit(framebuffer, svgbmp, 0, 0, 0, 0, svgbmp->getWidth(), svgbmp->getHeight(), 1.0f, LICE_BLIT_MODE_COPY);
-      }
       break;
   }
   

@@ -58,7 +58,7 @@ static void Dlg_removeFromRgn(HRGN hrgn, int left, int top, int right, int botto
 #define Dlg_removeFromRgn(a,b,c,d,e) do{ } while(0)
 #endif
 
-static void Dlg_DrawChildWindowBorders(HWND hwndDlg, INT_PTR *tab, int tabsize, int (*GSC)(int)=0, PAINTSTRUCT *__use_ps=NULL
+static void WDL_STATICFUNC_UNUSED Dlg_DrawChildWindowBorders(HWND hwndDlg, INT_PTR *tab, int tabsize, int (*GSC)(int)=0, PAINTSTRUCT *__use_ps=NULL
 #ifdef WDL_DLGITEMBORDER_CUSTOMPARMS                                       
   , WDL_DLGITEMBORDER_CUSTOMPARMS
 #endif
@@ -196,7 +196,13 @@ static void Dlg_DrawChildWindowBorders(HWND hwndDlg, INT_PTR *tab, int tabsize, 
 #ifdef _WIN32
   if(hrgn) 
   {
-    HBRUSH b=CreateSolidBrush(GSC?GSC(COLOR_3DFACE):GetSysColor(COLOR_3DFACE));
+    HBRUSH b=NULL;
+    if (!GSC)
+    {
+      LRESULT res = SendMessage(hwndDlg,WM_CTLCOLORDLG, (WPARAM)__use_ps->hdc, (LPARAM)hwndDlg);
+      if (res > 65536) b=(HBRUSH)(INT_PTR)res;
+    }
+    if (!b) b=CreateSolidBrush(GSC?GSC(COLOR_3DFACE):GetSysColor(COLOR_3DFACE));
     FillRgn(__use_ps->hdc,hrgn,b);
     DeleteObject(b);
     DeleteObject(hrgn);

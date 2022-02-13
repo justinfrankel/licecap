@@ -32,7 +32,7 @@ static const char *nseel_skip_space_and_comments(const char *p, const char *endp
 {
   for (;;)
   {
-    while (p < endptr && isspace(p[0])) p++;
+    while (p < endptr && isspace((unsigned char)p[0])) p++;
     if (p >= endptr-1 || *p != '/') return p;
 
     if (p[1]=='/')
@@ -163,7 +163,7 @@ const char *nseel_simple_tokenizer(const char **ptr, const char *endptr, int *le
     #endif
 
     // skip any whitespace
-    while (p < endptr && isspace(p[0])) p++;
+    while (p < endptr && isspace((unsigned char)p[0])) p++;
   }
   else
   {
@@ -208,11 +208,11 @@ in_comment:
 
     }
   }
-  else if (isalnum(*p) || *p == '_' || *p == '#' || *p == '$')
+  else if (isalnum((unsigned char)*p) || *p == '_' || *p == '#' || *p == '$' || (*p == '.' && p < endptr-1 && p[1] >= '0' && p[1] <= '9'))
   {
     if (*p == '$' && p < endptr-1 && p[1] == '~') p++;
     p++;
-    while (p < endptr && (isalnum(*p) || *p == '_' || *p == '.')) p++;
+    while (p < endptr && (isalnum((unsigned char)*p) || *p == '_' || *p == '.')) p++;
   }
 #ifndef NSEEL_EEL1_COMPAT_MODE
   else if (*p == '\'' || *p == '\"')
@@ -256,25 +256,32 @@ in_string:
     if (tok)
     {
       rv = tok[0];
-      if (rv == '$')
+      if ((rv == '0' || rv == '$') && toklen > 1 && (tok[1] == 'x' || tok[1] == 'X')) // 0xf00 or $xf00
       {
-        if (rdptr != tok+1)
-        {
-          *output = nseel_translate(scctx,tok,rdptr-tok);
-          if (*output) rv=VALUE;
-        }
+        int x;
+        for (x = 2; x < toklen; x ++)
+          if (!((tok[x] >= '0' && tok[x] <= '9') ||
+                (tok[x] >= 'a' && tok[x] <= 'f') ||
+                (tok[x] >= 'A' && tok[x] <= 'F')))
+          {
+            tok += x;
+            break;
+          }
+
+        *output = x == toklen && toklen > 2 ? nseel_translate(scctx,tok,toklen) : NULL;
+        if (*output) rv=VALUE;
       }
 #ifndef NSEEL_EEL1_COMPAT_MODE
       else if (rv == '#' && scctx->onNamedString)
       {
-        *output = nseel_translate(scctx,tok,rdptr-tok);
+        *output = nseel_translate(scctx,tok,toklen);
         if (*output) rv=STRING_IDENTIFIER;
       }
       else if (rv == '\'')
       {
         if (toklen > 1 && tok[toklen-1] == '\'')
         {
-          *output = nseel_translate(scctx, tok, toklen); 
+          *output = nseel_translate(scctx, tok, toklen);
           if (*output) rv = VALUE;
         }
         else scctx->gotEndOfInput|=8;
@@ -289,29 +296,45 @@ in_string:
         else scctx->gotEndOfInput|=16;
       }
 #endif
-      else if (isalpha(rv) || rv == '_')
+      else if (isalpha((unsigned char)rv) || rv == '_')
       {
-        // toklen already valid
         char buf[NSEEL_MAX_VARIABLE_NAMELEN*2];
         if (toklen > sizeof(buf) - 1) toklen=sizeof(buf) - 1;
         memcpy(buf,tok,toklen);
         buf[toklen]=0;
-        *output = nseel_createCompiledValuePtr(scctx, NULL, buf); 
-        if (*output) rv = IDENTIFIER; 
+        *output = nseel_createCompiledValuePtr(scctx, NULL, buf);
+        if (*output) rv = IDENTIFIER;
       }
-      else if ((rv >= '0' && rv <= '9') || (rv == '.' && (rdptr < endptr && rdptr[0] >= '0' && rdptr[0] <= '9')))
+      else if ((rv >= '0' && rv <= '9') || (rv == '.' && toklen > 1 && tok[1] >= '0' && tok[1] <= '9')) // 123.45 or .45
       {
-        if (rv == '0' && rdptr < endptr && (rdptr[0] == 'x' || rdptr[0] == 'X'))
+        int x, pcnt = 0;
+        for (x = 0; x < toklen; x ++)
         {
-          rdptr++;
-          while (rdptr < endptr && (rv=rdptr[0]) && ((rv>='0' && rv<='9') || (rv>='a' && rv<='f') || (rv>='A' && rv<='F'))) rdptr++;
+          if (tok[x] == '.' ? (++pcnt > 1) : (tok[x] < '0' || tok[x] > '9'))
+          {
+            tok += x;
+            break;
+          }
         }
-        else
+        *output = x == toklen ? nseel_translate(scctx,tok,toklen) : NULL;
+        if (*output) rv=VALUE;
+      }
+      else if (rv == '$' && toklen > 1)
+      {
+        if (tok[1] == '~')
         {
-          int pcnt=rv == '.';
-          while (rdptr < endptr && (rv=rdptr[0]) && ((rv>='0' && rv<='9') || (rv == '.' && !pcnt++))) rdptr++;       
+          int x;
+          for (x = 2; x < toklen; x ++)
+            if (tok[x] < '0' || tok[x] > '9')
+            {
+              tok += x;
+              break;
+            }
+
+          if (x<toklen || toklen == 2) toklen = 0;
         }
-        *output = nseel_translate(scctx,tok,rdptr-tok);
+
+        *output = toklen > 1 ? nseel_translate(scctx,tok,toklen) : NULL;
         if (*output) rv=VALUE;
       }
       else if (rv == '<')

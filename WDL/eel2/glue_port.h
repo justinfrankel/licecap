@@ -6,7 +6,6 @@
 #define GLUE_JMP_TYPE int
 #define GLUE_JMP_SET_OFFSET(endOfInstruction,offset) (((GLUE_JMP_TYPE *)(endOfInstruction))[-1] = (offset))
 
-#define GLUE_HAS_FXCH 
 #define GLUE_MAX_FPSTACK_SIZE 64
 #define BIF_FPSTACKUSE(x) (0) // fp stack is not used within functions
 #define BIF_GETFPSTACKUSE(x) (1)
@@ -69,7 +68,6 @@ enum {
 
 
   EEL_BC_BNOT,
-  EEL_BC_BNOTNOT,
   EEL_BC_EQUAL,
   EEL_BC_EQUAL_EXACT,
   EEL_BC_NOTEQUAL,
@@ -139,6 +137,7 @@ enum {
   EEL_BC_GENERIC3PARM,
   EEL_BC_GENERIC1PARM_RETD,
   EEL_BC_GENERIC2PARM_RETD,
+  EEL_BC_GENERIC2XPARM_RETD,
   EEL_BC_GENERIC3PARM_RETD,
 
   EEL_BC_USERSTACK_PUSH,
@@ -345,14 +344,17 @@ static unsigned char GLUE_POP_STACK_TO_FPSTACK[1] = { 0 }; // todo
 
 // end of bytecode glue, now for stubbage
 
-#define EEL_BC_ENDOF(x) (((char*)(x))+sizeof(x))
-#define BC_DECLASM(x,y) static EEL_BC_TYPE nseel_asm_##x[1]={EEL_BC_##y};
+
+#define BC_DECL_OPCODESZ(n) (1 + ((n)*sizeof(INT_PTR))/sizeof(EEL_BC_TYPE))
+#define BC_DECLASM_N(x,y,n) static EEL_BC_TYPE nseel_asm_##x[1 + BC_DECL_OPCODESZ(n)]={BC_DECL_OPCODESZ(n),EEL_BC_##y };
+#define BC_DECLASM_N2(x,y,n)     static EEL_BC_TYPE _asm_##x[1 + BC_DECL_OPCODESZ(n)]={BC_DECL_OPCODESZ(n),EEL_BC_##y };
+#define BC_DECLASM_N_EXPORT(x,y,n)      EEL_BC_TYPE _asm_##x[1 + BC_DECL_OPCODESZ(n)]={BC_DECL_OPCODESZ(n),EEL_BC_##y };
+#define BC_DECLASM(x,y) BC_DECLASM_N(x,y,0)
 
 BC_DECLASM(band,NOP)
 BC_DECLASM(bor,NOP)
 
 BC_DECLASM(bnot,BNOT)
-BC_DECLASM(bnotnot,BNOTNOT)
 BC_DECLASM(equal,EQUAL)
 BC_DECLASM(equal_exact,EQUAL_EXACT)
 BC_DECLASM(notequal_exact,NOTEQUAL_EXACT)
@@ -406,11 +408,6 @@ BC_DECLASM(booltofp,BOOLTOFP)
 BC_DECLASM(fptobool,FPTOBOOL)
 BC_DECLASM(fptobool_rev,FPTOBOOL_REV)
 
-#define BC_DECLASM_N(x,y,n) static EEL_BC_TYPE nseel_asm_##x[1 + (n*sizeof(INT_PTR))/sizeof(EEL_BC_TYPE)]={EEL_BC_##y, };
-#define BC_DECLASM_N2(x,y,n) static EEL_BC_TYPE _asm_##x[1 + (n*sizeof(INT_PTR))/sizeof(EEL_BC_TYPE)]={EEL_BC_##y, };
-
-#define BC_DECLASM_N_EXPORT(x,y,n) EEL_BC_TYPE _asm_##x[1 + (n*sizeof(INT_PTR))/sizeof(EEL_BC_TYPE)]={EEL_BC_##y, }; const void *const _asm_##x##_end = EEL_BC_ENDOF(_asm_##x);
-
 BC_DECLASM_N(stack_push,USERSTACK_PUSH,3)
 BC_DECLASM_N(stack_pop,USERSTACK_POP,3)
 BC_DECLASM_N(stack_pop_fast,USERSTACK_POPFAST,3)
@@ -429,102 +426,22 @@ BC_DECLASM_N(2pdds,CFUNC_2PDDS,1)
 
 BC_DECLASM_N2(megabuf,MEGABUF,0)
 BC_DECLASM_N2(gmegabuf,GMEGABUF,2)
-#define _asm_megabuf_end EEL_BC_ENDOF(_asm_megabuf)
-#define _asm_gmegabuf_end EEL_BC_ENDOF(_asm_gmegabuf)
 
 BC_DECLASM_N_EXPORT(generic1parm,GENERIC1PARM,2)
 BC_DECLASM_N_EXPORT(generic2parm,GENERIC2PARM,2)
 BC_DECLASM_N_EXPORT(generic3parm,GENERIC3PARM,2)
 BC_DECLASM_N_EXPORT(generic1parm_retd,GENERIC1PARM_RETD,2)
 BC_DECLASM_N_EXPORT(generic2parm_retd,GENERIC2PARM_RETD,2)
+BC_DECLASM_N_EXPORT(generic2xparm_retd,GENERIC2XPARM_RETD,3)
 BC_DECLASM_N_EXPORT(generic3parm_retd,GENERIC3PARM_RETD,2)
 
 
-#define _asm_generic1parm_end EEL_BC_ENDOF(_asm_generic1parm)
-#define _asm_generic2parm_end EEL_BC_ENDOF(_asm_generic2parm)
-#define _asm_generic3parm_end EEL_BC_ENDOF(_asm_generic3parm)
-#define _asm_generic1parm_retd_end EEL_BC_ENDOF(_asm_generic1parm_retd)
-#define _asm_generic2parm_retd_end EEL_BC_ENDOF(_asm_generic2parm_retd)
-#define _asm_generic3parm_retd_end EEL_BC_ENDOF(_asm_generic3parm_retd)
 
-#define nseel_asm_1pdd_end EEL_BC_ENDOF(nseel_asm_1pdd)
-#define nseel_asm_2pdd_end EEL_BC_ENDOF(nseel_asm_2pdd)
-#define nseel_asm_2pdds_end EEL_BC_ENDOF(nseel_asm_2pdds)
-
-#define nseel_asm_fcall_end EEL_BC_ENDOF(nseel_asm_fcall)
-
-#define nseel_asm_band_end EEL_BC_ENDOF(nseel_asm_band)
-#define nseel_asm_bor_end EEL_BC_ENDOF(nseel_asm_bor)
-#define nseel_asm_bnot_end EEL_BC_ENDOF(nseel_asm_bnot)
-#define nseel_asm_bnotnot_end EEL_BC_ENDOF(nseel_asm_bnotnot)
-#define nseel_asm_equal_end EEL_BC_ENDOF(nseel_asm_equal)
-#define nseel_asm_equal_exact_end EEL_BC_ENDOF(nseel_asm_equal_exact)
-#define nseel_asm_notequal_end EEL_BC_ENDOF(nseel_asm_notequal)
-#define nseel_asm_notequal_exact_end EEL_BC_ENDOF(nseel_asm_notequal_exact)
-#define nseel_asm_above_end EEL_BC_ENDOF(nseel_asm_above)
-#define nseel_asm_beloweq_end EEL_BC_ENDOF(nseel_asm_beloweq)
-
-#define nseel_asm_min_end EEL_BC_ENDOF(nseel_asm_min)
-#define nseel_asm_max_end EEL_BC_ENDOF(nseel_asm_max)
-#define nseel_asm_abs_end EEL_BC_ENDOF(nseel_asm_abs)
-#define nseel_asm_min_fp_end EEL_BC_ENDOF(nseel_asm_min_fp)
-#define nseel_asm_max_fp_end EEL_BC_ENDOF(nseel_asm_max_fp)
-#define nseel_asm_sign_end EEL_BC_ENDOF(nseel_asm_sign)
-#define nseel_asm_invsqrt_end EEL_BC_ENDOF(nseel_asm_invsqrt)
-#define nseel_asm_dbg_getstackptr_end EEL_BC_ENDOF(nseel_asm_dbg_getstackptr)
-
-
-#define nseel_asm_add_end EEL_BC_ENDOF(nseel_asm_add)
-#define nseel_asm_sub_end EEL_BC_ENDOF(nseel_asm_sub)
-#define nseel_asm_mul_end EEL_BC_ENDOF(nseel_asm_mul)
-#define nseel_asm_div_end EEL_BC_ENDOF(nseel_asm_div)
-#define nseel_asm_and_end EEL_BC_ENDOF(nseel_asm_and)
-#define nseel_asm_or_end EEL_BC_ENDOF(nseel_asm_or)
-#define nseel_asm_or0_end EEL_BC_ENDOF(nseel_asm_or0)
-#define nseel_asm_xor_end EEL_BC_ENDOF(nseel_asm_xor)
-
-#define nseel_asm_add_op_end EEL_BC_ENDOF(nseel_asm_add_op)
-#define nseel_asm_sub_op_end EEL_BC_ENDOF(nseel_asm_sub_op)
-#define nseel_asm_add_op_fast_end EEL_BC_ENDOF(nseel_asm_add_op_fast)
-#define nseel_asm_sub_op_fast_end EEL_BC_ENDOF(nseel_asm_sub_op_fast)
-#define nseel_asm_mul_op_end EEL_BC_ENDOF(nseel_asm_mul_op)
-#define nseel_asm_mul_op_fast_end EEL_BC_ENDOF(nseel_asm_mul_op_fast)
-#define nseel_asm_div_op_end EEL_BC_ENDOF(nseel_asm_div_op)
-#define nseel_asm_div_op_fast_end EEL_BC_ENDOF(nseel_asm_div_op_fast)
-#define nseel_asm_and_op_end EEL_BC_ENDOF(nseel_asm_and_op)
-#define nseel_asm_or_op_end EEL_BC_ENDOF(nseel_asm_or_op)
-#define nseel_asm_xor_op_end EEL_BC_ENDOF(nseel_asm_xor_op)
-
-#define nseel_asm_uminus_end EEL_BC_ENDOF(nseel_asm_uminus)
-#define nseel_asm_assign_end EEL_BC_ENDOF(nseel_asm_assign)
-#define nseel_asm_assign_fast_end EEL_BC_ENDOF(nseel_asm_assign_fast)
-#define nseel_asm_assign_fast_fromfp_end EEL_BC_ENDOF(nseel_asm_assign_fast_fromfp)
-#define nseel_asm_assign_fromfp_end EEL_BC_ENDOF(nseel_asm_assign_fromfp)
-#define nseel_asm_mod_end EEL_BC_ENDOF(nseel_asm_mod)
-#define nseel_asm_mod_op_end EEL_BC_ENDOF(nseel_asm_mod_op)
-#define nseel_asm_shr_end EEL_BC_ENDOF(nseel_asm_shr)
-#define nseel_asm_shl_end EEL_BC_ENDOF(nseel_asm_shl)
-
-#define nseel_asm_sqr_end EEL_BC_ENDOF(nseel_asm_sqr)
-
-
-#define nseel_asm_booltofp_end EEL_BC_ENDOF(nseel_asm_booltofp)
-#define nseel_asm_fptobool_end EEL_BC_ENDOF(nseel_asm_fptobool)
-#define nseel_asm_fptobool_rev_end EEL_BC_ENDOF(nseel_asm_fptobool_rev)
-
-#define nseel_asm_stack_push_end EEL_BC_ENDOF(nseel_asm_stack_push)
-#define nseel_asm_stack_pop_end EEL_BC_ENDOF(nseel_asm_stack_pop)
-#define nseel_asm_stack_pop_fast_end EEL_BC_ENDOF(nseel_asm_stack_pop_fast)
-#define nseel_asm_stack_peek_end EEL_BC_ENDOF(nseel_asm_stack_peek)
-#define nseel_asm_stack_peek_int_end EEL_BC_ENDOF(nseel_asm_stack_peek_int)
-#define nseel_asm_stack_peek_top_end EEL_BC_ENDOF(nseel_asm_stack_peek_top)
-#define nseel_asm_stack_exch_end EEL_BC_ENDOF(nseel_asm_stack_exch)
-
-
-static void *GLUE_realAddress(void *fn, void *fn_e, int *size)
+static void *GLUE_realAddress(void *fn, int *size)
 {
-  *size = (char *)fn_e - (char *)fn;
-  return fn;
+  EEL_BC_TYPE *rd = (EEL_BC_TYPE *)fn;
+  *size = rd[0]*sizeof(EEL_BC_TYPE);
+  return rd+1;
 }
 
 #define EEL_BC_STACKSIZE (65536)
@@ -758,9 +675,6 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt)
       case EEL_BC_BNOT:
         p1 = p1 ? NULL : EEL_BC_TRUE;
       break;
-      case EEL_BC_BNOTNOT:
-        p1 = p1 ? EEL_BC_TRUE : NULL;
-      break;
       case EEL_BC_EQUAL:
         p1 = fabs(fp_top - fp_top2) < NSEEL_CLOSEFACTOR ? EEL_BC_TRUE : NULL;
         fp_rewind(2);
@@ -803,18 +717,18 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt)
         fp_rewind(1);
       break;
       case EEL_BC_AND:
-        fp_top2 = (EEL_F) (((int)fp_top) & (int)(fp_top2));
+        fp_top2 = (EEL_F) (((WDL_INT64)fp_top) & (WDL_INT64)(fp_top2));
         fp_rewind(1);
       break;
       case EEL_BC_OR:
-        fp_top2 = (EEL_F) (((int)fp_top) | (int)(fp_top2));
+        fp_top2 = (EEL_F) (((WDL_INT64)fp_top) | (WDL_INT64)(fp_top2));
         fp_rewind(1);
       break;
       case EEL_BC_OR0:
-        fp_top = (EEL_F) ((int)(fp_top));
+        fp_top = (EEL_F) ((WDL_INT64)(fp_top));
       break;
       case EEL_BC_XOR:
-        fp_top2 = (EEL_F) (((int)fp_top) ^ (int)(fp_top2));
+        fp_top2 = (EEL_F) (((WDL_INT64)fp_top) ^ (WDL_INT64)(fp_top2));
         fp_rewind(1);
       break;
 
@@ -844,15 +758,15 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt)
       break;
       case EEL_BC_AND_OP:
         p1 = p2;
-        *p2 = (EEL_F) (((int)*p2) & (int)fp_pop());
+        *p2 = (EEL_F) (((WDL_INT64)*p2) & (WDL_INT64)fp_pop());
       break;
       case EEL_BC_OR_OP:
         p1 = p2;
-        *p2 = (EEL_F) (((int)*p2) | (int)fp_pop());
+        *p2 = (EEL_F) (((WDL_INT64)*p2) | (WDL_INT64)fp_pop());
       break;
       case EEL_BC_XOR_OP:
         p1 = p2;
-        *p2 = (EEL_F) (((int)*p2) ^ (int)fp_pop());
+        *p2 = (EEL_F) (((WDL_INT64)*p2) ^ (WDL_INT64)fp_pop());
       break;
       case EEL_BC_UMINUS:
         fp_top = -fp_top;
@@ -1023,6 +937,13 @@ static void GLUE_CALL_CODE(INT_PTR bp, INT_PTR cp, INT_PTR rt)
           EEL_F (*f)(void *,EEL_F*,EEL_F*) = *(EEL_F (**)(void *, EEL_F *, EEL_F *)) (iptr+sizeof(void *));
           fp_push(f(*(void **)iptr,p2, p1));
           iptr += sizeof(void *)*2;
+        }
+      break;
+      case EEL_BC_GENERIC2XPARM_RETD:
+        {
+          EEL_F (*f)(void *,void *,EEL_F*,EEL_F*) = *(EEL_F (**)(void *, void *, EEL_F *, EEL_F *)) (iptr+2*sizeof(void *));
+          fp_push(f(*(void **)iptr,((void **)iptr)[1],p2, p1));
+          iptr += sizeof(void *)*3;
         }
       break;
       case EEL_BC_GENERIC3PARM_RETD:

@@ -32,7 +32,7 @@
 #ifndef SWELL_API_DEFINE
 
 
-#ifdef SWELL_PROVIDED_BY_APP
+#if defined(SWELL_PROVIDED_BY_APP) || defined(SWELL_LOAD_SWELL_DYLIB)
   #ifdef __cplusplus
     #define SWELL_API_DEFINE(ret,func,parms) extern "C" ret (*func)parms;
   #else
@@ -475,11 +475,13 @@ SWELL_API_DEFINE(HTREEITEM, TreeView_GetSelection,(HWND hwnd))
 SWELL_API_DEFINE(void, TreeView_DeleteItem,(HWND hwnd, HTREEITEM item))
 SWELL_API_DEFINE(void, TreeView_DeleteAllItems,(HWND hwnd))
 SWELL_API_DEFINE(void, TreeView_SelectItem,(HWND hwnd, HTREEITEM item))
+SWELL_API_DEFINE(void, TreeView_EnsureVisible,(HWND hwnd, HTREEITEM item))
 SWELL_API_DEFINE(BOOL, TreeView_GetItem,(HWND hwnd, LPTVITEM pitem))
 SWELL_API_DEFINE(BOOL, TreeView_SetItem,(HWND hwnd, LPTVITEM pitem))
 SWELL_API_DEFINE(HTREEITEM, TreeView_HitTest, (HWND hwnd, TVHITTESTINFO *hti))
 SWELL_API_DEFINE(BOOL, TreeView_SetIndent,(HWND hwnd, int indent))
 
+SWELL_API_DEFINE(HTREEITEM, TreeView_GetParent, (HWND hwnd, HTREEITEM item))
 SWELL_API_DEFINE(HTREEITEM, TreeView_GetChild, (HWND hwnd, HTREEITEM item))
 SWELL_API_DEFINE(HTREEITEM, TreeView_GetNextSibling, (HWND hwnd, HTREEITEM item))
 SWELL_API_DEFINE(HTREEITEM, TreeView_GetRoot, (HWND hwnd))
@@ -684,6 +686,8 @@ SWELL_API_DEFINE(void, SWELL_MessageQueue_Clear,(HWND h))
 ** Pass a keyboard NSEvent *, and it will return a windows VK_ keycode (or ascii), and set flags, 
 ** including (possibly) FSHIFT, FCONTROL (apple key), FALT, and FVIRTKEY. The ctrl key is not checked,
 ** as SWELL generally encourages this to be used soley for a right mouse button (as modifier).
+** flags may also include 0x1000000 for arrow keys and home/end (matching the lParam behavior of win32),
+** or for numeric keypad enter
 */
 #ifdef SWELL_TARGET_OSX
 SWELL_API_DEFINE(int, SWELL_MacKeyToWindowsKey,(void *nsevent, int *flags))
@@ -792,11 +796,6 @@ SWELL_API_DEFINE(void, EmptyClipboard,())
 SWELL_API_DEFINE(void, SetClipboardData,(UINT type, HANDLE h))
 SWELL_API_DEFINE(UINT, RegisterClipboardFormat,(const char *desc))
 SWELL_API_DEFINE(UINT, EnumClipboardFormats,(UINT lastfmt))
-
-#ifndef CF_TEXT
-  // do not use 'static int globalvalue = CF_TEXT' as this will cause problems (RegisterClipboardFormat() being called too soon!).
-#define CF_TEXT (RegisterClipboardFormat("SWELL__CF_TEXT"))
-#endif
 
 SWELL_API_DEFINE(HANDLE, GlobalAlloc,(int flags, int sz))
 SWELL_API_DEFINE(void *, GlobalLock,(HANDLE h))
@@ -965,12 +964,13 @@ SWELL_API_DEFINE(void, SetAllowNoMiddleManRendering, (HWND h, bool allow)) // de
 #ifdef SWELL_TARGET_OSX
 SWELL_API_DEFINE(int, SWELL_IsRetinaDC, (HDC hdc)) // returns 1 if DC is a retina DC (2x res possible)
 SWELL_API_DEFINE(int, SWELL_IsRetinaHWND, (HWND h)) // returns 1 if HWND is a retina HWND
-SWELL_API_DEFINE(void, SWELL_SetViewGL, (HWND h, bool wantGL))
-SWELL_API_DEFINE(bool, SWELL_GetViewGL, (HWND h))
-SWELL_API_DEFINE(bool, SWELL_SetGLContextToView, (HWND h)) // sets GL context to that view, returns TRUE if successs (use NULL to clear GL context)
 #endif
 
-#if defined(SWELL_TARGET_OSX) && !defined(SWELL_NO_METAL)
+SWELL_API_DEFINE(void, SWELL_SetViewGL, (HWND h, char wantGL)) // wantGL=2 to enable wantsBestResolutionOpenGLSurface
+SWELL_API_DEFINE(bool, SWELL_GetViewGL, (HWND h))
+SWELL_API_DEFINE(bool, SWELL_SetGLContextToView, (HWND h)) // sets GL context to that view, returns TRUE if successs (use NULL to clear GL context)
+
+#if defined(SWELL_TARGET_OSX)
 SWELL_API_DEFINE(int, SWELL_EnableMetal,(HWND h, int mode)) // can only call once per window. calling with 0 does nothing. 1=metal enabled, 2=metal enabled and support GetDC()/ReleaseDC() for drawing (more overhead). returns metal setting. mode=-1 for non-metal async layered mode. mode=-2 for non-metal non-async layered mode
   // NOTE: if using SWELL_EnableMetal(-1), any BitBlt()/StretchBlt() __MUST__ have the source bitmap persist. If it is resized after Blit it could cause crashes, too. So really this method is unsafe for practical use.
 #else
@@ -1058,7 +1058,7 @@ SWELL_API_DEFINE(void,GetTempPath,(int sz, char *buf))
 #ifndef SWELL_TARGET_OSX
 SWELL_API_DEFINE(void,SWELL_initargs,(int *argc, char ***argv))
 SWELL_API_DEFINE(void,SWELL_RunMessageLoop,())
-SWELL_API_DEFINE(HWND,SWELL_CreateXBridgeWindow,(HWND viewpar, void **wref, RECT*))
+SWELL_API_DEFINE(HWND,SWELL_CreateXBridgeWindow,(HWND viewpar, void **wref, const RECT*))
 #endif
 
 SWELL_API_DEFINE(bool,SWELL_GenerateGUID,(void *g))
@@ -1087,5 +1087,10 @@ SWELL_API_DEFINE(bool, IsWindowEnabled, (HWND))
 
 SWELL_API_DEFINE(int, GetClassName, (HWND, char *, int)) // only partially implemented, if using custom control creators they should call SWELL_SetClassName() to set the class name (reading class name is desired)
 SWELL_API_DEFINE(void, SWELL_SetClassName, (HWND, const char*)) // must pass a static string!
+
+SWELL_API_DEFINE(void, SWELL_DisableContextMenu, (HWND, bool))
+
+SWELL_API_DEFINE(BOOL, EnumDisplayMonitors, (HDC,const LPRECT,MONITORENUMPROC,LPARAM))
+SWELL_API_DEFINE(BOOL, GetMonitorInfo, (HMONITOR, void *))
 
 #endif // _WDL_SWELL_H_API_DEFINED_

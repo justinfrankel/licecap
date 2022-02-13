@@ -112,6 +112,7 @@ typedef struct _codeHandleFunctionRec
   opcodeRec *opcodes;
 
   int startptr_size;  // 0=no code. -1 = needs calculation. >0 = size.
+  int startptr_base_size; // initially calculated size of root function
   int tmpspace_req;
     
   int num_params;
@@ -135,16 +136,15 @@ typedef struct _codeHandleFunctionRec
   char fname[NSEEL_MAX_FUNCSIG_NAME+1];
 } _codeHandleFunctionRec;  
   
-#define LLB_DSIZE (65536-64)
 typedef struct _llBlock {
   struct _llBlock *next;
   int sizeused;
-  char block[LLB_DSIZE];
+  int sizealloc;
+  // data follows
 } llBlock;
 
 typedef struct {
-  llBlock *blocks, 
-          *blocks_data;
+  llBlock *blocks_code, *blocks_data;
   void *workTable; // references a chunk in blocks_data
 
   void *code;
@@ -195,12 +195,12 @@ typedef struct _compileContext
   void *scanner;
   const char *rdbuf_start, *rdbuf, *rdbuf_end;
 
-  llBlock *tmpblocks_head, // used while compiling, and freed after compiling
+  llBlock *tmpblocks, // used while compiling, and freed after compiling
 
-          *blocks_head,  // used while compiling, transferred to code context (these are pages marked as executable)
+          *blocks_head_code,  // used while compiling, transferred to code context (whole pages marked as executable)
           *blocks_head_data, // used while compiling, transferred to code context
 
-          *pblocks; // persistent blocks, stores data used by varTable_Names, varTable_Values, etc.
+          *ctx_pblocks; // persistent blocks, stores data used by varTable_Names, varTable_Values, etc.
 
   int l_stats[4]; // source bytes, static code bytes, call code bytes, data bytes
   int has_used_global_vars;
@@ -234,15 +234,13 @@ typedef struct _compileContext
   
   struct
   {
+    WDL_UINT64 sign_mask[2];
+    WDL_UINT64 abs_mask[2];
     int needfree;
     int maxblocks;
     double closefact;
     EEL_F *blocks[NSEEL_RAM_BLOCKS];
-  } ram_state
-#ifdef __GNUC__
-    __attribute__ ((aligned (8)))
-#endif
-   ;
+  } *ram_state; // allocated from blocks with 16 byte alignment
 
   void *gram_blocks;
 
@@ -254,13 +252,13 @@ compileContext;
 typedef struct functionType {
       const char *name;
       void *afunc;
-      void *func_e;
       int nParams;
       void *replptrs[4];
       NSEEL_PPPROC pProc;
 } functionType;
 
 functionType *nseel_getFunctionByName(compileContext *ctx, const char *name, int *mchk); // sets mchk (if non-NULL) to how far allowed to scan forward for duplicate names
+functionType *nseel_enumFunctions(compileContext *ctx, int idx);
 
 opcodeRec *nseel_createCompiledValue(compileContext *ctx, EEL_F value);
 opcodeRec *nseel_createCompiledValuePtr(compileContext *ctx, EEL_F *addrValue, const char *namestr);

@@ -28,7 +28,18 @@
 
 WDL_FastString WDL_CursesEditor::s_fake_clipboard;
 int WDL_CursesEditor::s_overwrite=0;
-char WDL_CursesEditor::s_search_string[256];
+int WDL_CursesEditor::s_search_mode; // &1=case sensitive, &2=word. 5/6 = token matching
+
+static WDL_FastString s_goto_line_buf;
+
+static const char *searchmode_desc(int mode)
+{
+  if (mode == 4 || mode == 5) return (mode&1)  ? "TokenMatch":"tokenmatch";
+  return (mode&2) ?
+    ((mode&1) ? "WordMatch":"wordmatch") :
+    ((mode&1) ? "SubString":"substring");
+}
+
 
 #ifndef WM_MOUSEWHEEL
 #define WM_MOUSEWHEEL 0x20A
@@ -451,8 +462,7 @@ LRESULT WDL_CursesEditor::onMouseMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LP
         }
       }
 
-      draw();
-      setCursor();
+      onChar('L'-'A'+1); // refresh, update suggestions
 
       if (uMsg == WM_LBUTTONDOWN) 
       {
@@ -681,8 +691,12 @@ void WDL_CursesEditor::draw_status_state()
   }
 
   char str[512];
-  snprintf(str, sizeof(str), "%sLine %d/%d, Col %d [%s]%s",
-    whichpane, m_curs_y+1, m_text.GetSize(), m_curs_x, 
+  const int pane_offs = m_paneoffs_y[!!m_curpane];
+  snprintf(str, sizeof(str), "%sLine %d/%d [%d-%d] Col %d [%s]%s",
+    whichpane,
+    m_curs_y+1, m_text.GetSize(),
+    pane_offs+1, wdl_min(pane_offs+1+paneh[!!m_curpane],m_text.GetSize()),
+    m_curs_x,
     (s_overwrite ? "OVR" : "INS"), (m_clean_undopos == m_undoStack_pos ? "" : "*"));
 
   int len=strlen(str);
@@ -825,7 +839,7 @@ void WDL_CursesEditor::draw_message(const char *str)
 }
 
 
-void WDL_CursesEditor::draw_line_highlight(int y, const char *p, int *c_comment_state)
+void WDL_CursesEditor::draw_line_highlight(int y, const char *p, int *c_comment_state, int line_n)
 {
   attrset(A_NORMAL);
   mvaddstr(y,0,p + WDL_utf8_charpos_to_bytepos(p,m_offs_x));
@@ -854,7 +868,7 @@ void WDL_CursesEditor::getselectregion(int &minx, int &miny, int &maxx, int &max
 
 void WDL_CursesEditor::doDrawString(int y, int line_n, const char *p, int *c_comment_state)
 {
-  draw_line_highlight(y,p,c_comment_state);
+  draw_line_highlight(y,p,c_comment_state, line_n);
 
   if (m_selecting)
   {
@@ -1003,7 +1017,8 @@ void WDL_CursesEditor::draw(int lineidx)
         BOLD("O"); addstr("therpane ");
         addstr("no"); BOLD("P"); addstr("anes ");
       }
-      BOLD("F"); addstr("ind ");
+      BOLD("F"); addstr("ind/");
+      BOLD("R"); addstr("eplace ");
       draw_bottom_line();
       addstr(")");
     }
@@ -1235,91 +1250,241 @@ void WDL_CursesEditor::highlight_line(int line)
   }
 }
 
-void WDL_CursesEditor::runSearch()
+void WDL_CursesEditor::GoToLine(int line, bool dosel)
 {
-   if (s_search_string[0]) 
-   {
-     int wrapflag=0,found=0;
-     int line;
-     int numlines = m_text.GetSize();
-     int startx=m_curs_x+1;
+  WDL_FastString *fs = m_text.Get(line);
+  m_curs_y=line;
+  m_select_x1=0;
+  m_curs_x = m_select_x2 = WDL_NORMALLY(fs) ? WDL_utf8_get_charlen(fs->Get()) : 0;
+  m_select_y1=m_select_y2=line;
+  m_selecting=dosel?1:0;
+  setCursor(0,0.25);
+}
 
-     const int srchlen=strlen(s_search_string);
-     for (line = m_curs_y; line < numlines && !found; line ++)
-     {
-       WDL_FastString *tl = m_text.Get(line);
-       if (startx && tl) startx = WDL_utf8_charpos_to_bytepos(tl->Get(),startx);
-       const char *p;
+// tweak tokens to make them more useful in searching
+static void tweak_tok(const char *tok, const char **np, int *len)
+{
+  int l = *len;
+  if (WDL_NOT_NORMALLY(*np != tok+l)) return;
+  if (WDL_NOT_NORMALLY(l < 1)) return;
 
-       if (tl && (p=tl->Get()))
-       {
-         const int linelen = tl->GetLength();
-         for (; startx <= linelen-srchlen; startx++)
-           if (!strnicmp(p+startx,s_search_string,srchlen)) 
-           {
-             m_select_y1=m_select_y2=m_curs_y=line;
-             m_select_x1=m_curs_x=WDL_utf8_bytepos_to_charpos(p,startx);
-             m_select_x2=m_curs_x+WDL_utf8_get_charlen(s_search_string);
-             m_selecting=1;
-             found=1;
-             break;
-           }
-       }
-            
+  if (l == 1)
+  {
+    if ((tok[0] == '=' || tok[0] == '!' || tok[0] == '<' || tok[0] == '>') && tok[1] == '=')
+    {
+      l = (tok[0] == '=' || tok[0] == '!') && tok[2] == '=' ? 3 : 2;
+      *np = tok + l;
+      *len = l;
+    }
+  }
+  else if (*tok == '.')
+  {
+    *len = 1;
+    *np = tok + 1;
+  }
+  else
+  {
+    const char *p = tok;
+    while (++p < tok+l)
+    {
+      if (*p == '.')
+      {
+        *len = (int) (p-tok);
+        *np = p;
+        break;
+      }
+    }
+  }
+}
 
-       startx=0;
-     }
-     if (!found && (m_curs_y>0 || m_curs_x > 0))
-     {
-       wrapflag=1;
-       numlines = wdl_min(m_curs_y+1,numlines);
-       for (line = 0; line < numlines && !found; line ++)
-       {
-         WDL_FastString *tl = m_text.Get(line);
-         if (startx && tl) startx = WDL_utf8_charpos_to_bytepos(tl->Get(),startx);
+int WDL_CursesEditor::search_line(const char *str, const WDL_FastString *line, int startx, bool backwards, int *match_len) // returns offset of next match, or -1 if none
+{
+  const char *p = line->Get();
+  const int linelen = line->GetLength();
+  const int srchlen = (int) strlen(str);
 
-         const char *p;
+  if (s_search_mode == 4 || s_search_mode == 5)
+  {
+    const char *lptr = p;
+    int best_match = -1, best_match_len = 0, lstate = 0;
+    for (;;)
+    {
+      int llen=0;
+      const char *ltok = sh_tokenize(&lptr, p + linelen, &llen,&lstate);
+      if (!ltok) break;
+      if (!lstate) tweak_tok(ltok,&lptr,&llen);
+      const int ltok_offs = (int) (ltok - p);
+      if (backwards && ltok_offs > startx) break;
 
-         if (tl && (p=tl->Get()))
-         {
-           const int linelen = tl->GetLength();
-           for (; startx <= linelen-srchlen; startx++)
-             if (!strnicmp(p+startx,s_search_string,srchlen)) 
-             {
-               m_select_y1=m_select_y2=m_curs_y=line;
-               m_select_x1=m_curs_x=WDL_utf8_bytepos_to_charpos(p,startx);
-               m_select_x2=m_curs_x+WDL_utf8_get_charlen(s_search_string);
-               m_selecting=1;
-               found=1;
-               break;
-             }
-         }           
-         startx=0;
-       }
-     }
-     if (found)
-     {
-       // make sure the end is on screen
-       m_offs_x = 0;
-       m_curs_x=wdl_max(m_select_x1,m_select_x2) + COLS/4;
-       setCursor();
+      // see if the sequence of tokens at ltok matches
+      const char *aptr = str, *bptr = ltok;
+      int astate=0, bstate=lstate;
+      int last_endtok_offs = ltok_offs;
+      for (;;)
+      {
+        int alen=0, blen=0;
+        const char *atok = sh_tokenize(&aptr, str+srchlen, &alen,&astate);
 
-       m_curs_x = m_select_x1;
-       draw();
-       setCursor();
-       char buf[512];
-       snprintf(buf,sizeof(buf),"Found %s'%s'  " CONTROL_KEY_NAME "+G:next",wrapflag?"(wrapped) ":"",s_search_string);
-       draw_message(buf);
-       return;
-     }
-   }
+        if (!atok) // end of search term
+        {
+          if (backwards || ltok_offs >= startx)
+          {
+            best_match = ltok_offs;
+            best_match_len = last_endtok_offs - ltok_offs;
+          }
+          break;
+        }
 
-   draw();
-   setCursor();
-   char buf[512];
-   if (s_search_string[0]) snprintf(buf,sizeof(buf),"String '%s' not found",s_search_string);
-   else lstrcpyn_safe(buf,"No search string",sizeof(buf));
-   draw_message(buf);
+        const char *btok = sh_tokenize(&bptr, p+linelen, &blen, &bstate);
+        if (!btok) break; // end of line without match
+
+        if (!astate) tweak_tok(atok,&aptr,&alen);
+        if (!bstate) tweak_tok(btok,&bptr,&blen);
+
+        if (alen != blen ||
+            ((s_search_mode&1) ? strncmp(atok,btok,alen) : strnicmp(atok,btok,alen)))
+          break;
+
+        last_endtok_offs = (int) (btok + blen - p);
+      }
+      if (!backwards && best_match>=0) break;
+    }
+    if (match_len) *match_len = best_match_len;
+    return best_match;
+  }
+  if (match_len) *match_len = srchlen;
+
+  const int dstartx = backwards?-1:1;
+  for (; backwards ? (startx>=0) : (startx <= linelen-srchlen); startx+=dstartx)
+    if ((s_search_mode&1) ? !strncmp(p+startx,str,srchlen) : !strnicmp(p+startx,str,srchlen))
+    {
+      if (!(s_search_mode&2)) return startx;
+      if ((startx==0 || p[startx-1]<0 || !isalnum(p[startx-1])) &&
+          (p[startx+srchlen]<=0 || !isalnum(p[startx+srchlen]))) return startx;
+    }
+  return -1;
+}
+
+static const char *ellipsify(const char *str, char *buf, int bufsz)
+{
+  int str_len = (int) strlen(str);
+  if (str_len < bufsz-8 || bufsz < 8) return str;
+  int l1 = 0;
+  while (l1 < bufsz/2)
+  {
+    if (WDL_NOT_NORMALLY(!str[l1])) return str;
+    int sz=wdl_utf8_parsechar(str+l1,NULL);
+    l1+=sz;
+  }
+  int l2 = l1;
+  while (l1 + (str_len - l2) > bufsz-4)
+  {
+    if (WDL_NOT_NORMALLY(!str[l2])) return str;
+    int sz=wdl_utf8_parsechar(str+l2,NULL);
+    l2+=sz;
+  }
+  snprintf(buf,bufsz,"%.*s...%s",l1,str,str+l2);
+  return buf;
+}
+
+void WDL_CursesEditor::runSearch(bool backwards, bool replaceAll)
+{
+  char buf[512];
+  buf[0]=0;
+  if (replaceAll && m_search_string.GetLength())
+  {
+    preSaveUndoState();
+    int cnt = 0, linecnt = 0;
+    const int numlines = m_text.GetSize();
+    for (int line = 0; line < numlines; line ++)
+    {
+      WDL_FastString *tl = m_text.Get(line);
+      if (WDL_NOT_NORMALLY(!tl)) continue;
+
+      bool repl = false;
+      int startx = 0;
+
+      while (startx < tl->GetLength())
+      {
+        int matchlen=0;
+        int bytepos = search_line(m_search_string.Get(),tl, startx, false, &matchlen);
+        if (bytepos < 0) break;
+
+        int tbp, cursx_bytepos = -1, selx1_bytepos=-1, selx2_bytepos=-1;
+#define PRECHK_PAIR(py, px, bpv) \
+        if ((py) == line && (tbp=WDL_utf8_charpos_to_bytepos(tl->Get(),(px))) >= bytepos) { \
+          if (tbp < bytepos + matchlen) (px) = WDL_utf8_bytepos_to_charpos(tl->Get(),bytepos); \
+          else (bpv) = tbp; \
+        }
+
+        PRECHK_PAIR(m_curs_y,m_curs_x,cursx_bytepos)
+        PRECHK_PAIR(m_select_y1,m_select_x1,selx1_bytepos)
+        PRECHK_PAIR(m_select_y2,m_select_x2,selx2_bytepos)
+
+        tl->DeleteSub(bytepos,matchlen);
+        tl->Insert(m_replace_string.Get(),bytepos);
+
+#define POSTCHK_PAIR(px, bpv) \
+        if ((bpv) >= 0) (px) = WDL_utf8_bytepos_to_charpos(tl->Get(),(bpv) - matchlen + m_replace_string.GetLength());
+        POSTCHK_PAIR(m_curs_x,cursx_bytepos)
+        POSTCHK_PAIR(m_select_x1,selx1_bytepos);
+        POSTCHK_PAIR(m_select_x2,selx2_bytepos);
+#undef PRECHK_PAIR
+#undef POSTCHK_PAIR
+
+        startx = bytepos + m_replace_string.GetLength();
+        repl = true;
+        cnt++;
+      }
+      if (repl) linecnt++;
+    }
+    if (cnt)
+      snprintf(buf,sizeof(buf),"Replaced %d instance%s on %d line%s",cnt, cnt==1?"":"s", linecnt, linecnt==1?"":"s");
+    saveUndoState();
+  }
+  else if (m_search_string.GetLength())
+  {
+    char elbuf[50];
+    const int numlines = m_text.GetSize();
+    if (numlines) for (int y = 0; y <= numlines; y ++)
+    {
+      int line = m_curs_y + (backwards ? -y : y), wrapflag=0;
+      if (line >= numlines) { line -= numlines; wrapflag = 1; }
+      else if (line < 0) { line += numlines; wrapflag = 1; }
+
+      WDL_FastString *tl = m_text.Get(line);
+      if (WDL_NOT_NORMALLY(!tl)) continue;
+
+      const int startx = y==0 ? (backwards ? m_curs_x-1 : m_curs_x+1) : (backwards ? tl->GetLength()-1 : 0);
+      if (backwards && startx<0) continue;
+
+      int matchlen=0;
+      int bytepos = search_line(m_search_string.Get(),tl, startx > 0 ? WDL_utf8_charpos_to_bytepos(tl->Get(),startx) : 0, backwards, &matchlen);
+      if (bytepos >= 0)
+      {
+        m_select_y1=m_select_y2=m_curs_y=line;
+        m_select_x1=m_curs_x=WDL_utf8_bytepos_to_charpos(tl->Get(),bytepos);
+        m_select_x2=WDL_utf8_bytepos_to_charpos(tl->Get(),bytepos+matchlen);
+        m_selecting=1;
+
+        // make sure the end is on screen
+        m_offs_x = 0;
+        m_curs_x = wdl_max(m_select_x1,m_select_x2) + COLS/4;
+        setCursor();
+
+        m_curs_x = m_select_x1;
+        snprintf(buf,sizeof(buf),"Found @ Line %d Col %d %s'%s' (Shift+)F3|" CONTROL_KEY_NAME "+G:(prev)next",m_curs_y+1,m_curs_x,wrapflag?"(wrapped) ":"",ellipsify(m_search_string.Get(),elbuf,sizeof(elbuf)));
+        break;
+      }
+    }
+    if (!buf[0])
+      snprintf(buf,sizeof(buf),"%s '%s' not found",searchmode_desc(s_search_mode),ellipsify(m_search_string.Get(),elbuf,sizeof(elbuf)));
+  }
+
+  draw();
+  setCursor();
+  if (buf[0])
+    draw_message(buf);
 }
 
 static int categorizeCharForWordNess(int c)
@@ -1406,18 +1571,219 @@ void WDL_CursesEditor::getLinesFromClipboard(WDL_FastString &buf, WDL_PtrList<co
   }
 }
 
+void WDL_CursesEditor::run_line_editor(int c, WDL_FastString *fs)
+{
+  char tmp[512];
+  switch (c)
+  {
+    case -1: break;
+    case 0:
+      m_line_editor_edited=false;
+      draw_top_line();
+    break;
+    case 27:
+      draw();
+      setCursor();
+      // fallthrough
+    case '\r': case '\n':
+      m_ui_state=UI_STATE_NORMAL;
+    return;
+    case KEY_BACKSPACE:
+      if (!fs->GetLength()) return;
+
+      {
+        const char *p = fs->Get();
+        for (int x = 0;;)
+        {
+          int sz=wdl_utf8_parsechar(p+x,NULL);
+          if (!p[x+sz])
+          {
+            fs->SetLen(x);
+            m_line_editor_edited=true;
+            break;
+          }
+          x+=sz;
+        }
+      }
+    break;
+    case KEY_IC:
+      if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN) return;
+    case 'V'-'A'+1:
+      {
+        WDL_PtrList<const char> lines;
+        WDL_FastString buf;
+        getLinesFromClipboard(buf,lines);
+        if (!lines.Get(0)) return;
+        if (!m_line_editor_edited)
+        {
+          fs->Set("");
+          m_line_editor_edited=true;
+        }
+        fs->Append(lines.Get(0));
+      }
+    break;
+    case KEY_UP:
+      if (m_ui_state == UI_STATE_REPLACE || m_ui_state == UI_STATE_SEARCH)
+      {
+        if (--s_search_mode<0) s_search_mode=5;
+      }
+    break;
+    case KEY_DOWN:
+      if (m_ui_state == UI_STATE_REPLACE || m_ui_state == UI_STATE_SEARCH)
+      {
+        if (++s_search_mode>5) s_search_mode=0;
+      }
+    break;
+    default:
+      if (!VALIDATE_TEXT_CHAR(c)) return;
+
+      if (!m_line_editor_edited) fs->Set("");
+      m_line_editor_edited=true;
+      WDL_MakeUTFChar(tmp,c,sizeof(tmp));
+      fs->Append(tmp);
+    break;
+  }
+
+  const char *search_help = COLS > 70 ? " (Up/Down:mode " CONTROL_KEY_NAME "+R:replace ESC:cancel)" :
+                            COLS > 40 ? "(U/D:mode " CONTROL_KEY_NAME "+R:repl)" :
+                            "";
+  char elbuf[50];
+  switch (m_ui_state)
+  {
+    case UI_STATE_REPLACE:
+      snprintf(tmp,sizeof(tmp),"Replace all (%s) '%s': ",searchmode_desc(s_search_mode),ellipsify(m_search_string.Get(),elbuf,sizeof(elbuf)));
+    break;
+    case UI_STATE_SEARCH:
+      snprintf(tmp,sizeof(tmp),"Find %s%s: ",searchmode_desc(s_search_mode), search_help);
+    break;
+    case UI_STATE_GOTO_LINE:
+      lstrcpyn_safe(tmp, "Go to line (ESC:cancel): ",sizeof(tmp));
+    break;
+    default:
+    return;
+  }
+
+  attrset(COLOR_MESSAGE);
+  bkgdset(COLOR_MESSAGE);
+  mvaddstr(LINES-1,0,tmp);
+  addstr(fs->Get());
+  clrtoeol();
+  attrset(0);
+  bkgdset(0);
+}
 
 int WDL_CursesEditor::onChar(int c)
 {
-  // multitab
-  if (m_ui_state == UI_STATE_MESSAGE)
+  switch (m_ui_state)
   {
-    m_ui_state=UI_STATE_NORMAL;
-    draw();
-    setCursor();
+    case UI_STATE_MESSAGE:
+      m_ui_state=UI_STATE_NORMAL;
+      draw();
+      setCursor();
+    break;
+    case UI_STATE_SAVE_ON_CLOSE:
+      if (c>=0 && (isalnum(c) || isprint(c) || c==27))
+      {
+        if (c == 27)
+        {
+          m_ui_state=UI_STATE_NORMAL;
+          draw();
+          draw_message("Cancelled close of file.");
+          setCursor();
+          return 0;
+        }
+        if (toupper(c) == 'N' || toupper(c) == 'Y')
+        {
+          if (toupper(c) == 'Y')
+          {
+            if(updateFile())
+            {
+              m_ui_state=UI_STATE_NORMAL;
+              draw();
+              draw_message("Error writing file, changes not saved!");
+              setCursor();
+              return 0;
+            }
+          }
+          CloseCurrentTab();
+
+          delete this;
+          // this no longer valid, return 1 to avoid future calls in onChar()
+
+          return 1;
+        }
+      }
+    return 0;
+    case UI_STATE_SAVE_AS_NEW:
+      if (c>=0 && (isalnum(c) || isprint(c) || c==27 || c == '\r' || c=='\n'))
+      {
+        m_ui_state=UI_STATE_NORMAL;
+        if (toupper(c) == 'N' || c == 27)
+        {
+          draw();
+          draw_message("Cancelled create new file.");
+          setCursor();
+          return 0;
+        }
+
+        AddTab(m_newfn.Get());
+      }
+    return 0;
+    case UI_STATE_SEARCH:
+    case UI_STATE_REPLACE:
+      {
+        uiState chgstate = c == 1+'R'-'A' ? UI_STATE_REPLACE : c == 1+'F'-'A' ? UI_STATE_SEARCH : UI_STATE_NORMAL;
+        if (chgstate != UI_STATE_NORMAL)
+        {
+          if (chgstate == UI_STATE_REPLACE && !m_search_string.GetLength()) chgstate = UI_STATE_SEARCH;
+          c = m_ui_state == chgstate ? 27 : 0;
+          m_ui_state = chgstate;
+        }
+        const bool is_replace = m_ui_state == UI_STATE_REPLACE;
+        run_line_editor(c,is_replace ? &m_replace_string : &m_search_string);
+        if (c == '\r' || c == '\n') runSearch(false, is_replace);
+      }
+    return 0;
+    case UI_STATE_GOTO_LINE:
+      if (c == 1+'J'-'A') c=27;
+      run_line_editor(c,&s_goto_line_buf);
+      if (c == '\r' || c == '\n')
+      {
+        const char *p = s_goto_line_buf.Get();
+        while (*p == ' ' || *p == '\t') p++;
+        int rel = 0;
+        if (*p == '+') rel=1;
+        else if (*p == '-') rel=-1;
+        if (rel) p++;
+        while (*p == ' ' || *p == '\t') p++;
+        int a = atoi(p);
+        if (a > 0)
+        {
+          if (rel) a = m_curs_y + a*rel;
+          else a--;
+
+          m_curs_y = wdl_clamp(a,0,m_text.GetSize());
+          WDL_FastString *fs = m_text.Get(m_curs_y);
+          m_curs_x = fs ? WDL_utf8_get_charlen(fs->Get()) : 0;
+          m_selecting=0;
+          draw();
+          setCursor(0,-1.0);
+        }
+        else
+        {
+          draw();
+          setCursor();
+        }
+      }
+    return 0;
+    case UI_STATE_NORMAL:
+    break;
   }
 
-  if (m_ui_state == UI_STATE_NORMAL && !SHIFT_KEY_DOWN && !ALT_KEY_DOWN && c =='W'-'A'+1)
+  // UI_STATE_NORMAL
+  WDL_ASSERT(m_ui_state == UI_STATE_NORMAL /* unhandled state? */);
+
+  if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN && c =='W'-'A'+1)
   {
     if (GetTab(0) == this) return 0; // first in list = do nothing
 
@@ -1441,60 +1807,6 @@ int WDL_CursesEditor::onChar(int c)
     }
     return 0;
   }
-
-  if (m_ui_state == UI_STATE_SAVE_ON_CLOSE)
-  {
-    if (c>=0 && (isalnum(c) || isprint(c) || c==27))
-    {
-      if (c == 27)
-      {
-        m_ui_state=UI_STATE_NORMAL;
-        draw();
-        draw_message("Cancelled close of file.");
-        setCursor();
-        return 0;
-      }
-      if (toupper(c) == 'N' || toupper(c) == 'Y')
-      {
-        if (toupper(c) == 'Y') 
-        {
-          if(updateFile())
-          {
-            m_ui_state=UI_STATE_NORMAL;
-            draw();
-            draw_message("Error writing file, changes not saved!");
-            setCursor();
-            return 0;
-          }
-        }
-        CloseCurrentTab();
-
-        delete this;
-        // this no longer valid, return 1 to avoid future calls in onChar()
-
-        return 1;
-      }
-    }
-    return 0;
-  }
-  else if (m_ui_state == UI_STATE_SAVE_AS_NEW)
-  {
-    if (c>=0 && (isalnum(c) || isprint(c) || c==27 || c == '\r' || c=='\n'))
-    {
-      m_ui_state=UI_STATE_NORMAL;
-      if (toupper(c) == 'N' || c == 27) 
-      {
-        draw();
-        draw_message("Cancelled create new file.");
-        setCursor();
-        return 0;
-      }
-
-      AddTab(m_newfn.Get());
-    }
-    return 0;
-  }
-
   if ((c==27 || c==29 || (c >= KEY_F1 && c<=KEY_F10)) && CTRL_KEY_DOWN)
   {
     int idx=c-KEY_F1;
@@ -1503,87 +1815,12 @@ int WDL_CursesEditor::onChar(int c)
     else if (c==29) idx=1;
     else rel=false;
     SwitchTab(idx,rel);
-
     return 1;
   }
-  // end multitab
 
-  if (m_ui_state == UI_STATE_SEARCH || m_ui_state == UI_STATE_SEARCH2)
-  {
-    switch (c)
-    {
-       case '\r': case '\n':
-         m_ui_state=UI_STATE_NORMAL;
-         runSearch();
-       break;
-       case 27: 
-         m_ui_state=UI_STATE_NORMAL; 
-         draw();
-         setCursor();
-         draw_message("Find cancelled.");
-       break;
-       case KEY_BACKSPACE: 
-         if (s_search_string[0]) 
-         {
-           char *p = s_search_string;
-           if (*p) for (;;)
-           {
-             int sz=wdl_utf8_parsechar(p,NULL);
-             if (!p[sz])
-             {
-               *p=0;
-               break;
-             }
-             p+=sz;
-           }
-         }
-         m_ui_state=UI_STATE_SEARCH2; 
-       break;
-       case KEY_IC:
-         if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN) break;
-       case 'V'-'A'+1:
-
-         {
-           WDL_PtrList<const char> lines;
-           WDL_FastString buf;
-           getLinesFromClipboard(buf,lines);
-           if (lines.Get(0))
-           {
-             if (m_ui_state==UI_STATE_SEARCH) 
-             {
-               s_search_string[0]=0;
-               m_ui_state=UI_STATE_SEARCH2;
-             }
-             lstrcatn(s_search_string,lines.Get(0),sizeof(s_search_string));
-           }
-         }
-       break;
-       default: 
-         if (VALIDATE_TEXT_CHAR(c)) 
-         { 
-           int l=m_ui_state == UI_STATE_SEARCH ? 0 : strlen(s_search_string); 
-           m_ui_state = UI_STATE_SEARCH2;
-           if (l < (int)sizeof(s_search_string)-8) 
-           { 
-             WDL_MakeUTFChar(s_search_string+l,c,8);
-           } 
-         } 
-        break;
-     }
-     if (m_ui_state == UI_STATE_SEARCH || m_ui_state == UI_STATE_SEARCH2)
-     {
-       attrset(COLOR_MESSAGE);
-       bkgdset(COLOR_MESSAGE);
-       mvaddstr(LINES-1,29,s_search_string);
-       clrtoeol(); 
-       attrset(0);
-       bkgdset(0);
-     }
-     return 0;
-  }
   if (c==KEY_DOWN || c==KEY_UP || c==KEY_PPAGE||c==KEY_NPAGE || c==KEY_RIGHT||c==KEY_LEFT||c==KEY_HOME||c==KEY_END)
   {
-    if (SHIFT_KEY_DOWN)      
+    if (SHIFT_KEY_DOWN)
     {
       if (!m_selecting)
       {
@@ -1978,19 +2215,16 @@ int WDL_CursesEditor::onChar(int c)
   break;
   case KEY_F3:
   case 'G'-'A'+1:
-    if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN && s_search_string[0])
+    if (!ALT_KEY_DOWN && m_search_string.GetLength())
     {
-      runSearch();
+      runSearch(SHIFT_KEY_DOWN != 0, false);
       return 0;
     }
   // fall through
+  case 'R'-'A'+1:
   case 'F'-'A'+1:
     if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN)
     {
-      draw_message("");
-      attrset(COLOR_MESSAGE);
-      bkgdset(COLOR_MESSAGE);
-      mvaddstr(LINES-1,0,"Find string (ESC to cancel): ");
       if (m_selecting && m_select_y1==m_select_y2)
       {
         WDL_FastString* s=m_text.Get(m_select_y1);
@@ -2001,17 +2235,21 @@ int WDL_CursesEditor::onChar(int c)
           int xhi=wdl_max(m_select_x1, m_select_x2);
           xlo = WDL_utf8_charpos_to_bytepos(p,xlo);
           xhi = WDL_utf8_charpos_to_bytepos(p,xhi);
-          if (xhi > xlo && xhi-xlo < sizeof(s_search_string))
+          if (xhi > xlo)
           {
-            lstrcpyn(s_search_string, p+xlo, xhi-xlo+1);
+            m_search_string.Set(p+xlo, xhi-xlo);
           }
         }
       }
-      addstr(s_search_string);
-      clrtoeol();
-      attrset(0);
-      bkgdset(0);
-      m_ui_state=UI_STATE_SEARCH; // find, initial
+      if (c == 'R'-'A'+1 && !m_search_string.GetLength())
+      {
+        draw_message("Use " CONTROL_KEY_NAME "+F first, or run " CONTROL_KEY_NAME "+R from Find prompt");
+      }
+      else
+      {
+        m_ui_state=c == 'R'-'A'+1 ? UI_STATE_REPLACE : UI_STATE_SEARCH;
+        run_line_editor(0,m_ui_state == UI_STATE_REPLACE ? &m_replace_string : &m_search_string);
+      }
     }
   break;
   case KEY_DOWN:
@@ -2265,13 +2503,18 @@ int WDL_CursesEditor::onChar(int c)
     }
   break;
   case 'L'-'A'+1:
+    draw();
+    setCursor();
+  break;
+  case 'J'-'A'+1:
     if (!SHIFT_KEY_DOWN && !ALT_KEY_DOWN)
     {
-      draw();
-      setCursor();
+      s_goto_line_buf.Set("");
+      m_ui_state=UI_STATE_GOTO_LINE;
+      run_line_editor(0,&s_goto_line_buf);
     }
   break;
-  case 13: //KEY_ENTER:
+  case '\r': //KEY_ENTER:
     //insert newline
     preSaveUndoState();
 
@@ -2308,7 +2551,7 @@ int WDL_CursesEditor::onChar(int c)
       if (s)
       {
         int bytepos = WDL_utf8_charpos_to_bytepos(s->Get(),m_curs_x);
-        if (bytepos > s->GetLength()) bytepos = s->GetLength();
+        if (CTRL_KEY_DOWN || bytepos > s->GetLength()) bytepos = s->GetLength();
         WDL_FastString *nl = new WDL_FastString();
         int plen=0;
         const char *pb = s->Get();
@@ -2341,6 +2584,58 @@ int WDL_CursesEditor::onChar(int c)
       draw();
       setCursor();
       saveUndoState();
+      break;
+    }
+    else if (GetAsyncKeyState(VK_SHIFT)&0x8000)
+    {
+      if (m_curs_x > 0)
+      {
+        WDL_FastString *tl=m_text.Get(m_curs_y);
+        if (tl)
+        {
+          int del_pos = m_curs_x, del_sz;
+
+          for (del_sz = 0; del_sz < m_curs_x && tl->Get()[del_sz] == ' '; del_sz++);
+
+          if (del_sz < m_curs_x && tl->Get()[WDL_utf8_charpos_to_bytepos(tl->Get(),m_curs_x - 1)] == ' ')
+          {
+            // spaces before cursor but not at start of line
+            for (del_sz = 1;
+                m_curs_x - del_sz - 1 >= 0 &&
+                del_sz < wdl_max(m_indent_size,1) &&
+                tl->Get()[WDL_utf8_charpos_to_bytepos(tl->Get(),m_curs_x - del_sz - 1)] == ' ';
+                del_sz++);
+          }
+          else if (del_sz > 0)
+          {
+            // adjust leading indentation
+            int rem = 1;
+            if (m_indent_size > 0)
+            {
+              rem = del_sz % m_indent_size;
+              if (!rem) rem = m_indent_size;
+            }
+            if (del_sz > rem) del_sz = rem;
+            del_pos = del_sz;
+          }
+
+          if (del_sz > 0)
+          {
+            preSaveUndoState();
+            const int xbyte = WDL_utf8_charpos_to_bytepos(tl->Get(),del_pos - del_sz);
+            const int xbytesz=WDL_utf8_charpos_to_bytepos(tl->Get()+xbyte,del_sz);
+
+            bool hadCom = LineCanAffectOtherLines(tl->Get(), xbyte,xbytesz);
+            tl->DeleteSub(xbyte,xbytesz);
+            m_curs_x-=del_sz;
+
+            if (!hadCom) hadCom = LineCanAffectOtherLines(tl->Get(),xbyte,0);
+            draw(hadCom?-1:m_curs_y);
+            saveUndoState();
+            setCursor();
+          }
+        }
+      }
       break;
     }
   default:

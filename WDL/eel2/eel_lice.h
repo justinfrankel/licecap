@@ -216,6 +216,13 @@ public:
     int use_fonth;
   }; 
   WDL_TypedBuf<gfxFontStruct> m_gfx_fonts;
+  enum {
+    EELFONT_FLAG_BOLD = (1<<24),
+    EELFONT_FLAG_ITALIC = (2<<24),
+    EELFONT_FLAG_UNDERLINE = (4<<24),
+    EELFONT_FLAG_MASK = EELFONT_FLAG_BOLD|EELFONT_FLAG_ITALIC|EELFONT_FLAG_UNDERLINE
+  };
+
   int m_gfx_font_active; // -1 for default, otherwise index into gfx_fonts (NOTE: this differs from the exposed API, which defines 0 as default, 1-n)
   LICE_IFont *GetActiveFont() { return m_gfx_font_active>=0&&m_gfx_font_active<m_gfx_fonts.GetSize() && m_gfx_fonts.Get()[m_gfx_font_active].use_fonth ? m_gfx_fonts.Get()[m_gfx_font_active].font : NULL; }
 
@@ -270,7 +277,6 @@ public:
   void gfx_getimgdim(EEL_F img, EEL_F *w, EEL_F *h);
   EEL_F gfx_setimgdim(int img, EEL_F *w, EEL_F *h);
   void gfx_blurto(EEL_F x, EEL_F y);
-  void gfx_blit(EEL_F img, EEL_F scale, EEL_F rotate);
   void gfx_blitext(EEL_F img, EEL_F *coords, EEL_F angle);
   void gfx_blitext2(int np, EEL_F **parms, int mode); // 0=blit, 1=deltablit
   void gfx_transformblit(EEL_F **parms, int div_w, int div_h, EEL_F *tab); // parms[0]=src, 1-4=x,y,w,h
@@ -298,6 +304,7 @@ public:
   int m_kb_queue[64];
   unsigned char m_kb_queue_valid;
   unsigned char m_kb_queue_pos;
+  HCURSOR m_cursor;
   int m_cursor_resid;
 #ifdef EEL_LICE_LOADTHEMECURSOR
   char m_cursor_name[128];
@@ -324,6 +331,7 @@ eel_lice_state::eel_lice_state(NSEEL_VMCTX vm, void *ctx, int image_slots, int f
   memset(hwnd_standalone_kb_state,0,sizeof(hwnd_standalone_kb_state));
   m_kb_queue_valid=0;
   m_cursor_resid=0;
+  m_cursor = NULL;
 #ifndef EEL_LICE_STANDALONE_NOINITQUIT
   memset(&m_last_undocked_r,0,sizeof(m_last_undocked_r));
 #endif
@@ -521,7 +529,7 @@ static EEL_F NSEEL_CGEN_CALL _gfx_transformblit(void *opaque, INT_PTR np, EEL_F 
     EEL_F *d = EEL_LICE_RAMFUNC(opaque,7,sz);
     if (!d) return 0.0;
 #else
-    EEL_F **blocks = ctx->m_vmref  ? ((compileContext*)ctx->m_vmref)->ram_state.blocks : 0;
+    EEL_F **blocks = ctx->m_vmref ? ((compileContext*)ctx->m_vmref)->ram_state->blocks : 0;
     if (!blocks || np < 8) return 0.0;
 
     const int addr1= (int) (parms[7][0]+0.5);
@@ -641,13 +649,6 @@ static EEL_F * NSEEL_CGEN_CALL _gfx_getpixel(void *opaque, EEL_F *r, EEL_F *g, E
   return r;
 }
 
-static EEL_F * NSEEL_CGEN_CALL _gfx_blit(void *opaque, EEL_F *img, EEL_F *scale, EEL_F *rotate)
-{
-  eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
-  if (ctx) ctx->gfx_blit(*img,*scale,*rotate);
-  return img;
-}
-
 static EEL_F NSEEL_CGEN_CALL _gfx_setfont(void *opaque, INT_PTR np, EEL_F **parms)
 {
   eel_lice_state *ctx=EEL_LICE_GET_CONTEXT(opaque);
@@ -708,7 +709,7 @@ static EEL_F * NSEEL_CGEN_CALL _gfx_blitext(void *opaque, EEL_F *img, EEL_F *coo
         
     EEL_F buf[10];
     int x;
-    EEL_F **blocks = ctx->m_vmref  ? ((compileContext*)ctx->m_vmref)->ram_state.blocks : 0;
+    EEL_F **blocks = ctx->m_vmref ? ((compileContext*)ctx->m_vmref)->ram_state->blocks : 0;
     if (!blocks) return img;
     for (x = 0;x < 10; x ++)
     {
@@ -759,8 +760,10 @@ static EEL_F NSEEL_CGEN_CALL _gfx_setimgdim(void *opaque, EEL_F *img, EEL_F *w, 
   return 0.0;
 }
 
-
-
+static EEL_F NSEEL_CGEN_CALL _gfx_getsyscol(void* ctxe, INT_PTR np, EEL_F **parms)
+{
+  return (EEL_F)LICE_RGBA_FROMNATIVE(GetSysColor(COLOR_3DFACE));
+}
 
 void eel_lice_state::gfx_lineto(EEL_F xpos, EEL_F ypos, EEL_F aaflag)
 {
@@ -1025,8 +1028,8 @@ EEL_F eel_lice_state::gfx_setimgdim(int img, EEL_F *w, EEL_F *h)
   int use_w = (int)*w;
   int use_h = (int)*h;
   if (use_w<1 || use_h < 1) use_w=use_h=0;
-  if (use_w > 2048) use_w=2048;
-  if (use_h > 2048) use_h=2048;
+  if (use_w > 8192) use_w=8192;
+  if (use_h > 8192) use_h=8192;
   
   LICE_IBitmap *bm=NULL;
   if (img >= 0 && img < m_gfx_images.GetSize()) 
@@ -1141,14 +1144,19 @@ EEL_F eel_lice_state::gfx_setfont(void *opaque, int np, EEL_F **parms)
           unsigned int c = np > 3 ? (unsigned int) parms[3][0] : 0;
           while (c)
           {
-            if (toupper(c&0xff)=='B') fontflag|=1;
-            else if (toupper(c&0xff)=='I') fontflag|=2;
-            else if (toupper(c&0xff)=='U') fontflag|=4;
-            else if (toupper(c&0xff)=='R') fontflag|=16; //LICE_FONT_FLAG_FX_BLUR
-            else if (toupper(c&0xff)=='V') fontflag|=32;//LICE_FONT_FLAG_FX_INVERT
-            else if (toupper(c&0xff)=='M') fontflag|=64;//LICE_FONT_FLAG_FX_MONO
-            else if (toupper(c&0xff)=='S') fontflag|=128; //LICE_FONT_FLAG_FX_SHADOW
-            else if (toupper(c&0xff)=='O') fontflag|=256; //LICE_FONT_FLAG_FX_OUTLINE
+            switch (toupper(c&0xff))
+            {
+              case 'B': fontflag|=EELFONT_FLAG_BOLD; break;
+              case 'I': fontflag|=EELFONT_FLAG_ITALIC; break;
+              case 'U': fontflag|=EELFONT_FLAG_UNDERLINE; break;
+              case 'R': fontflag|=16; break;   //LICE_FONT_FLAG_FX_BLUR
+              case 'V': fontflag|=32; break;   //LICE_FONT_FLAG_FX_INVERT
+              case 'M': fontflag|=64; break;   //LICE_FONT_FLAG_FX_MONO
+              case 'S': fontflag|=128; break;  //LICE_FONT_FLAG_FX_SHADOW
+              case 'O': fontflag|=256; break;  //LICE_FONT_FLAG_FX_OUTLINE
+              case 'Z': fontflag|=1; break;    //LICE_FONT_FLAG_VERTICAL
+              case 'Y': fontflag|=1|2; break;  //LICE_FONT_FLAG_VERTICAL|LICE_FONT_FLAG_VERTICAL_BOTTOMUP
+            }
             c>>=8;
           }
         }
@@ -1169,7 +1177,21 @@ EEL_F eel_lice_state::gfx_setfont(void *opaque, int np, EEL_F **parms)
         if (!s->font) s->font=LICE_CreateFont();
         if (s->font)
         {
-          HFONT hf=CreateFont(sz,0,0,0,(fontflag&1) ? FW_BOLD : FW_NORMAL,!!(fontflag&2),!!(fontflag&4),FALSE,ANSI_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,s->last_fontname);
+          const int fw = (fontflag&EELFONT_FLAG_BOLD) ? FW_BOLD : FW_NORMAL;
+          const bool italic = !!(fontflag&EELFONT_FLAG_ITALIC);
+          const bool underline = !!(fontflag&EELFONT_FLAG_UNDERLINE);
+          HFONT hf=NULL;
+#if defined(_WIN32) && !defined(WDL_NO_SUPPORT_UTF8)
+          WCHAR wf[256];
+          if (WDL_DetectUTF8(s->last_fontname)>0 &&
+              GetVersion()<0x80000000 &&
+              MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,s->last_fontname,-1,wf,256))
+          {
+            hf = CreateFontW(sz,0,0,0,fw,italic,underline,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,wf);
+          }
+#endif
+          if (!hf) hf = CreateFont(sz,0,0,0,fw,italic,underline,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,s->last_fontname);
+
           if (!hf)
           {
             s->use_fonth=0; // disable this font
@@ -1189,13 +1211,23 @@ EEL_F eel_lice_state::gfx_setfont(void *opaque, int np, EEL_F **parms)
               {
                 oldFont = SelectObject(hdc,hf);
                 GetTextMetrics(hdc,&tm);
-                GetTextFace(hdc, sizeof(s->actual_fontname), s->actual_fontname);
+
+#if defined(_WIN32) && !defined(WDL_NO_SUPPORT_UTF8)
+                if (GetVersion()<0x80000000 &&
+                    GetTextFaceW(hdc,sizeof(wf)/sizeof(wf[0]),wf) &&
+                    WideCharToMultiByte(CP_UTF8,0,wf,-1,s->actual_fontname,sizeof(s->actual_fontname),NULL,NULL))
+                {
+                  s->actual_fontname[sizeof(s->actual_fontname)-1]=0;
+                }
+                else
+#endif
+                  GetTextFace(hdc, sizeof(s->actual_fontname), s->actual_fontname);
                 SelectObject(hdc,oldFont);
               }
             }
 
             s->use_fonth=wdl_max(tm.tmHeight,1);
-            LICE__SetFromHFont(s->font,hf,512 | (fontflag&(511-15)));//LICE_FONT_FLAG_OWNS_HFONT);
+            LICE__SetFromHFont(s->font,hf, (fontflag & ~EELFONT_FLAG_MASK) | 512 /*LICE_FONT_FLAG_OWNS_HFONT*/);
           }
         }
       }
@@ -1241,8 +1273,8 @@ void eel_lice_state::gfx_blitext2(int np, EEL_F **parms, int blitmode)
   
   // 0=img, 1=scale, 2=rotate
   double coords[8];
-  const double sc = blitmode==0 ? parms[1][0] : 1.0,
-            angle = blitmode==0 ? parms[2][0] : 0.0;
+  const double sc = blitmode==0 && np > 1 ? parms[1][0] : 1.0,
+            angle = blitmode==0 && np > 2 ? parms[2][0] : 0.0;
   if (blitmode==0)
   {
     parms+=2;
@@ -1261,7 +1293,9 @@ void eel_lice_state::gfx_blitext2(int np, EEL_F **parms, int blitmode)
   const bool isFromFB = bm == m_framebuffer;
   SetImageDirty(dest);
  
-  if (bm == dest && CoordsSrcDestOverlap(coords))
+  if (bm == dest &&
+      (blitmode != 0 || np > 1) && // legacy behavior to matech previous gfx_blit(3parm), do not use temp buffer
+      CoordsSrcDestOverlap(coords))
   {
     if (!m_framebuffer_extra && LICE_FUNCTION_VALID(__LICE_CreateBitmap)) m_framebuffer_extra=__LICE_CreateBitmap(0,bmw,bmh);
     if (m_framebuffer_extra)
@@ -1347,35 +1381,6 @@ void eel_lice_state::gfx_blitext(EEL_F img, EEL_F *coords, EEL_F angle)
   {
     LICE_ScaledBlit(dest,bm,(int)coords[4],(int)coords[5],(int)coords[6],(int)coords[7],
       (float)coords[0],(float)coords[1],(float)coords[2],(float)coords[3], (float)*m_gfx_a,getCurModeForBlit(isFromFB));
-  }
-}
-
-void eel_lice_state::gfx_blit(EEL_F img, EEL_F scale, EEL_F rotate)
-{
-  LICE_IBitmap *dest = GetImageForIndex(*m_gfx_dest,"gfx_blit");
-  if (!dest
-#ifdef DYNAMIC_LICE
-    ||!LICE_ScaledBlit || !LICE_RotatedBlit||!LICE__GetWidth||!LICE__GetHeight
-#endif
-    ) return;
-
-  LICE_IBitmap *bm=GetImageForIndex(img,"gfx_blit:src");
-  
-  if (!bm) return;
-  
-  SetImageDirty(dest);
-  const bool isFromFB = bm == m_framebuffer;
-  
-  int bmw=LICE__GetWidth(bm);
-  int bmh=LICE__GetHeight(bm);
-  if (fabs(rotate)>0.000000001)
-  {
-    LICE_RotatedBlit(dest,bm,(int)*m_gfx_x,(int)*m_gfx_y,(int) (bmw*scale),(int) (bmh*scale),0.0f,0.0f,(float)bmw,(float)bmh,(float)rotate,true, (float)*m_gfx_a,getCurModeForBlit(isFromFB),
-        0.0f,0.0f);
-  }
-  else
-  {
-    LICE_ScaledBlit(dest,bm,(int)*m_gfx_x,(int)*m_gfx_y,(int) (bmw*scale),(int) (bmh*scale),0.0f,0.0f,(float)bmw,(float)bmh, (float)*m_gfx_a,getCurModeForBlit(isFromFB));
   }
 }
 
@@ -1603,16 +1608,53 @@ EEL_F eel_lice_state::gfx_setcursor(void* opaque, EEL_F** parms, int nparms)
 {
   if (!hwnd_standalone) return 0.0;
 
-  m_cursor_resid=(int)parms[0][0];
-
-#ifdef EEL_LICE_LOADTHEMECURSOR
-  m_cursor_name[0]=0;
-  if (nparms > 1)
+  bool chg = false;
+  const int nc = (int)parms[0][0];
+  if (m_cursor_resid != nc)
   {
-    const char* p=EEL_STRING_GET_FOR_INDEX(parms[1][0], NULL);
-    if (p && p[0]) lstrcpyn(m_cursor_name, p, sizeof(m_cursor_name));
+    m_cursor_resid = nc;
+    chg = true;
+  }
+
+  const char *p = NULL;
+#ifdef EEL_LICE_LOADTHEMECURSOR
+  if (nparms > 1) p=EEL_STRING_GET_FOR_INDEX(parms[1][0], NULL);
+
+  if (strncmp(p?p:"",m_cursor_name,sizeof(m_cursor_name)-1))
+  {
+    lstrcpyn(m_cursor_name, p?p:"", sizeof(m_cursor_name));
+    chg = true;
   }
 #endif
+
+  if (chg)
+  {
+    m_cursor = NULL;
+    if (m_cursor_resid > 0)
+    {
+      if (!p || !*p) m_cursor = LoadCursor(NULL, MAKEINTRESOURCE(m_cursor_resid));
+#ifdef EEL_LICE_LOADTHEMECURSOR
+      else m_cursor = EEL_LICE_LOADTHEMECURSOR(m_cursor_resid, p);
+#endif
+    }
+
+    bool do_set = GetCapture() == hwnd_standalone;
+    if (!do_set && GetFocus() == hwnd_standalone)
+    {
+      POINT pt;
+      RECT r;
+      GetCursorPos(&pt);
+      ScreenToClient(hwnd_standalone,&pt);
+      GetClientRect(hwnd_standalone,&r);
+      do_set = PtInRect(&r,pt)!=0;
+    }
+
+    if (do_set)
+    {
+      SetCursor(m_cursor ? m_cursor : LoadCursor(NULL,IDC_ARROW));
+    }
+  }
+
   return 1.0;
 }
 
@@ -1748,8 +1790,10 @@ int eel_lice_state::setup_frame(HWND hwnd, RECT r, int _mouse_x, int _mouse_y, i
     GetCursorPos(&pt);
     ScreenToClient(hwnd,&pt);
   }
+
   *m_mouse_x=pt.x-r.left;
   *m_mouse_y=pt.y-r.top;
+
   if (has_dpi>0 && *m_gfx_ext_retina > 0.0)
   {
     *m_gfx_ext_retina = has_dpi/256.0;
@@ -1895,13 +1939,13 @@ void eel_lice_register()
   NSEEL_addfunc_retptr("gfx_getimgdim",3,NSEEL_PProc_THIS,&_gfx_getimgdim);
   NSEEL_addfunc_retval("gfx_setimgdim",3,NSEEL_PProc_THIS,&_gfx_setimgdim);
   NSEEL_addfunc_retval("gfx_loadimg",2,NSEEL_PProc_THIS,&_gfx_loadimg);
-  NSEEL_addfunc_retptr("gfx_blit",3,NSEEL_PProc_THIS,&_gfx_blit);
   NSEEL_addfunc_retptr("gfx_blitext",3,NSEEL_PProc_THIS,&_gfx_blitext);
-  NSEEL_addfunc_varparm("gfx_blit",4,NSEEL_PProc_THIS,&_gfx_blit2);
+  NSEEL_addfunc_varparm("gfx_blit",1,NSEEL_PProc_THIS,&_gfx_blit2);
   NSEEL_addfunc_varparm("gfx_setfont",1,NSEEL_PProc_THIS,&_gfx_setfont);
   NSEEL_addfunc_varparm("gfx_getfont",1,NSEEL_PProc_THIS,&_gfx_getfont);
   NSEEL_addfunc_varparm("gfx_set",1,NSEEL_PProc_THIS,&_gfx_set);
   NSEEL_addfunc_varparm("gfx_getdropfile",1,NSEEL_PProc_THIS,&_gfx_getdropfile);
+  NSEEL_addfunc_varparm("gfx_getsyscol",0,NSEEL_PProc_THIS,&_gfx_getsyscol);
 }
 #endif
 
@@ -1932,8 +1976,8 @@ static EEL_F * NSEEL_CGEN_CALL _gfx_update(void *opaque, EEL_F *n)
       MSG msg;
       while (PeekMessage(&msg,NULL,0,0,PM_REMOVE)) 
       {
-	      TranslateMessage(&msg);
-	      DispatchMessage(&msg);
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
       }
 #else
       void SWELL_RunEvents();
@@ -2006,7 +2050,7 @@ static int eel_lice_key_xlate(int msg, int wParam, int lParam, bool *isAltOut)
     if (lParam & FVIRTKEY)
 #endif
     switch (wParam)
-	  {
+    {
       case VK_HOME: return EEL_MB_C("home");
       case VK_UP: return EEL_MB_C("up");
       case VK_PRIOR: return EEL_MB_C("pgup");
@@ -2117,7 +2161,9 @@ static LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPAR
 extern "C" 
 {
   void *objc_getClass(const char *p);
+#ifndef _OBJC_OBJC_H_
   void *sel_getUid(const char *p);
+#endif
   void objc_msgSend(void);
 };
 #endif
@@ -2209,9 +2255,9 @@ static EEL_F NSEEL_CGEN_CALL _gfx_init(void *opaque, INT_PTR np, EEL_F **parms)
     #endif
 
     if (sug_w < 16) sug_w=16;
-    else if (sug_w > 2048) sug_w=2048;
+    else if (sug_w > 8192) sug_w=8192;
     if (sug_h < 16) sug_h=16;
-    else if (sug_h > 1600) sug_h=1600;
+    else if (sug_h > 8192) sug_h=8192;
 
     if (!ctx->hwnd_standalone)
     {
@@ -2422,21 +2468,16 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
     case WM_SETCURSOR:
     {
       eel_lice_state *ctx=(eel_lice_state*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
-      if (ctx && ctx->m_cursor_resid > 0)
+      if (ctx && ctx->m_cursor)
       {
         POINT p;
         GetCursorPos(&p);
         ScreenToClient(hwnd, &p);
         RECT r;
         GetClientRect(hwnd, &r);
-        if (p.x >= 0 && p.x < r.right && p.y >= 0 && p.y < r.bottom)
+        if (PtInRect(&r,p))
         {
-#ifdef EEL_LICE_LOADTHEMECURSOR
-          if (ctx->m_cursor_name[0]) 
-            SetCursor(EEL_LICE_LOADTHEMECURSOR(ctx->m_cursor_resid, ctx->m_cursor_name));
-          else
-#endif
-            SetCursor(LoadCursor(NULL, MAKEINTRESOURCE(ctx->m_cursor_resid)));
+          SetCursor(ctx->m_cursor);
           return TRUE;
         }
       }
@@ -2532,6 +2573,14 @@ LRESULT WINAPI eel_lice_wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
         if (!a && (uMsg == WM_KEYUP || uMsg == WM_SYSKEYUP) && wParam >= 'A' && wParam <= 'Z') a=(int)wParam + 'a' - 'A';
 #endif
         const int mask = hadAltAdj ? ~256 : ~0;
+
+#ifdef _WIN32
+        if (!a && (uMsg == WM_KEYUP || uMsg == WM_SYSKEYUP))
+        {
+          // not ideal, doesn't properly support all modifiers but better than nothing
+          a = (int)MapVirtualKey((UINT)wParam,2/*MAPVK_VK_TO_CHAR*/);
+        }
+#endif
 
         if (a & mask)
         {
@@ -2768,7 +2817,7 @@ void eel_lice_register_standalone(HINSTANCE hInstance, const char *classname, HW
 
 
 #ifdef DYNAMIC_LICE
-static void eel_lice_initfuncs(void *(*getFunc)(const char *name))
+static WDL_STATICFUNC_UNUSED void eel_lice_initfuncs(void *(*getFunc)(const char *name))
 {
   if (!getFunc) return;
 
@@ -2829,9 +2878,9 @@ static const char *eel_lice_function_reference =
 #ifdef EEL_LICE_WANT_STANDALONE
 #ifndef EEL_LICE_STANDALONE_NOINITQUIT
 #ifdef EEL_LICE_WANTDOCK
-  "gfx_init\t\"name\"[,width,height,dockstate,xpos,ypos]\tInitializes the graphics window with title name. Suggested width and height can be specified.\n\n"
+  "gfx_init\t\"name\"[,width,height,dockstate,xpos,ypos]\tInitializes the graphics window with title name. Suggested width and height can be specified. If window is already open, a non-empty name will re-title window, or an empty title will resize window. \n\n"
 #else
-  "gfx_init\t\"name\"[,width,height,xpos,ypos]\tInitializes the graphics window with title name. Suggested width and height can be specified.\n\n"
+  "gfx_init\t\"name\"[,width,height,xpos,ypos]\tInitializes the graphics window with title name. Suggested width and height can be specified. If window is already open, a non-empty name will re-title window, or an empty title will resize window.\n\n"
 #endif
   "Once the graphics window is open, gfx_update() should be called periodically. \0"
   "gfx_quit\t\tCloses the graphics window.\0"
@@ -2845,17 +2894,26 @@ static const char *eel_lice_function_reference =
 #endif
   "gfx_aaaaa\t\t"
   "The following global variables are special and will be used by the graphics system:\n\n\3"
-  "\4gfx_r, gfx_g, gfx_b, gfx_a2 - These represent the current red, green, blue, and alpha components used by drawing operations (0.0..1.0). gfx_a2 is the value written to the alpha channel when writing solid colors (normally ignored but useful when creating transparent images)\n"
-  "\4gfx_a, gfx_mode - Alpha and blend mode for drawing. Set mode to 0 for default options. Add 1.0 for additive blend mode (if you wish to do subtractive, set gfx_a to negative and use gfx_mode as additive). Add 2.0 to disable source alpha for gfx_blit(). Add 4.0 to disable filtering for gfx_blit(). \n"
-  "\4gfx_w, gfx_h - These are set to the current width and height of the UI framebuffer. \n"
-  "\4gfx_x, gfx_y - These set the \"current\" graphics position in x,y. You can set these yourselves, and many of the drawing functions update them as well. \n"
-  "\4gfx_clear - If set to a value greater than -1.0, this will result in the framebuffer being cleared to that color. the color for this one is packed RGB (0..255), i.e. red+green*256+blue*65536. The default is 0 (black). \n"
-  "\4gfx_dest - Defaults to -1, set to 0.." EEL_LICE_DOC_MAXHANDLE " to have drawing operations go to an offscreen buffer (or loaded image).\n"
-  "\4gfx_texth - Set to the height of a line of text in the current font. Do not modify this variable.\n"
-  "\4gfx_ext_retina - If set to 1.0 on initialization, will be updated to 2.0 if high resolution display is supported, and if so gfx_w/gfx_h/etc will be doubled.\n"
-  "\4mouse_x, mouse_y - mouse_x and mouse_y are set to the coordinates of the mouse relative to the graphics window.\n"
-  "\4mouse_wheel, mouse_hwheel - mouse wheel (and horizontal wheel) positions. These will change typically by 120 or a multiple thereof, the caller should clear the state to 0 after reading it."
-  "\4mouse_cap is a bitfield of mouse and keyboard modifier state.\3"
+  // we depend on the formatting here -- following gfx_aaaaa, search for \4[gfx_*|mouse_*]- for syntax highlight etc
+  "\4gfx_r - current red component (0..1) used by drawing operations.\n"
+  "\4gfx_g - current green component (0..1) used by drawing operations.\n"
+  "\4gfx_b - current blue component (0..1) used by drawing operations.\n"
+  "\4gfx_a2 - current alpha component (0..1) used by drawing operations when writing solid colors (normally ignored but useful when creating transparent images).\n"
+  "\4gfx_a - alpha for drawing (1=normal).\n"
+  "\4gfx_mode - blend mode for drawing. Set mode to 0 for default options. Add 1.0 for additive blend mode (if you wish to do subtractive, set gfx_a to negative and use gfx_mode as additive). Add 2.0 to disable source alpha for gfx_blit(). Add 4.0 to disable filtering for gfx_blit(). \n"
+  "\4gfx_w - width of the UI framebuffer. \n"
+  "\4gfx_h - height of the UI framebuffer. \n"
+  "\4gfx_x - current graphics position X. Some drawing functions use as start position and update. \n"
+  "\4gfx_y - current graphics position Y. Some drawing functions use as start position and update. \n"
+  "\4gfx_clear - if greater than -1.0, framebuffer will be cleared to that color. the color for this one is packed RGB (0..255), i.e. red+green*256+blue*65536. The default is 0 (black). \n"
+  "\4gfx_dest - destination for drawing operations, -1 is main framebuffer, set to 0.." EEL_LICE_DOC_MAXHANDLE " to have drawing operations go to an offscreen buffer (or loaded image).\n"
+  "\4gfx_texth - the (READ-ONLY) height of a line of text in the current font. Do not modify this variable.\n"
+  "\4gfx_ext_retina - to support hidpi/retina, callers should set to 1.0 on initialization, this value will be updated to value greater than 1.0 (such as 2.0) if retina/hidpi. On macOS gfx_w/gfx_h/etc will be doubled, but on other systems gfx_w/gfx_h will remain the same and gfx_ext_retina is a scaling hint for drawing.\n"
+  "\4mouse_x - current X coordinate of the mouse relative to the graphics window.\n"
+  "\4mouse_y - current Y coordinate of the mouse relative to the graphics window.\n"
+  "\4mouse_wheel - wheel position, will change typically by 120 or a multiple thereof, the caller should clear the state to 0 after reading it.\n"
+  "\4mouse_hwheel - horizontal wheel positions, will change typically by 120 or a multiple thereof, the caller should clear the state to 0 after reading it.\n"
+  "\4mouse_cap - a bitfield of mouse and keyboard modifier state. Note that a script must call gfx_getchar() at least once in order to get modifier state when the mouse is not captured by the window. Bitfield bits:\3"
     "\4" "1: left mouse button\n"
     "\4" "2: right mouse button\n"
 #ifdef __APPLE__
@@ -2874,7 +2932,7 @@ static const char *eel_lice_function_reference =
   "\2\0"
 
 "gfx_getchar\t[char]\tIf char is 0 or omitted, returns a character from the keyboard queue, or 0 if no character is available, or -1 if the graphics window is not open. "
-     "If char is specified and nonzero, that character's status will be checked, and the function will return greater than 0 if it is pressed.\n\n"
+     "If char is specified and nonzero, that character's status will be checked, and the function will return greater than 0 if it is pressed. Note that calling gfx_getchar() at least once causes mouse_cap to reflect keyboard modifiers even when the mouse is not captured.\n\n"
      "Common values are standard ASCII, such as 'a', 'A', '=' and '1', but for many keys multi-byte values are used, including 'home', 'up', 'down', 'left', 'rght', 'f1'.. 'f12', 'pgup', 'pgdn', 'ins', and 'del'. \n\n"
      "Modified and special keys can also be returned, including:\3\n"
      "\4Ctrl/Cmd+A..Ctrl+Z as 1..26\n"
@@ -2922,12 +2980,16 @@ static const char *eel_lice_function_reference =
   "gfx_getfont\t[#str]\tReturns current font index. If a string is passed, it will receive the actual font face used by this font, if available.\0"
   "gfx_printf\t\"format\"[, ...]\tFormats and draws a string at gfx_x, gfx_y, and updates gfx_x/gfx_y accordingly (the latter only if the formatted string contains newline). For more information on format strings, see sprintf()\0"
   "gfx_blurto\tx,y\tBlurs the region of the screen between gfx_x,gfx_y and x,y, and updates gfx_x,gfx_y to x,y.\0"
-  "gfx_blit\tsource,scale,rotation\tIf three parameters are specified, copies the entirity of the source bitmap to gfx_x,gfx_y using current opacity and copy mode (set with gfx_a, gfx_mode). You can specify scale (1.0 is unscaled) and rotation (0.0 is not rotated, angles are in radians).\nFor the \"source\" parameter specify -1 to use the main framebuffer as source, or an image index (see gfx_loadimg()).\0"
-  "gfx_blit\tsource, scale, rotation[, srcx, srcy, srcw, srch, destx, desty, destw, desth, rotxoffs, rotyoffs]\t"
-                   "srcx/srcy/srcw/srch specify the source rectangle (if omitted srcw/srch default to image size), destx/desty/destw/desth specify dest rectangle (if not specified, these will default to reasonable defaults -- destw/desth default to srcw/srch * scale). \0"
+  "gfx_blit\tsource[, scale, rotation, srcx, srcy, srcw, srch, destx, desty, destw, desth, rotxoffs, rotyoffs]\t"
+      "Copies from source (-1 = main framebuffer, or an image from gfx_loadimg() etc), using current opacity and copy mode (set with gfx_a, gfx_mode).\n"
+      "If destx/desty are not specified, gfx_x/gfx_y will be used as the destination position.\n"
+      "scale (1.0 is unscaled) will be used only if destw/desth are not specified.\n"
+      "rotation is an angle in radians\n"
+      "srcx/srcy/srcw/srch specify the source rectangle (if omitted srcw/srch default to image size)\n"
+      "destx/desty/destw/desth specify destination rectangle (if not specified destw/desth default to srcw/srch * scale). \0"
   "gfx_blitext\tsource,coordinatelist,rotation\tDeprecated, use gfx_blit instead.\0"
   "gfx_getimgdim\timage,w,h\tRetreives the dimensions of image (representing a filename: index number) into w and h. Sets these values to 0 if an image failed loading (or if the filename index is invalid).\0"
-  "gfx_setimgdim\timage,w,h\tResize image referenced by index 0.." EEL_LICE_DOC_MAXHANDLE ", width and height must be 0-2048. The contents of the image will be undefined after the resize.\0"
+  "gfx_setimgdim\timage,w,h\tResize image referenced by index 0.." EEL_LICE_DOC_MAXHANDLE ", width and height must be 0-8192. The contents of the image will be undefined after the resize.\0"
   "gfx_loadimg\timage,\"filename\"\tLoad image from filename into slot 0.." EEL_LICE_DOC_MAXHANDLE " specified by image. Returns the image index if success, otherwise -1 if failure. The image will be resized to the dimensions of the image file. \0"
   "gfx_gradrect\tx,y,w,h, r,g,b,a[, drdx, dgdx, dbdx, dadx, drdy, dgdy, dbdy, dady]\tFills a gradient rectangle with the color and alpha specified. drdx-dadx reflect the adjustment (per-pixel) applied for each pixel moved to the right, drdy-dady are the adjustment applied for each pixel moved toward the bottom. Normally drdx=adjustamount/w, drdy=adjustamount/h, etc.\0"
   "gfx_muladdrect\tx,y,w,h,mul_r,mul_g,mul_b[,mul_a,add_r,add_g,add_b,add_a]\tMultiplies each pixel by mul_* and adds add_*, and updates in-place. Useful for changing brightness/contrast, or other effects.\0"

@@ -81,5 +81,17 @@ int SWELL_GetProcessExitCode(HANDLE hand)
 }
 
 
+#ifndef SWELL_TARGET_GDK
+BOOL EnumDisplayMonitors(HDC hdc,const LPRECT r,MONITORENUMPROC proc,LPARAM lParam)
+{
+  return FALSE;
+}
+BOOL GetMonitorInfo(HMONITOR hmon, void *inf)
+{
+  return FALSE;
+}
+#endif
+
+
 
 #endif

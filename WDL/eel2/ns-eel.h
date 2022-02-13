@@ -35,13 +35,8 @@
 
 #include "../wdltypes.h"
 
-#if EEL_F_SIZE == 4
-typedef float EEL_F;
-typedef float *EEL_F_PTR;
-#else
 typedef double EEL_F WDL_FIXALIGN;
 typedef double *EEL_F_PTR;
-#endif
 
 #ifdef _MSC_VER
 #define NSEEL_CGEN_CALL __cdecl
@@ -114,6 +109,8 @@ void NSEEL_addfunctionex2(const char *name, int nparms, char *code_startaddr, in
 
 void NSEEL_addfunc_ret_type(const char *name, int np, int ret_type,  NSEEL_PPPROC pproc, void *fptr, eel_function_table *destination); // ret_type=-1 for bool, 1 for value, 0 for ptr
 void NSEEL_addfunc_varparm_ex(const char *name, int min_np, int want_exact, NSEEL_PPPROC pproc, EEL_F (NSEEL_CGEN_CALL *fptr)(void *, INT_PTR, EEL_F **), eel_function_table *destination);
+void NSEEL_addfunc_varparm_ctxptr(const char *name, int min_np, int want_exact, void *ctxptr, EEL_F (NSEEL_CGEN_CALL *fptr)(void *, INT_PTR, EEL_F **), eel_function_table *destination);
+void NSEEL_addfunc_varparm_ctxptr2(const char *name, int min_np, int want_exact, NSEEL_PPPROC pproc, void *ctx, EEL_F (NSEEL_CGEN_CALL *fptr)(void *, void *,INT_PTR, EEL_F **), eel_function_table *destination);
 
 int *NSEEL_getstats(); // returns a pointer to 5 ints... source bytes, static code bytes, call code bytes, data bytes, number of code handles
 
@@ -219,16 +216,8 @@ extern int NSEEL_RAM_memused_errors;
 
 //#define EEL_DUMP_OPS // used for testing frontend parser/logic changes
 
-// note: if you wish to change NSEEL_RAM_*, and your target is x86-64, you will need to regenerate things.
-
-// on osx:
-//  php a2x64.php win64x
-//  php a2x64.php macho64
-
-// or on win32:
-//  php a2x64.php
-//  php a2x64.php macho64x
-// this will regenerate the .asm files and object files
+// note: if you wish to change NSEEL_RAM_*, and your target is x86-64, you will
+// need to edit asm-nseel-x64-sse.asm to match
 
 // 512 * 65536 = 32 million entries maximum (256MB RAM)
 // default is limited to 128 * 65536 = 8 million entries (64MB RAM)
@@ -261,9 +250,6 @@ typedef void (*EEL_BC_TYPE)(void *next_inst, void *state);
 #ifdef NSEEL_EEL1_COMPAT_MODE
 double *NSEEL_getglobalregs();
 #endif
-
-void eel_setfp_round(); // use to set fp to rounding mode (normal) -- only really use this when being called from EEL
-void eel_setfp_trunc(); // use to restore fp to trunc mode -- only really use this when being called from EEL
 
 void eel_enterfp(int s[2]);
 void eel_leavefp(int s[2]);

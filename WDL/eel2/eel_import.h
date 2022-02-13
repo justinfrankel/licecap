@@ -39,8 +39,8 @@ int (*nseel_stringsegments_tobuf)(char *bufOut, int bufout_sz, struct eelStringS
 void *(*NSEEL_PProc_RAM)(void *data, int data_size, struct _compileContext *ctx);
 void *(*NSEEL_PProc_THIS)(void *data, int data_size, struct _compileContext *ctx);
 
-void (*eel_setfp_round)();
-void (*eel_setfp_trunc)();
+void (*eel_enterfp)(int s[2]);
+void (*eel_leavefp)(int s[2]);
 
 
 eel_function_table g_eel_function_table;
@@ -92,8 +92,8 @@ class eel_string_context_state;
     IMPORT_FUNC(eel_fft_register) \
     IMPORT_FUNC(nseel_stringsegments_tobuf) \
     IMPORT_FUNC(nseel_int_register_var) \
-    IMPORT_FUNC(eel_setfp_round) \
-    IMPORT_FUNC(eel_setfp_trunc) \
+    IMPORT_FUNC(eel_leavefp) \
+    IMPORT_FUNC(eel_enterfp) \
     IMPORT_FUNC(NSEEL_VM_set_var_resolver) \
     IMPORT_FUNC(NSEEL_VM_alloc) /* keep NSEEL_VM_alloc last */
     

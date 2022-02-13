@@ -64,6 +64,7 @@ pl_Obj *pl_Obj::Clone() {
   out->Xa = Xa; out->Ya = Ya; out->Za = Za;
   out->Xp = Xp; out->Yp = Yp; out->Zp = Zp;
   out->GenMatrix = GenMatrix;
+  memcpy(out->Matrix,Matrix,sizeof(Matrix));
   memcpy(out->Vertices.Get(), Vertices.Get(), sizeof(pl_Vertex) * Vertices.GetSize());
   memcpy(out->Faces.Get(),Faces.Get(),sizeof(pl_Face) * Faces.GetSize());
   return out;

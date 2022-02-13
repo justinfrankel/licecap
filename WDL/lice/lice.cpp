@@ -9,6 +9,9 @@
 #ifndef __LICE_CPP_IMPLEMENTED__
 #define __LICE_CPP_IMPLEMENTED__
 
+#ifndef WDL_NO_DEFINE_MINMAX
+#define WDL_NO_DEFINE_MINMAX
+#endif
 #include "lice.h"
 #include <math.h>
 #include <stdio.h> // only included in case we need to debug with sprintf etc

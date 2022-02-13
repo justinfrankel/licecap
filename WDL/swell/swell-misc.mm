@@ -22,6 +22,8 @@
 
 //#import <Carbon/Carbon.h>
 #import <Cocoa/Cocoa.h>
+#include <IOKit/graphics/IOGraphicsLib.h>
+#include <sys/poll.h>
 #include "swell.h"
 #define SWELL_IMPLEMENT_GETOSXVERSION
 #include "swell-internal.h"
@@ -218,6 +220,12 @@ int SWELL_ReadWriteProcessIO(HANDLE hand, int w/*stdin,stdout,stderr*/, char *bu
   if (!hdr || hdr->hdr.type != INTERNAL_OBJECT_NSTASK || !hdr->task) return 0;
   NSTask *tsk = (NSTask*)hdr->task;
   NSPipe *pipe = NULL;
+  bool async_mode = false;
+  if (w & (1<<24))
+  {
+    async_mode = true;
+    w &= ~ (1<<24);
+  }
   switch (w)
   {
     case 0: pipe = [tsk standardInput]; break;
@@ -245,6 +253,17 @@ int SWELL_ReadWriteProcessIO(HANDLE hand, int w/*stdin,stdout,stderr*/, char *bu
   }
   else 
   {
+    if (async_mode)
+    {
+      int handle = [fh fileDescriptor];
+      if (handle >= 0)
+      {
+        struct pollfd pl = { handle, POLLIN };
+        if (poll(&pl,1,0)<1) return 0;
+
+        return read(handle,buf,bufsz);
+      }
+    }
     NSData *d = NULL;
     @try
     {
@@ -485,23 +504,6 @@ BOOL KillTimer(HWND hwnd, UINT_PTR timerid)
 
 ///////// PostMessage emulation
 
-BOOL PostMessage(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
-{
-  id del=[NSApp delegate];
-  if (del && [del respondsToSelector:@selector(swellPostMessage:msg:wp:lp:)])
-    return !![(SWELL_DelegateExtensions*)del swellPostMessage:hwnd msg:message wp:wParam lp:lParam];
-  return FALSE;
-}
-
-void SWELL_MessageQueue_Clear(HWND h)
-{
-  id del=[NSApp delegate];
-  if (del && [del respondsToSelector:@selector(swellPostMessageClearQ:)])
-    [(SWELL_DelegateExtensions*)del swellPostMessageClearQ:h];
-}
-
-
-
 // implementation of postmessage stuff
 
 
@@ -564,7 +566,8 @@ void SWELL_MessageQueue_Flush()
     }
     else
     {
-      SendMessage(p->hwnd,p->msg,p->wParam,p->lParam); 
+      if ([(id)p->hwnd respondsToSelector:@selector(swellCanPostMessage)] && [(id)p->hwnd swellCanPostMessage])
+        SendMessage(p->hwnd,p->msg,p->wParam,p->lParam); 
     }
     
     m_pmq_mutex->Enter();
@@ -651,15 +654,42 @@ static void SWELL_pmq_settimer(HWND h, UINT_PTR timerid, UINT rate, TIMERPROC tP
   m_pmq_size++;
 }
 
+BOOL PostMessage(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+  if (WDL_NORMALLY(m_pmq_mutex != NULL))
+  {
+    return SWELL_Internal_PostMessage(hwnd,message,wParam,lParam);
+  }
+
+  // legacy passthrough to delegate if caller is using its own swell impl, not threadsafe
+  id del=[NSApp delegate];
+  if (del && [del respondsToSelector:@selector(swellPostMessage:msg:wp:lp:)])
+    return !![(SWELL_DelegateExtensions*)del swellPostMessage:hwnd msg:message wp:wParam lp:lParam];
+  return FALSE;
+}
+
+void SWELL_MessageQueue_Clear(HWND h)
+{
+  if (WDL_NORMALLY(m_pmq_mutex != NULL))
+  {
+    SWELL_Internal_PMQ_ClearAllMessages(h);
+  }
+  else
+  {
+    id del=[NSApp delegate];
+    if (del && [del respondsToSelector:@selector(swellPostMessageClearQ:)])
+      [(SWELL_DelegateExtensions*)del swellPostMessageClearQ:h];
+  }
+}
+
 BOOL SWELL_Internal_PostMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
   if (!hwnd||!m_pmq_mutex) return FALSE;
-  if (![(id)hwnd respondsToSelector:@selector(swellCanPostMessage)]) return FALSE;
-  
+
   BOOL ret=FALSE;
   m_pmq_mutex->Enter();
   
-  if ((m_pmq_empty||m_pmq_size<MAX_POSTMESSAGE_SIZE) && [(id)hwnd swellCanPostMessage])
+  if (m_pmq_empty||m_pmq_size<MAX_POSTMESSAGE_SIZE)
   {
     PMQ_rec *rec=m_pmq_empty;
     if (rec) m_pmq_empty=rec->next;
@@ -776,6 +806,82 @@ void SWELL_DisableAppNap(int disable)
   }
 }
 
+
+BOOL EnumDisplayMonitors(HDC hdc, const LPRECT r, MONITORENUMPROC proc,LPARAM lParam)
+{
+  // ignores hdc
+  NSArray *screens = [NSScreen screens];
+  const int ns = [screens count];
+  for (int x = 0; x < ns; x ++)
+  {
+    NSScreen *mon = [screens objectAtIndex:x];
+    if (mon)
+    {
+      NSRect tr=[mon frame];
+      RECT screen_rect,tmp;
+      NSRECT_TO_RECT(&tmp,tr);
+      if (r)
+      {
+        if (!IntersectRect(&screen_rect,r,&tmp))
+          continue;
+      }
+      else
+      {
+        screen_rect = tmp;
+      }
+      if (!proc((HMONITOR)mon,hdc,&screen_rect,lParam)) break;
+    }
+  }
+
+  return TRUE;
+}
+
+BOOL GetMonitorInfo(HMONITOR hmon, void *inf)
+{
+  if (!hmon) return FALSE;
+  MONITORINFOEX *a = (MONITORINFOEX*)inf;
+  if (a->cbSize < sizeof(MONITORINFO)) return FALSE;
+
+  NSScreen *mon = (NSScreen *)hmon;
+  NSRect tr=[mon frame];
+  NSRECT_TO_RECT(&a->rcMonitor,tr);
+  tr = [mon visibleFrame];
+  NSRECT_TO_RECT(&a->rcWork,tr);
+  a->dwFlags = 0;
+
+  if (a->cbSize > sizeof(MONITORINFO))
+  {
+    const int maxlen = (int) (a->cbSize - sizeof(MONITORINFO));
+    const int displayID = [[[mon deviceDescription] valueForKey:@"NSScreenNumber"] intValue];
+    snprintf(a->szDevice,maxlen,"DisplayID %d",displayID);
+
+
+    static bool init;
+    static CFDictionaryRef (*_IODisplayCreateInfoDictionary)(io_service_t framebuffer, IOOptionBits options);
+
+    if (!init)
+    {
+      init = true;
+      void *lib = dlopen("/System/Library/Frameworks/IOKit.framework/Versions/Current/IOKit",RTLD_LAZY);
+      if (lib)
+        *(void **)&_IODisplayCreateInfoDictionary = dlsym(lib,"IODisplayCreateInfoDictionary");
+    }
+
+    if (_IODisplayCreateInfoDictionary)
+    {
+      NSDictionary *deviceInfo = (NSDictionary *)_IODisplayCreateInfoDictionary(CGDisplayIOServicePort(displayID), kIODisplayOnlyPreferredName);
+      NSDictionary *names = [deviceInfo objectForKey:@"DisplayProductName"];
+      if ([names count] > 0)
+      {
+        NSString *s = [names objectForKey:[[names allKeys] objectAtIndex:0]];
+        if (s) SWELL_CFStringToCString(s,a->szDevice,maxlen);
+      }
+      [deviceInfo release];
+    }
+  }
+
+  return TRUE;
+}
 
 
 #endif

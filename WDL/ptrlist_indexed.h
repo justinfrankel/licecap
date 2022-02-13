@@ -14,7 +14,7 @@ template<class T> class WDL_IndexedPtrList {
       return m_list.GetSize();
     }
     T * const *GetList() const { _checkState(); return m_list.GetList(); }
-    T *Get(int idx) const { _checkState(); return m_list.Get(idx); }
+    T *Get(INT_PTR idx) const { _checkState(); return m_list.Get(idx); }
     int Find(const T *p) const
     {
       _checkState();

@@ -26,10 +26,17 @@
 #include "virtwnd-controls.h"
 #include "../lice/lice.h"
 
+#define EXPAND_SCROLLBAR_SIZE(sz) ((sz)*2)
+
 WDL_VirtualListBox::WDL_VirtualListBox()
 {
-  memset(m_lastscrollbuttons,0,sizeof(m_lastscrollbuttons));
-  m_scrollbuttonsize=14;
+  m_scrollbar_color = LICE_RGBA(0,128,255,255);
+  m_scrollbar_blendmode=LICE_BLIT_MODE_COPY;
+  m_scrollbar_alpha = 1.0f;
+  m_scrollbar_size=4;
+  m_scrollbar_border=1;
+  m_scrollbar_expanded = false;
+  m_want_wordwise_cols = false;
   m_cap_startitem=-1;
   m_cap_state=0;
   m_cap_startpos.x = m_cap_startpos.y = 0;
@@ -42,6 +49,7 @@ WDL_VirtualListBox::WDL_VirtualListBox()
   m_align=-1;
   m_rh=14;
   m_maxcolwidth=m_mincolwidth=0;
+  m_colgap=0;
   m_lsadj=-1000;
   m_font=0;
   m_clickmsg=0;
@@ -59,10 +67,11 @@ static bool items_fit(int test_h, const int *heights, int heights_sz, int h, int
   int y=test_h, cols=1;
   for (int item = 0; item < heights_sz; item ++)
   {
-    int rh = heights[item];
+    int rh = heights[item] & WDL_VirtualListBox::ITEMH_MASK;
     if (y > 0 && y + rh > h) 
     {
-      if (max_cols == 1 && y + rh_base <= h) return item == heights_sz-1; // allow partial of larger item in single column mode
+      if (max_cols == 1 && !(heights[item]&WDL_VirtualListBox::ITEMH_FLAG_NOSQUISH) && 
+            y + rh_base <= h) return item == heights_sz-1; // allow partial of larger item in single column mode
       if (++cols > max_cols) return false;
       y=0;
     }
@@ -79,7 +88,7 @@ void WDL_VirtualListBox::CalcLayout(int num_items, layout_info *layout)
   if (m_mincolwidth>0) 
   {
     max_cols = w / m_mincolwidth;
-    max_cols2 = (w - m_scrollbuttonsize*2) / m_mincolwidth;
+    max_cols2 = (w - m_scrollbar_size - m_colgap) / m_mincolwidth;
     if (max_cols < 1) max_cols = 1;
     if (max_cols2 < 1) max_cols2 = 1;
   }
@@ -94,34 +103,58 @@ void WDL_VirtualListBox::CalcLayout(int num_items, layout_info *layout)
 
   s_heights.Resize(0,false);
 
-  int startitem = wdl_min(m_viewoffs,num_items-1), cols = 1, y = 0;
+  int maxvis = 1;
+  if (!m_GetItemHeight)
+  {
+    const int rh = GetRowHeight();
+    if (WDL_NORMALLY(rh>0)) maxvis = wdl_max(h/rh,1) * max_cols;
+  }
+
+  int startitem = wdl_min(m_viewoffs,num_items-maxvis), cols = 1, y = 0;
   if (startitem < 0) startitem = 0;
 
   const int rh_base = GetRowHeight();
   int item;
   for (item = startitem; item < num_items; item ++)
   {
-    int rh = GetItemHeight(item);
+    int flag=0;
+    int rh = GetItemHeight(item, &flag);
     if (y > 0 && y + rh > h) 
     {
-      if (max_cols == 1 && y + rh_base <= h) s_heights.Add(rh); // allow partial of larger item in single column mode
+      if (max_cols == 1 && !(flag&ITEMH_FLAG_NOSQUISH) && y + rh_base <= h) s_heights.Add(rh | flag); // allow partial of larger item in single column mode
       if (cols >= max_cols) break;
       cols++;
       y=0;
     }
-    s_heights.Add(rh);
+    s_heights.Add(rh | flag);
     y += rh;
   }
   if (item >= num_items)
   {
-    while (startitem > 0)
+    int use_col = wdl_max(min_cols,cols);
+    if (m_GetItemHeight == NULL && m_want_wordwise_cols && use_col>1 && h >= rh_base*2)
     {
-      const int use_h = h - ((max_cols == 1 && startitem>1) ? m_scrollbuttonsize : 0);
+      int viscnt = use_col * (h/rh_base);
+      if (startitem + viscnt > num_items + use_col-1)
+      {
+        startitem = num_items-viscnt + use_col-1;
+        if (startitem < 0) startitem=0;
+      }
+    }
+    else
+    {
+      int use_h = h;
+      if (use_col > 1 && num_items >= use_col)
+        use_h -= m_scrollbar_size;
 
-      int rh = GetItemHeight(startitem-1);
-      if (!items_fit(rh,s_heights.Get(),s_heights.GetSize(),use_h,max_cols2,rh_base)) break;
-      s_heights.Insert(rh,0);
-      startitem--;
+      while (startitem > 0)
+      {
+        int flag=0;
+        int rh = GetItemHeight(startitem-1, &flag);
+        if (!items_fit(rh,s_heights.Get(),s_heights.GetSize(),use_h,max_cols,rh_base)) break;
+        s_heights.Insert(rh | flag,0);
+        startitem--;
+      }
     }
   }
   const bool has_scroll = item < num_items || startitem > 0;
@@ -136,15 +169,41 @@ void WDL_VirtualListBox::CalcLayout(int num_items, layout_info *layout)
   layout->startpos = startitem;
   layout->columns = cols;
   layout->heights = &s_heights;
-  int scroll_mode = has_scroll && cols > 0 ? cols == 1 ? 1 : 2 : 0;
 
-  if (scroll_mode == 1 && h - m_scrollbuttonsize < rh_base && w - m_scrollbuttonsize*2 >= m_mincolwidth/2)
-    scroll_mode = 2;
+  int scroll_mode = 0;
+  if (has_scroll)
+  {
+    if (cols > 1 && (m_GetItemHeight!=NULL || !m_want_wordwise_cols || h < rh_base*2))
+      scroll_mode=2;
+    else
+      scroll_mode=1;
+  }
 
-  layout->updownbutton_h = scroll_mode == 1 ? m_scrollbuttonsize : 0;
-  layout->leftrightbutton_w = scroll_mode == 2 ? m_scrollbuttonsize : 0;
-  layout->item_area_w = w - 2*layout->leftrightbutton_w;
-  layout->item_area_h = h - layout->updownbutton_h;
+  layout->vscrollbar_w = scroll_mode == 1 ? m_scrollbar_size : 0;
+  layout->hscrollbar_h = scroll_mode == 2 ? m_scrollbar_size : 0;
+  layout->item_area_w = w - layout->vscrollbar_w;
+  layout->item_area_h = wdl_max(h - layout->hscrollbar_h,rh_base);
+  if (AreItemsWordWise(*layout))
+  {
+    int adj = layout->startpos%layout->columns;
+    for (int x = 0; x <adj; x++)
+      s_heights.Insert(rh_base,0);
+    layout->startpos -= adj;
+  }
+  else if (scroll_mode == 2 && m_GetItemHeight == NULL && rh_base > 0)
+  {
+    const int rowcnt = layout->item_area_h / rh_base;
+    if (rowcnt > 1)
+    {
+      int adj = rowcnt - (layout->startpos%rowcnt);
+      if (adj < rowcnt)
+      {
+        if (adj > s_heights.GetSize()) adj = s_heights.GetSize();
+        layout->startpos += adj;
+        for (int x = 0; x < adj; x++) s_heights.Delete(0);
+      }
+    }
+  }
 }
 
 static void maxSizePreservingAspect(int sw, int sh, int dw, int dh, int *outw, int *outh)
@@ -212,6 +271,50 @@ static void DrawBkImage(LICE_IBitmap *drawbm, WDL_VirtualWnd_BGCfg *bkbm, int dr
   }
 }
 
+int WDL_VirtualListBox::ScrollbarGetInfo(int *start, int *size, int num_items, const layout_info &layout)
+{
+  if (!layout.vscrollbar_w)
+  {
+    if (layout.hscrollbar_h)
+    {
+      const int total = wdl_max(num_items,1);
+      const int cols = wdl_max(layout.columns,1);
+      int vis = (layout.heights->GetSize() + cols - 1);
+      vis -= (vis % cols);
+      if (vis < cols) vis=cols;
+
+      int startp = (layout.startpos * layout.item_area_w) / total;
+      int endp = ((layout.startpos + vis)  * layout.item_area_w) / total;
+      *start = startp;
+      *size = endp-startp;
+
+      if (*size<2) { if (*start>0) (*start)--; *size=2; }
+      if (*start + *size > layout.item_area_w) *start = layout.item_area_w - *size;
+      if (*start < 0) *start=0;
+
+      return 2;
+    }
+    return 0;
+  }
+
+  const int num_cols = wdl_max(layout.columns,1);
+  const int total_rows = wdl_max((num_items+num_cols-1) / num_cols,1);
+  const int rh_base = wdl_max(GetRowHeight(),1);
+  const int vis_rows =
+    layout.columns > 1 ?  wdl_clamp(layout.item_area_h / rh_base,1,total_rows) :
+      wdl_clamp(layout.heights->GetSize(),1,total_rows);
+
+  const int srow = layout.startpos/num_cols;
+  int startp = (srow * layout.item_area_h) / total_rows;
+  int endp = ((srow + vis_rows)  * layout.item_area_h) / total_rows;
+  *start = startp;
+  *size = endp-startp;
+  if (*size<2) { if (*start>0) (*start)--; *size=2; }
+  if (*start + *size > layout.item_area_h) *start = layout.item_area_h - *size;
+  if (*start < 0) *start=0;
+
+  return 1;
+}
 
 void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect, int rscale)
 {
@@ -230,17 +333,16 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
   layout_info layout;
   CalcLayout(num_items,&layout);
   m_viewoffs = layout.startpos; // latch to new startpos
+  const int num_cols = layout.columns;
+  const bool do_wordwise = AreItemsWordWise(layout);
 
   const int usedw = layout.item_area_w * rscale / WDL_VWND_SCALEBASE;
-  const int leftrightbuttonsize = layout.leftrightbutton_w * rscale / WDL_VWND_SCALEBASE;
-  const int updownbuttonsize = layout.updownbutton_h * rscale / WDL_VWND_SCALEBASE;
+  const int vscrollsize = layout.vscrollbar_w * rscale / WDL_VWND_SCALEBASE;
   const int endpos=layout.item_area_h * rscale / WDL_VWND_SCALEBASE;
-  const int startpos = layout.startpos;
+  const int startpos = m_viewoffs;
   const int rh_base = GetRowHeight();
 
-  const int sbs = m_scrollbuttonsize * rscale / WDL_VWND_SCALEBASE;
-
-  if (r.right > r.left + usedw+2*leftrightbuttonsize) r.right=r.left+usedw+2*leftrightbuttonsize;
+  if (r.right > r.left + usedw+vscrollsize) r.right=r.left+usedw+vscrollsize;
 
   if (mainbk && mainbk->bgimage)
   {
@@ -274,25 +376,44 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
 
   int itempos=startpos;
   
-  const int num_cols = layout.columns;
-  for (int colpos = 0; colpos < num_cols; colpos ++)
+  for (int colpos = 0; colpos < (do_wordwise ? 1 : num_cols); colpos ++)
   {
-    int col_x = r.left + leftrightbuttonsize + (usedw*colpos) / num_cols;
-    int col_w = r.left + leftrightbuttonsize + (usedw*(colpos+1)) / num_cols - col_x;
-    int y=r.top;
+    int col_x = r.left + ((usedw+m_colgap)*colpos) / num_cols;
+    int col_w = r.left + ((usedw+m_colgap)*(colpos+1)) / num_cols - col_x - m_colgap;
+    int y=r.top, ly = y;
+    int cstate=0;
     for (;;)
     {
-      int ly=y;
       const int idx = itempos-startpos;
-      const int rh = ((idx >= 0 && idx < layout.heights->GetSize()) ? 
-           layout.heights->Get()[idx] : 
-         GetItemHeight(itempos)) * rscale / WDL_VWND_SCALEBASE;
-      y += rh;
-      if (y > r.top+endpos) 
+      int rh,flag;
+      if (idx >= 0 && idx < layout.heights->GetSize())
+        rh = layout.GetHeight(idx,&flag);
+      else
+        rh = GetItemHeight(itempos,&flag);
+      rh = rh * rscale / WDL_VWND_SCALEBASE;
+
+      if (!do_wordwise)
       {
-        if (y-rh + rh_base > r.top+endpos) break;
-        if (colpos < num_cols-1) break;
-        y = r.top+endpos; // size expanded-sized item to fit
+        ly=y;
+        y += rh;
+        if (y > r.top+endpos) 
+        {
+          if (y+ ((flag&ITEMH_FLAG_NOSQUISH) ? 0 : -rh + rh_base) > r.top+endpos) break;
+          if (colpos < num_cols-1) break;
+          y = r.top+endpos; // size expanded-sized item to fit
+        }
+      }
+      else
+      {
+        col_x = r.left + ((usedw+m_colgap)*cstate) / num_cols;
+        col_w = r.left + ((usedw+m_colgap)*(cstate+1)) / num_cols - col_x - m_colgap;
+        if (!cstate)
+        {
+          ly = y;
+          y += rh;
+          if (y > r.top+endpos)  break;
+        }
+        if (++cstate == num_cols) cstate=0;
       }
 
       WDL_VirtualWnd_BGCfg *bkbm=0;
@@ -366,172 +487,52 @@ void WDL_VirtualListBox::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_
       }
     }
   }
-  memset(&m_lastscrollbuttons,0,sizeof(m_lastscrollbuttons));
-  if (updownbuttonsize||leftrightbuttonsize)
+  if (num_cols>0)
   {
-    int y = r.top + layout.item_area_h * rscale / WDL_VWND_SCALEBASE;
-    WDL_VirtualWnd_BGCfg *bkbm[2]={0,};
-    int a=m_GetItemInfo ? m_GetItemInfo(this,
-      leftrightbuttonsize ? WDL_VWND_LISTBOX_ARROWINDEX_LR : WDL_VWND_LISTBOX_ARROWINDEX,NULL,0,NULL,bkbm) : 0;
+    int offs, height;
 
-    if (!a) bkbm[0]=0;
-
-    if (leftrightbuttonsize)
+    int stype = ScrollbarGetInfo(&offs,&height,num_items,layout);
+    if (stype)
     {
-      RECT br={0,0,(r.right-r.left) * WDL_VWND_SCALEBASE /rscale,(r.bottom-r.top)*WDL_VWND_SCALEBASE/rscale};
+      if (rscale != 256)
+      {
+        offs = offs*rscale / WDL_VWND_SCALEBASE;
+        height = height*rscale / WDL_VWND_SCALEBASE;
+      }
 
-      if (startpos>0)
+      int w = stype == 1 ? vscrollsize : (layout.hscrollbar_h * rscale / WDL_VWND_SCALEBASE);
+      int drawposx = stype == 1 ? (r.left + usedw) : (r.top + endpos);
+      if (m_scrollbar_expanded)
       {
-        m_lastscrollbuttons[0]=br;
-        m_lastscrollbuttons[0].right = br.left + m_scrollbuttonsize;
+        drawposx -= EXPAND_SCROLLBAR_SIZE(w);
+        w += EXPAND_SCROLLBAR_SIZE(w);
       }
-      if (itempos < num_items)
+      else
       {
-        m_lastscrollbuttons[1]=br;
-        m_lastscrollbuttons[1].left=br.right - m_scrollbuttonsize;
-      }
-    }
-    else 
-    {
-      RECT br={0,
-        (y-r.top) * WDL_VWND_SCALEBASE/rscale,
-        (r.right-r.left) * WDL_VWND_SCALEBASE / rscale,
-        (y-r.top + sbs) * WDL_VWND_SCALEBASE/rscale
-      };
-      if (startpos>0)
-      {
-        m_lastscrollbuttons[0]=br;
-        m_lastscrollbuttons[0].right = (br.left+br.right)/2;
-      }
-      if (itempos < num_items)
-      {
-        m_lastscrollbuttons[1]=br;
-        m_lastscrollbuttons[1].left = (br.left+br.right)/2;
-      }
-    }
-
-
-    int wb;
-    for (wb=0;wb<2;wb++)
-    {
-      if (bkbm[wb] && bkbm[wb]->bgimage)
-      {
-        int tw = bkbm[wb]->bgimage->getWidth();
-        int bkbmstate=startpos>0 ? 2 : 1;
-        if (leftrightbuttonsize)
+        int border = m_scrollbar_border * rscale / WDL_VWND_SCALEBASE;
+        if (border>0 && border < w)
         {
-          DrawBkImage(drawbm,bkbm[wb],
-              r.left,r.top,sbs,(r.bottom-r.top),
-              cliprect,
-              0,tw/2,bkbmstate,1.0, wb);
-
-
-          bkbmstate=itempos<num_items ? 2 : 1;
-          DrawBkImage(drawbm,bkbm[wb],
-              r.right-sbs,r.top,sbs,(r.bottom-r.top),
-              cliprect,
-              tw/2,tw - tw/2,bkbmstate,1.0,wb);
-        }
-        else
-        {
-          DrawBkImage(drawbm,bkbm[wb],
-              r.left,y,(r.right-r.left)/2,sbs,
-              cliprect,
-              0,tw/2,bkbmstate,1.0,wb);
-  
-          bkbmstate=itempos<num_items ? 2 : 1;
-          DrawBkImage(drawbm,bkbm[wb],
-              (r.left+r.right)/2,y,(r.right-r.left) - (r.right-r.left)/2,sbs,
-              cliprect,
-              tw/2,tw - tw/2,bkbmstate,1.0,wb);
+          w-=border;
+          drawposx+=border;
         }
       }
-    }
 
-    if (!bkbm[0] || !bkbm[0]->bgimage ||
-        !bkbm[1] || !bkbm[1]->bgimage)
-    {
-      bool butaa = true;
-      if (updownbuttonsize)
+      const LICE_pixel col = m_scrollbar_color;
+      const int mode = m_scrollbar_blendmode;
+      const float alpha = m_scrollbar_alpha;
+      if (stype == 1)
       {
-        int cx=(r.left+r.right)/2;
-        int bs=5 * rscale / WDL_VWND_SCALEBASE;
-        int bsh=8 * rscale / WDL_VWND_SCALEBASE;
-        y += sbs;
-
-        if (!bkbm[0] || !bkbm[0]->bgimage)
-        {
-          LICE_Line(drawbm,cx,y-sbs+2,cx,y-1,pencol2,1.0f,0,false);
-          LICE_Line(drawbm,r.left,y,r.right,y,pencol2,1.0f,0,false);
-        }
-      
-        y-=sbs/2+bsh/2;
-
-        if (!bkbm[1] || !bkbm[1]->bgimage)
-        {
-          if (itempos<num_items)
-          {
-            cx=(r.left+r.right)*3/4;
-
-            LICE_Line(drawbm,cx-bs+1,y+2,cx,y+bsh-2,pencol2,1.0f,0,butaa);
-            LICE_Line(drawbm,cx,y+bsh-2,cx+bs-1,y+2,pencol2,1.0f,0,butaa);
-            LICE_Line(drawbm,cx+bs-1,y+2,cx-bs+1,y+2,pencol2,1.0f,0,butaa);
-
-            LICE_Line(drawbm,cx-bs-1,y+1,cx,y+bsh-1,pencol,1.0f,0,butaa);
-            LICE_Line(drawbm,cx,y+bsh-1,cx+bs+1,y+1,pencol,1.0f,0,butaa);
-            LICE_Line(drawbm,cx+bs+1,y+1,cx-bs-1,y+1,pencol,1.0f,0,butaa);
-          }
-          if (startpos>0)
-          {
-            y-=2;
-            cx=(r.left+r.right)/4;
-            LICE_Line(drawbm,cx-bs+1,y+bsh,cx,y+3+1,pencol2,1.0f,0,butaa);
-            LICE_Line(drawbm,cx,y+3+1,cx+bs-1,y+bsh,pencol2,1.0f,0,butaa);
-            LICE_Line(drawbm,cx+bs-1,y+bsh,cx-bs+1,y+bsh,pencol2,1.0f,0,butaa);
-
-            LICE_Line(drawbm,cx-bs-1,y+bsh+1,cx,y+3,pencol,1.0f,0,butaa);
-            LICE_Line(drawbm,cx,y+3,cx+bs+1,y+bsh+1,pencol,1.0f,0,butaa);
-            LICE_Line(drawbm,cx+bs+1,y+bsh+1, cx-bs-1,y+bsh+1, pencol,1.0f,0,butaa);
-          }
-        }
+        LICE_FillRect(drawbm,drawposx,r.top,w,endpos, col,alpha*.5f,mode);
+        LICE_FillRect(drawbm,drawposx,r.top + offs,w,height, col,alpha,mode);
       }
-      else  // sideways buttons
+      else
       {
-        if (!bkbm[1] || !bkbm[1]->bgimage)
-        {
-          #define LICE_LINEROT(bm,x1,y1,x2,y2,pc,al,mode,aa) LICE_Line(bm,y1,x1,y2,x2,pc,al,mode,aa)
-          int bs=5 * rscale / WDL_VWND_SCALEBASE;
-          int bsh=8 * rscale / WDL_VWND_SCALEBASE;
-          int cx = (r.bottom + r.top)/2;
-          if (itempos < num_items)
-          {
-            int z = r.right - leftrightbuttonsize/2 - bsh/2;
-            LICE_LINEROT(drawbm,cx-bs+1,z+2,cx,z+bsh-2,pencol2,1.0f,0,butaa);
-            LICE_LINEROT(drawbm,cx,z+bsh-2,cx+bs-1,z+2,pencol2,1.0f,0,butaa);
-            LICE_LINEROT(drawbm,cx+bs-1,z+2,cx-bs+1,z+2,pencol2,1.0f,0,butaa);
-
-            LICE_LINEROT(drawbm,cx-bs-1,z+1,cx,z+bsh-1,pencol,1.0f,0,butaa);
-            LICE_LINEROT(drawbm,cx,z+bsh-1,cx+bs+1,z+1,pencol,1.0f,0,butaa);
-            LICE_LINEROT(drawbm,cx+bs+1,z+1,cx-bs-1,z+1,pencol,1.0f,0,butaa);
-          }
-          if (startpos>0)
-          {
-            int z = r.left + leftrightbuttonsize/2-bsh/2 - 2;
-            LICE_LINEROT(drawbm,cx-bs+1,z+bsh,cx,z+3+1,pencol2,1.0f,0,butaa);
-            LICE_LINEROT(drawbm,cx,z+3+1,cx+bs-1,z+bsh,pencol2,1.0f,0,butaa);
-            LICE_LINEROT(drawbm,cx+bs-1,z+bsh,cx-bs+1,z+bsh,pencol2,1.0f,0,butaa);
-
-            LICE_LINEROT(drawbm,cx-bs-1,z+bsh+1,cx,z+3,pencol,1.0f,0,butaa);
-            LICE_LINEROT(drawbm,cx,z+3,cx+bs+1,z+bsh+1,pencol,1.0f,0,butaa);
-            LICE_LINEROT(drawbm,cx+bs+1,z+bsh+1, cx-bs-1,z+bsh+1, pencol,1.0f,0,butaa);
-          }
-          #undef LICE_LINEROT
-        }
+        if (drawposx+w > r.bottom) w = r.bottom - drawposx;
+        LICE_FillRect(drawbm,r.left,drawposx,usedw,w, col,alpha*.5f,mode);
+        LICE_FillRect(drawbm,r.left+offs,drawposx,height,w, col,alpha,mode);
       }
     }
   }
-
-
 
   if (!mainbk)
   {
@@ -548,7 +549,12 @@ void WDL_VirtualListBox::DoScroll(int dir, const layout_info *layout)
   if (dir < 0 && layout->columns>1)
   {
     int y=0;
-    while (m_viewoffs>0)
+    if (AreItemsWordWise(*layout))
+    {
+      int np = wdl_max(0,m_viewoffs-layout->columns);
+      if (m_viewoffs != np) { m_viewoffs = np; y=1; }
+    }
+    else while (m_viewoffs>0)
     {
       y += GetItemHeight(--m_viewoffs);
       if (y >= layout->item_area_h) break;
@@ -557,14 +563,20 @@ void WDL_VirtualListBox::DoScroll(int dir, const layout_info *layout)
   }
   else if (dir > 0 && layout->columns>1)
   {
-    int y=0,i;
-    for (i = 0;  i < layout->heights->GetSize(); i ++)
+    int y=0;
+    if (AreItemsWordWise(*layout))
     {
-      y += layout->heights->Get()[i];
-      if (y >= layout->item_area_h) break;
-      m_viewoffs++;
+      m_viewoffs+=layout->columns;
+      y++;
     }
-    if (i) RequestRedraw(NULL);
+    else for (int i = 0;  i < layout->heights->GetSize(); i ++)
+    {
+      m_viewoffs++;
+      y += layout->GetHeight(i);
+      if (y >= layout->item_area_h) break;
+    }
+    if (y)
+      RequestRedraw(NULL);
   }
   else if (dir > 0)
   {
@@ -581,42 +593,6 @@ void WDL_VirtualListBox::DoScroll(int dir, const layout_info *layout)
   }
 }
 
-bool WDL_VirtualListBox::HandleScrollClicks(int xpos, int ypos, const layout_info *layout)
-{
-  if (layout->leftrightbutton_w && (xpos<m_scrollbuttonsize || xpos >= layout->item_area_w+m_scrollbuttonsize))
-  {
-    if (xpos<m_scrollbuttonsize)
-    {
-      DoScroll(-1,layout);
-    }
-    else
-    {
-      DoScroll(1,layout);
-    }
-    m_cap_state=0;
-    m_cap_startitem=-1;
-    return true;
-  }
-  if (layout->updownbutton_h && ypos >= layout->item_area_h)
-  {
-    if (ypos < layout->item_area_h + m_scrollbuttonsize)
-    {
-      if (xpos < layout->item_area_w/2)
-      {
-        DoScroll(-1,layout);
-      }
-      else
-      {
-        DoScroll(1,layout);
-      }
-    }
-    m_cap_state=0;
-    m_cap_startitem=-1;
-    return true;
-  }
-  return false;
-}
-
 int WDL_VirtualListBox::OnMouseDown(int xpos, int ypos)
 {
   if (m_grayed) return 0;
@@ -628,13 +604,47 @@ int WDL_VirtualListBox::OnMouseDown(int xpos, int ypos)
   layout_info layout;
   CalcLayout(num_items,&layout);
 
+  if (ScrollbarHit(xpos,ypos,layout))
+  {
+    int offs,sz;
+    switch (ScrollbarGetInfo(&offs,&sz,num_items,layout))
+    {
+      case 1:
+        if (ypos < offs || ypos > offs+sz)
+        {
+          m_viewoffs = (num_items * (ypos - sz/2)) / wdl_max(1,layout.item_area_h);
+          if (m_viewoffs<0) m_viewoffs=0;
+          if (m_viewoffs>num_items) m_viewoffs=num_items;
+          m_cap_startpos.y = sz/2;
+        }
+        else
+          m_cap_startpos.y = ypos - offs;
+
+        m_scrollbar_expanded = true;
+        m_cap_state=2;
+        RequestRedraw(NULL);
+      return 1;
+      case 2:
+        if (xpos < offs || xpos > offs+sz)
+        {
+          m_viewoffs = (num_items * (xpos - sz/2)) / wdl_max(1,layout.item_area_w);
+          if (m_viewoffs<0) m_viewoffs=0;
+          if (m_viewoffs>num_items) m_viewoffs=num_items;
+          m_cap_startpos.x = sz/2;
+        }
+        else
+          m_cap_startpos.x = xpos - offs;
+
+        m_scrollbar_expanded = true;
+        m_cap_state=3;
+        RequestRedraw(NULL);
+      return 1;
+    }
+  }
+
   int idx = IndexFromPtInt(xpos,ypos,layout);
   if (idx < 0)
-  {
-    if (idx == -2) return 0;
-    if (HandleScrollClicks(xpos,ypos,&layout)) return 1;
     return 0;
-  }
 
   m_cap_state=0x1000;
   m_cap_startitem=idx;
@@ -655,7 +665,6 @@ bool WDL_VirtualListBox::OnMouseDblClick(int xpos, int ypos)
   if (idx<0)
   {
     if (idx == -2) return false;
-    if (HandleScrollClicks(xpos,ypos,&layout)) return true;
     idx = num_items;
   }
   
@@ -672,7 +681,7 @@ bool WDL_VirtualListBox::OnMouseWheel(int xpos, int ypos, int amt)
   layout_info layout;
   CalcLayout(num_items,&layout);
 
-  if (xpos >= layout.item_area_w + layout.leftrightbutton_w*2) return false;
+  if (xpos >= layout.item_area_w + layout.vscrollbar_w) return false;
 
   DoScroll(-amt,&layout);
   return true;
@@ -699,40 +708,95 @@ void WDL_VirtualListBox::OnMouseMove(int xpos, int ypos)
       }
     }
   }
-  else if (m_cap_state==0)
+  else if (m_cap_state >= 0 && m_cap_state <= 3)
   {
-    int a=IndexFromPt(xpos,ypos);
-    if (a>=0)
+    const int num_items = m_GetItemInfo ? m_GetItemInfo(this,-1,NULL,0,NULL,NULL) : 0;
+    layout_info layout;
+    CalcLayout(num_items,&layout);
+    if (m_cap_state==0)
     {
-      m_cap_startitem=a;
-      m_cap_state=1;
+      int a=IndexFromPtInt(xpos,ypos,layout);
+      if (a>=0)
+      {
+        m_cap_startitem=a;
+        m_cap_state=1;
+        RequestRedraw(NULL);
+      }
+    }
+    else if (m_cap_state==1)
+    {
+      int a=IndexFromPtInt(xpos,ypos,layout);
+      if (a>=0 && a != m_cap_startitem)
+      {
+        m_cap_startitem=a;
+        m_cap_state=1;
+        RequestRedraw(NULL);
+      }
+      else if (a<0)
+      {
+        m_cap_state=0;
+        RequestRedraw(NULL);
+      }
+    }
+    else if (m_cap_state==2)
+    {
+      int vwoffs = (num_items * (ypos - m_cap_startpos.y)) / wdl_max(1,layout.item_area_h);
+      if (vwoffs<0) vwoffs=0;
+      if (vwoffs>num_items) vwoffs=num_items;
+      if (vwoffs != m_viewoffs)
+      {
+        m_viewoffs = vwoffs;
+        RequestRedraw(NULL);
+      }
+    }
+    else if (m_cap_state==3)
+    {
+      int vwoffs = (num_items * (xpos - m_cap_startpos.x)) / wdl_max(1,layout.item_area_w);
+      if (vwoffs<0) vwoffs=0;
+      if (vwoffs>num_items) vwoffs=num_items;
+      if (vwoffs != m_viewoffs)
+      {
+        m_viewoffs = vwoffs;
+        RequestRedraw(NULL);
+      }
+    }
+    bool exp = (m_cap_state>=2 || ScrollbarHit(xpos,ypos,layout));
+    if (exp != m_scrollbar_expanded)
+    {
+      m_scrollbar_expanded = exp;
       RequestRedraw(NULL);
     }
   }
-  else if (m_cap_state==1)
+}
+
+bool WDL_VirtualListBox::ScrollbarHit(int xpos, int ypos, const layout_info &layout)
+{
+  if (layout.vscrollbar_w>0)
   {
-    int a=IndexFromPt(xpos,ypos);
-    if (a>=0 && a != m_cap_startitem)
-    {
-      m_cap_startitem=a;
-      m_cap_state=1;
-      RequestRedraw(NULL);
-    }
-    else if (a<0)
-    {
-      m_cap_state=0;
-      RequestRedraw(NULL);
-    }
+    int extra = m_scrollbar_expanded ? EXPAND_SCROLLBAR_SIZE(layout.vscrollbar_w) : 0;
+    return ypos>=0 && ypos < layout.item_area_h &&
+           xpos >= layout.item_area_w - extra && xpos < layout.item_area_w + layout.vscrollbar_w;
   }
+  else if (layout.hscrollbar_h>0)
+  {
+    int extra = m_scrollbar_expanded ? EXPAND_SCROLLBAR_SIZE(layout.hscrollbar_h) : 0;
+    return xpos>=0 && xpos < layout.item_area_w &&
+           ypos >= layout.item_area_h - extra && ypos < layout.item_area_h + layout.hscrollbar_h;
+  }
+  return false;
 }
 
 void WDL_VirtualListBox::OnMouseUp(int xpos, int ypos)
 {
   if (m_grayed) return;
 
+  const int num_items = m_GetItemInfo ? m_GetItemInfo(this,-1,NULL,0,NULL,NULL) : 0;
+  layout_info layout;
+  CalcLayout(num_items,&layout);
+
   int cmd=0;
   INT_PTR p1, p2;
-  int hit=IndexFromPt(xpos,ypos);
+  int hit=IndexFromPtInt(xpos,ypos,layout);
   if (m_cap_state>=0x1000 && m_cap_state<0x1008 && hit==m_cap_startitem) 
   {
     if (m_clickmsg)
@@ -752,44 +816,14 @@ void WDL_VirtualListBox::OnMouseUp(int xpos, int ypos)
       p2=m_cap_startitem;
     }
   }
+  else if (m_cap_state == 2 || m_cap_state == 3)
+  {
+    m_scrollbar_expanded = ScrollbarHit(xpos,ypos,layout);
+  }
 
   m_cap_state=0;
   RequestRedraw(NULL);
   if (cmd) SendCommand(cmd,p1,p2,this);
-}
-
-int WDL_VirtualListBox::GetVisibleItemRects(WDL_TypedBuf<RECT> *list)
-{
-  const int num_items = m_GetItemInfo ? m_GetItemInfo(this,-1,NULL,0,NULL,NULL) : 0;
-  layout_info layout;
-  CalcLayout(num_items,&layout);
-
-  const int rh_base = GetRowHeight();
-  const int n = layout.heights->GetSize();
-  RECT *r = list->ResizeOK(n,false);
-  if (!r) { list->Resize(0,false); return 0; }
-  
-  int col = 0, y=0;
-  int xpos = layout.leftrightbutton_w;
-  int nx = layout.leftrightbutton_w + (col+1)*layout.item_area_w / layout.columns;
-  for (int x=0;x<n;x++)
-  {
-    const int rh = layout.heights->Get()[x];
-    if (y > 0 && y + rh > layout.item_area_h && (col < layout.columns-1 || y+rh_base > layout.item_area_h)) 
-    { 
-      if (++col >= layout.columns) break;
-      y = 0;
-      xpos=nx;
-      nx = layout.leftrightbutton_w + (col+1)*layout.item_area_w / layout.columns;
-    }
-    r->left = xpos;
-    r->right = nx;
-    r->top = y;
-    r->bottom = wdl_min(y + rh,layout.item_area_h);
-    r++;
-    y += rh;
-  }
-  return layout.startpos;
 }
 
 bool WDL_VirtualListBox::GetItemRect(int item, RECT *r)
@@ -803,23 +837,46 @@ bool WDL_VirtualListBox::GetItemRect(int item, RECT *r)
   
   if (r)
   {
+    const bool do_wordwise = AreItemsWordWise(layout);
     const int rh_base = GetRowHeight();
     int col = 0,y=0;
     for (int x=0;x<item;x++)
     {
-      const int rh = x < layout.heights->GetSize() ? layout.heights->Get()[x] : rh_base;
-      if (y > 0 && y + rh > layout.item_area_h && (col < layout.columns-1 ||  y+rh_base > layout.item_area_h)) { col++; y = 0; }
-      y += rh;
+      if (do_wordwise)
+      {
+        if (++col == layout.columns)
+        {
+          y += rh_base;
+          col = 0;
+        }
+      }
+      else
+      {
+        int flag = 0;
+        const int rh = x < layout.heights->GetSize() ? layout.GetHeight(x,&flag) : rh_base;
+        if (y > 0 && y + rh > layout.item_area_h && (col < layout.columns-1 || (flag&ITEMH_FLAG_NOSQUISH) || y+rh_base > layout.item_area_h)) { col++; y = 0; }
+        y += rh;
+      }
     }
-    const int rh = item < layout.heights->GetSize() ? layout.heights->Get()[item] : rh_base;
-    if (y > 0 && y + rh > layout.item_area_h && (col < layout.columns-1 || y+rh_base > layout.item_area_h)) { col++; y = 0; }
+
+    int flag = 0;
+    const int rh = item < layout.heights->GetSize() ? layout.GetHeight(item,&flag) : rh_base;
+
+    if (!do_wordwise)
+    {
+      if (y > 0 && y + rh > layout.item_area_h && (col < layout.columns-1 || (flag&ITEMH_FLAG_NOSQUISH) || y+rh_base > layout.item_area_h)) { col++; y = 0; }
+    }
     if (col >= layout.columns)  { if (r) memset(r,0,sizeof(RECT)); return false; }
 
     r->top = y;
     r->bottom = y+rh;
     if (r->bottom > layout.item_area_h) r->bottom = layout.item_area_h;
-    r->left = layout.leftrightbutton_w + (col * layout.item_area_w) / layout.columns;
-    r->right = layout.leftrightbutton_w + ((col+1) * layout.item_area_w) / layout.columns;
+    r->left = (col * layout.item_area_w) / layout.columns;
+    r->right = ((col+1) * layout.item_area_w) / layout.columns;
+    if (col == layout.columns-1 && layout.vscrollbar_w && m_scrollbar_expanded)
+    {
+      r->right -= EXPAND_SCROLLBAR_SIZE(layout.vscrollbar_w); // exclude the expanded-scrollbar area from the rect
+    }
   }
   return true;
 }
@@ -834,29 +891,49 @@ int WDL_VirtualListBox::IndexFromPt(int x, int y)
 
 int WDL_VirtualListBox::IndexFromPtInt(int x, int y, const layout_info &layout)
 {
-  if (x >= layout.item_area_w + layout.leftrightbutton_w*2) return -2;
+  if (x >= layout.item_area_w - (m_scrollbar_expanded ? EXPAND_SCROLLBAR_SIZE(layout.vscrollbar_w) : 0)) return -2;
 
-  if (y < 0 || y >= layout.item_area_h || x< layout.leftrightbutton_w || x >= layout.leftrightbutton_w + layout.item_area_w) 
+  if (y < 0 || y >= layout.item_area_h || x < 0)
   {
     return -1;
   }
 
   // step through visible items
   const int usewid=layout.item_area_w;
-  int xpos = layout.leftrightbutton_w;
-  int col = 1;
+  int xpos = 0;
+  int col = 0;
 
+  const int do_wordwise = AreItemsWordWise(layout);
   const int rh_base = GetRowHeight();
   int idx = 0;
-  for (;;)
+
+  if (do_wordwise)
+  {
+    int ypos = 0;
+    for (;;)
+    {
+      const int nx = (++col * usewid) / layout.columns;
+      int flag = 0;
+      const int rh = idx < layout.heights->GetSize() ? layout.GetHeight(idx,&flag) : rh_base;
+      if (x < nx && y >= ypos && y < ypos+rh) return layout.startpos + idx;
+      if (col == layout.columns)
+      {
+        col = 0;
+        ypos += rh;
+      }
+      idx++;
+    }
+  }
+  else for (;;)
   {
     if (x < xpos) return -1;
     int ypos = 0;
-    const int nx = layout.leftrightbutton_w + (col++ * usewid) / layout.columns;
+    const int nx = (++col * usewid) / layout.columns;
     for (;;)
     {
-      const int rh = idx < layout.heights->GetSize() ? layout.heights->Get()[idx] : rh_base;
-      if (ypos > 0 && ypos + rh > layout.item_area_h && (col < layout.columns-1 || ypos+rh_base > layout.item_area_h)) break;
+      int flag = 0;
+      const int rh = idx < layout.heights->GetSize() ? layout.GetHeight(idx,&flag) : rh_base;
+      if (ypos > 0 && ypos + rh > layout.item_area_h && (col < layout.columns-1 || (flag & ITEMH_FLAG_NOSQUISH) || ypos+rh_base > layout.item_area_h)) break;
       if (x < nx && y >= ypos && y < ypos+rh) return layout.startpos + idx;
       ypos += rh;
       idx++;
@@ -868,17 +945,8 @@ int WDL_VirtualListBox::IndexFromPtInt(int x, int y, const layout_info &layout)
 
 void WDL_VirtualListBox::SetViewOffset(int offs)
 {
-  int num_items = m_GetItemInfo ? m_GetItemInfo(this,-1,NULL,0,NULL,NULL) : 0;
-  if (num_items) 
-  {
-    if (offs < 0) offs=0;
-    else if (offs >= num_items) offs = num_items-1;
-    if (offs != m_viewoffs)
-    {
-      m_viewoffs = offs;
-      RequestRedraw(0);
-    }
-  }
+  m_viewoffs = wdl_max(offs,0);
+  RequestRedraw(0);
 }
 
 int WDL_VirtualListBox::GetViewOffset()
@@ -886,8 +954,46 @@ int WDL_VirtualListBox::GetViewOffset()
   return m_viewoffs;
 }
 
-int WDL_VirtualListBox::GetItemHeight(int idx)
+int WDL_VirtualListBox::GetItemHeight(int idx, int *flag)
 {
   const int a = m_GetItemHeight ? m_GetItemHeight(this,idx) : -1;
-  return a>=0 ? a : GetRowHeight();
+  if (flag) *flag = a<0 ? 0 : (a&~ITEMH_MASK);
+  return a>=0 ? (a&ITEMH_MASK) : GetRowHeight();
+}
+
+RECT *WDL_VirtualListBox::GetScrollButtonRect(bool isDown)
+{
+  // used for accessibility!
+  static RECT ret;
+
+  int num_items = m_GetItemInfo ? m_GetItemInfo(this,-1,NULL,0,NULL,NULL) : 0;
+  layout_info layout;
+  CalcLayout(num_items,&layout);
+
+  int start,sz;
+  int sb = ScrollbarGetInfo(&start,&sz,num_items,layout);
+
+  if (sb == 1 && layout.vscrollbar_w>0)
+  {
+    if (isDown && start+sz >= layout.item_area_h) return NULL;
+    if (!isDown && start <= 0) return NULL;
+
+    ret.left = layout.item_area_w;
+    ret.right = ret.left + layout.vscrollbar_w;
+    ret.top = isDown ? start+sz : start - layout.vscrollbar_w;
+    ret.bottom = ret.top + layout.vscrollbar_w;
+    return &ret;
+  }
+  if (sb ==2 && layout.hscrollbar_h>0)
+  {
+    if (isDown && start+sz >= layout.item_area_w) return NULL;
+    if (!isDown && start <= 0) return NULL;
+    ret.top = layout.item_area_h;
+    ret.bottom = ret.top + layout.hscrollbar_h;
+    ret.left = isDown ? start+sz : start - layout.hscrollbar_h;
+    ret.right = ret.left + layout.hscrollbar_h;
+    return &ret;
+  }
+
+  return NULL;
 }

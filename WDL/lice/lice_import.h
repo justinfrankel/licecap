@@ -11,6 +11,7 @@ LICE_FUNC_DEF_DECL LICE_IBitmap *(*__LICE_CreateBitmap)(int, int, int);
 LICE_FUNC_DEF_DECL void (*__LICE_PutPixel)(LICE_IBitmap* dest, int x, int y, LICE_pixel color, float alpha, int mode);
 LICE_FUNC_DEF_DECL void (*__LICE_Line)(LICE_IBitmap *dest, int x1, int y1, int x2, int y2, LICE_pixel color, float alpha, int mode, bool aa);
 LICE_FUNC_DEF_DECL void (*__LICE_FLine)(LICE_IBitmap *dest, float x1, float y1, float x2, float y2, LICE_pixel color, float alpha, int mode, bool aa);
+LICE_FUNC_DEF_DECL void (*__LICE_DashedLine)(LICE_IBitmap *dest, int x1, int y1, int x2, int y2, int on, int off, LICE_pixel color, float alpha, int mode, bool aa);
 LICE_FUNC_DEF_DECL void (*__LICE_FillRect)(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel color, float alpha , int mode);
 LICE_FUNC_DEF_DECL void (*__LICE_DrawRect)(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel color, float alpha , int mode);
 LICE_FUNC_DEF_DECL void (*__LICE_BorderedRect)(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel bgcolor, LICE_pixel fgcolor, float alpha, int mode);
@@ -33,6 +34,7 @@ LICE_FUNC_DEF_DECL void * (*LICE_CreateFont)();
 #define LICE_PutPixel __LICE_PutPixel
 #define LICE_Line __LICE_Line
 #define LICE_FLine __LICE_FLine
+#define LICE_DashedLine __LICE_DashedLine
 #define LICE_FillRect __LICE_FillRect
 #define LICE_DrawRect __LICE_DrawRect
 #define LICE_Circle __LICE_Circle
@@ -60,6 +62,7 @@ LICE_FUNC_DEF_DECL void * (*LICE_CreateFont)();
     IMPORT_FUNC(__LICE_PutPixel,"LICE_PutPixel") \
     IMPORT_FUNC(__LICE_Line,"LICE_LineInt") \
     IMPORT_FUNC(__LICE_FLine,"LICE_Line") \
+    IMPORT_FUNC(__LICE_DashedLine, "LICE_DashedLine") \
     IMPORT_FUNC(__LICE_Circle,"LICE_Circle") \
     IMPORT_FUNC(__LICE_FillCircle,"LICE_FillCircle") \
     IMPORT_FUNC(__LICE_FillRect,"LICE_FillRect") \

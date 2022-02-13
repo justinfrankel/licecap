@@ -10,6 +10,7 @@
 #include "../wdlstring.h"
 #include "../assocarray.h"
 #include "../queue.h"
+#include "../win32_utf8.h"
 #include "ns-eel.h"
 
 
@@ -94,7 +95,7 @@ class eelScriptInst {
       for (x=0;x<EELSCRIPT_MAX_FILE_HANDLES && m_handles[x];x++);
       if (x>= EELSCRIPT_MAX_FILE_HANDLES) return 0.0;
 
-      FILE *fp = fopen(fnstr.Get(),mode);
+      FILE *fp = fopenUTF8(fnstr.Get(),mode);
       if (!fp) return 0.0;
       m_handles[x]=fp;
       return x + EELSCRIPT_FILE_HANDLE_INDEX_BASE;
@@ -408,7 +409,7 @@ int eelScriptInst::runcode(const char *codeptr, int showerr, const char *showerr
 #else
         lstrcpyn_safe(buf,"/tmp/jsfx-out",sizeof(buf));
 #endif
-        FILE *fp = fopen(buf,"wb");
+        FILE *fp = fopenUTF8(buf,"wb");
         if (fp)
         {
           fwrite(p->code,1,p->code_size,fp);
@@ -419,8 +420,14 @@ int eelScriptInst::runcode(const char *codeptr, int showerr, const char *showerr
 #else
   #ifdef __aarch64__
           snprintf(buf2,sizeof(buf2), "objdump -D -b binary -maarch64 \"%s\"",buf);
+  #elif defined(__arm__)
+          snprintf(buf2,sizeof(buf2), "objdump -D -b binary -m arm \"%s\"",buf);
   #elif defined(__LP64__)
-          snprintf(buf2,sizeof(buf2),"distorm3 --b64 \"%s\"",buf);
+          #ifdef __APPLE__
+            snprintf(buf2,sizeof(buf2),"distorm3 --b64 \"%s\"",buf);
+          #else
+            snprintf(buf2,sizeof(buf2),"objdump -D -b binary -m i386:x86-64 \"%s\"",buf);
+          #endif
   #else
           snprintf(buf2,sizeof(buf2),"distorm3 --b32 \"%s\"",buf);
   #endif
@@ -501,7 +508,7 @@ FILE *eelscript_resolvePath(WDL_FastString &usefn, const char *fn, const char *c
         }
       }
 
-      FILE *fp = fopen(usefn.Get(),"r");
+      FILE *fp = fopenUTF8(usefn.Get(),"r");
       if (fp) return fp;
     }
     if (had_abs) usefn.Set(fn);
@@ -529,7 +536,7 @@ int eelScriptInst::loadfile(const char *fn, const char *callerfn, bool allowstdi
   }
   else if (!callerfn) 
   {
-    fp = fopen(fn,"r");
+    fp = fopenUTF8(fn,"r");
     if (fp) m_loaded_fnlist.Insert(fn,true);
   }
   else
@@ -565,14 +572,14 @@ int eelScriptInst::loadfile(const char *fn, const char *callerfn, bool allowstdi
     line[0]=0;
     fgets(line,sizeof(line),fp);
     if (!line[0]) break;
-    if (!strnicmp(line,"@import",7) && isspace(line[7]))
+    if (!strnicmp(line,"@import",7) && isspace((unsigned char)line[7]))
     {
       char *p=line+7;
-      while (isspace(*p)) p++;
+      while (isspace((unsigned char)*p)) p++;
 
       char *ep=p;
       while (*ep) ep++;
-      while (ep>p && isspace(ep[-1])) ep--;
+      while (ep>p && isspace((unsigned char)ep[-1])) ep--;
       *ep=0;
 
       if (*p) loadfile(p,fn,false);
