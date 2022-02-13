@@ -1177,8 +1177,11 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
           while (*p && *p != ' ') p++;
           while (*p == ' ') p++;
         }
-        if (*p && a[2]>a[0] && a[3]!=a[1]) SetWindowPos(hwndDlg,NULL,a[0],a[1],a[2]-a[0],a[3]-a[1],SWP_NOZORDER|SWP_NOACTIVATE);
-
+        if (*p && a[2]>a[0] && a[3]!=a[1])
+        {
+          EnsureNotCompletelyOffscreen((RECT*)a);
+          SetWindowPos(hwndDlg,NULL,a[0],a[1],a[2]-a[0],a[3]-a[1],SWP_NOZORDER|SWP_NOACTIVATE);
+        }
       }
       UpdateDimBoxes(hwndDlg);
 
