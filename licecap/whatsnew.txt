@@ -1,3 +1,6 @@
+v1.32 - February 13, 2022
+  + Prevent positioning window offscreen on Windows [issue 72]
+
 v1.31 - February 17, 2021
   + macOS: Big Sur support (thanks https://github.com/ganjarpanji)
   + macOS: ARM native support
