@@ -1,6 +1,5 @@
 #!/usr/bin/php
-
-<?
+<?php
 
 $sign_by = isset($argv[1]) ? $argv[1] : "";
 $notarize_email = $sign_by != "" && isset($argv[2]) ? $argv[2] : "";
@@ -90,10 +89,7 @@ if ($sign_by != "")
     system("rm -f licecap.zip");
     system("zip -r licecap.zip $workdir/LICEcap/LICEcap.app");
     system("xcrun altool -t osx -f licecap.zip --primary-bundle-id com.cockos.LICEcap --notarize-app --username $notarize_email --password \"@keychain:Developer-altool\"");
-    echo "uploading, now spawning a subshell to wait to continue!!!\n";
-    echo "uploading, now spawning a subshell to wait to continue!!!\n";
-    echo "uploading, now spawning a subshell to wait to continue!!!\n";
-    system("bash");
+    system("sleep 300");
     system("xcrun stapler staple $workdir/LICEcap/LICEcap.app");
   }
   else
