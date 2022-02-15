@@ -29,6 +29,7 @@
 #include "../WDL/queue.h"
 #include "../WDL/mutex.h"
 #include "../WDL/wdlcstring.h"
+#include "../WDL/ptrlist.h"
 
 
 //#define TEST_MULTIPLE_MODES
@@ -86,44 +87,77 @@ HINSTANCE g_hInst;
 
 
 
-class gif_encoder
+class base_encoder
 {
+protected :
 
-  LICE_IBitmap *lastbm; // set if a new frame is in progress
-  void *ctx; 
+    LICE_IBitmap* lastbm; // set if a new frame is in progress
+    LICE_pixel trans_mask;
+    int lastbm_coords[4]; // coordinates of previous frame which need to be updated, [2], [3] will always be >0 if in progress
 
-  int lastbm_coords[4]; // coordinates of previous frame which need to be updated, [2], [3] will always be >0 if in progress
-  int lastbm_accumdelay; // delay of previous frame which is latent
-  int loopcnt;
-  LICE_pixel trans_mask;
 
 public:
 
 
-  gif_encoder(void *gifctx, int use_loopcnt, int trans_chan_mask=0xff)
+    base_encoder(int trans_chan_mask = 0xff)
+    {
+        lastbm = NULL;
+        memset(lastbm_coords, 0, sizeof(lastbm_coords));
+        trans_mask = LICE_RGBA(trans_chan_mask, trans_chan_mask, trans_chan_mask, 0);
+    }
+    
+    virtual ~base_encoder()
+    {
+        delete lastbm;
+    }
+
+
+    bool frame_compare(LICE_IBitmap* bm, int diffs[4])
+    {
+        diffs[0] = diffs[1] = 0;
+        diffs[2] = bm->getWidth();
+        diffs[3] = bm->getHeight();
+        return !lastbm || LICE_BitmapCmpEx(lastbm, bm, trans_mask, diffs);
+    }
+
+    virtual void frame_finish() {};
+    virtual void frame_advancetime(int amt) {};
+    virtual void frame_new(LICE_IBitmap* ref, int x, int y, int w, int h) {};
+
+    void clear_history() // forces next frame to be a fully new frame
+    {
+        frame_finish();
+        delete lastbm;
+        lastbm = NULL;
+    }
+    LICE_IBitmap* prev_bitmap() { return lastbm; }
+};
+
+
+
+
+class gif_encoder : public base_encoder
+{
+
+  void *ctx; 
+  int lastbm_accumdelay; // delay of previous frame which is latent
+  int loopcnt;
+
+public:
+
+
+  gif_encoder(void *gifctx, int use_loopcnt, int trans_chan_mask=0xff) : base_encoder(trans_chan_mask)
   {
-    lastbm = NULL;
-    memset(lastbm_coords,0,sizeof(lastbm_coords));
     lastbm_accumdelay = 0;
     ctx=gifctx;
     loopcnt=use_loopcnt;
-    trans_mask = LICE_RGBA(trans_chan_mask,trans_chan_mask,trans_chan_mask,0);
   }
   ~gif_encoder()
   {
     frame_finish();
     LICE_WriteGIFEnd(ctx);
-    delete lastbm;
   }
   
-  
-  bool frame_compare(LICE_IBitmap *bm, int diffs[4])
-  {
-    diffs[0]=diffs[1]=0;
-    diffs[2]=bm->getWidth();
-    diffs[3]=bm->getHeight();
-    return !lastbm || LICE_BitmapCmpEx(lastbm, bm, trans_mask,diffs);
-  }
   
   void frame_finish()
   {
@@ -143,37 +177,209 @@ public:
   {
     lastbm_accumdelay+=amt;
   }
-  
-  void frame_new(LICE_IBitmap *ref, int x, int y, int w, int h)
+
+  void frame_new(LICE_IBitmap* ref, int x, int y, int w, int h)
   {
-    if (w > 0 && h > 0)
-    {
-      frame_finish();
-    
-      lastbm_coords[0]=x;
-      lastbm_coords[1]=y;
-      lastbm_coords[2]=w;
-      lastbm_coords[3]=h;
-    
-      if (!lastbm) lastbm = LICE_CreateMemBitmap(ref->getWidth(), ref->getHeight());
-      LICE_Blit(lastbm, ref, x, y, x,y, w,h, 1.0f, LICE_BLIT_MODE_COPY);
-    }
+      frame_new(ref, x, y, x, y, w, h);
   }
-  
-  void clear_history() // forces next frame to be a fully new frame
+
+  void frame_new(LICE_IBitmap* ref, int dstx, int dsty, int srcx, int srcy, int srcw, int srch)
   {
-    frame_finish();
-    delete lastbm;
-    lastbm=NULL;
+      if (srcw > 0 && srch > 0)
+      {
+          frame_finish();
+
+          lastbm_coords[0] = dstx;
+          lastbm_coords[1] = dsty;
+          lastbm_coords[2] = srcw;
+          lastbm_coords[3] = srch;
+
+          if (!lastbm) lastbm = LICE_CreateMemBitmap(ref->getWidth(), ref->getHeight());
+          LICE_Blit(lastbm, ref, dstx, dsty, srcx, srcy, srcw, srch, 1.0f, LICE_BLIT_MODE_COPY);
+      }
   }
-  LICE_IBitmap *prev_bitmap() { return lastbm; }
 };
 
 
 
-int g_prefs; // &1=title frame, &2=giant font, &4=record mousedown, &8=timeline, &16=shift+space pause, &32=transparency-fu
-int g_stop_after_msec;
+//------------------------------------------------------------------------------------
+//
+struct frame_data
+{
+    LICE_IBitmap* framebm;
+    int framebm_coords[4]; // coordinates of previous frame which need to be updated, [2], [3] will always be >0 if in progress
+    int current_frame_end_time;
 
+    frame_data()
+    {
+        framebm = 0;
+        memset(framebm_coords, 0, sizeof(framebm_coords));
+        current_frame_end_time = 0;
+    }
+
+    ~frame_data()
+    {
+        if (framebm)
+            delete framebm;
+        framebm = 0;
+    }
+};
+
+
+
+//------------------------------------------------------------------------------------
+//
+class dashcam_encoder : public base_encoder
+{
+    gif_encoder* p_gif_encoder;
+    int dashcam_max_time;
+    int current_frame_end_time;
+    int fist_frame_start_time;
+
+    LICE_IBitmap* firstbm; // set if a new frame is in progress
+    WDL_PtrList<frame_data> m_framelist;
+
+
+public:
+
+
+    dashcam_encoder(gif_encoder* pgifencoder , int maxtime, int trans_chan_mask = 0xff) : base_encoder(trans_chan_mask)
+    {
+        p_gif_encoder = pgifencoder;
+        dashcam_max_time = maxtime;
+        current_frame_end_time = 0;
+        fist_frame_start_time = 0;
+        firstbm = 0;
+    }
+    ~dashcam_encoder()
+    {
+        // Copy all the frames to the master giff file....
+        if (m_framelist.GetSize() > 0)
+        {
+            int start_time = fist_frame_start_time;
+
+            for (int iI = 0; iI < m_framelist.GetSize(); iI++)
+            {
+                frame_data* p_frame_data = m_framelist.Get(iI);
+
+                // Now update the time frame offset....
+                p_gif_encoder->frame_finish();
+
+                // Now create the new frame....
+                if ( 0 != iI)
+                    p_gif_encoder->frame_new(p_frame_data->framebm, p_frame_data->framebm_coords[0], p_frame_data->framebm_coords[1], 0,0,p_frame_data->framebm_coords[2], p_frame_data->framebm_coords[3]);
+                else
+                {
+                    // if this is the first frame then get the full content. 
+                    p_gif_encoder->frame_new(firstbm, 0, 0, 0, 0, firstbm->getWidth(), firstbm->getHeight());
+                }
+
+                p_gif_encoder->frame_advancetime(p_frame_data->current_frame_end_time - start_time);
+
+                start_time = p_frame_data->current_frame_end_time;
+            }
+
+            // All the frames have been completed hence finish it.
+            p_gif_encoder->frame_finish();
+        }
+
+
+        // Now lets delete the complete lits.
+        m_framelist.Empty(true);
+
+        if (firstbm)
+            delete firstbm;
+        firstbm = 0;
+        p_gif_encoder = 0;
+    }
+
+
+    void frame_finish()
+    {
+        if (lastbm && lastbm_coords[2] > 0 && lastbm_coords[3] > 0)
+        {
+            // Create a new frame data and push it...
+            frame_data* p_frame_data = new frame_data();
+
+            p_frame_data->framebm = LICE_CreateMemBitmap(lastbm_coords[2], lastbm_coords[3]);
+            LICE_Blit(p_frame_data->framebm, lastbm, 0, 0, lastbm_coords[0], lastbm_coords[1], lastbm_coords[2], lastbm_coords[3], 1.0f, LICE_BLIT_MODE_COPY);
+            memcpy(p_frame_data->framebm_coords, lastbm_coords, sizeof(lastbm_coords));
+            p_frame_data->current_frame_end_time = current_frame_end_time;
+
+            m_framelist.Add(p_frame_data);
+        }
+        lastbm_coords[2] = lastbm_coords[3] = 0;
+    }
+
+    void frame_advancetime(int amt)
+    {
+        current_frame_end_time += amt;
+    }
+
+    void frame_new(LICE_IBitmap* ref, int x, int y, int w, int h)
+    {
+        if (w < 1 || h < 1)
+            return;
+
+        // lets first finish the existing frame.
+        frame_finish();
+
+        // Now update the new current coordinates. 
+        lastbm_coords[0] = x;
+        lastbm_coords[1] = y;
+        lastbm_coords[2] = w;
+        lastbm_coords[3] = h;
+
+        if (!lastbm) 
+            lastbm = LICE_CreateMemBitmap(ref->getWidth(), ref->getHeight());
+        LICE_Blit(lastbm, ref, x, y, x, y, w, h, 1.0f, LICE_BLIT_MODE_COPY);
+
+        if (!firstbm)
+        {
+            firstbm = LICE_CreateMemBitmap(ref->getWidth(), ref->getHeight());
+            LICE_Blit(firstbm, ref, 0, 0, 0, 0, ref->getWidth(), ref->getHeight(), 1.0f, LICE_BLIT_MODE_COPY);
+        }
+
+        // Now lets remove the extra bitmaps if available...
+        if (m_framelist.GetSize() > 1)
+        {
+            frame_data* p_last_frame_data = m_framelist.Get(m_framelist.GetSize()-1);
+
+            int delete_till_index = -1;
+            int x;
+            for (x = 0; x < m_framelist.GetSize(); x++)
+            {
+                frame_data* p_frame_data = m_framelist.Get(x);
+                if (p_last_frame_data->current_frame_end_time - p_frame_data->current_frame_end_time > dashcam_max_time)
+                {
+                    delete_till_index = x;
+                }
+                else
+                    break;
+            }
+
+            if (delete_till_index >= 0)
+            {
+                // lets update our first bitmap till the given point.
+                for (x = 0; x <= delete_till_index; x++)
+                {
+                    frame_data* p_frame_data = m_framelist.Get(x);
+                    LICE_Blit(firstbm, p_frame_data->framebm, p_frame_data->framebm_coords[0], p_frame_data->framebm_coords[1], 0, 0, p_frame_data->framebm_coords[2], p_frame_data->framebm_coords[3], 1.0f, LICE_BLIT_MODE_COPY);
+                }
+
+                frame_data* p_frame_data = m_framelist.Get(delete_till_index);
+                fist_frame_start_time = p_frame_data->current_frame_end_time;
+                for (x = delete_till_index; x >= 0; x--)
+                    m_framelist.Delete(x, true);
+            }
+        }
+    }
+};
+
+
+int g_prefs; // &1=title frame, &2=giant font, &4=record mousedown, &8=timeline, &16=shift+space pause, &32=transparency-fu, &64=stop after sec, &128=Dashcam style recording.
+int g_stop_after_msec;
+int g_dashcam_record_time_msec = 10*1000;     // time to retains last portion of recording as in dash cam style. Default is last 10 sec recording.
 
 int g_gif_loopcount=0;
 int g_max_fps=8;  
@@ -182,6 +388,10 @@ char g_last_fn[2048];
 WDL_String g_ini_file;
 
 HWND g_hwnd;
+
+bool is_dashcam_style_enabled() { return g_prefs & 128; };
+
+
 
 typedef struct {
   DWORD   cbSize;
@@ -446,7 +656,11 @@ void EncodeFrameToVideo(VideoEncoder *enc, LICE_IBitmap *bm, bool force=false)
 
 #endif
 
-gif_encoder *g_cap_gif;
+gif_encoder * g_cap_gif_encoder=0;
+dashcam_encoder* g_cap_dashcam_encoder=0;
+base_encoder* g_cap_base_encoder=0;
+
+
 #ifdef TEST_MULTIPLE_MODES
 gif_encoder  *g_cap_gif2,*g_cap_gif3; // only used if TEST_MULTIPLE_MODES defined
 #endif
@@ -580,8 +794,8 @@ void UpdateStatusText(HWND hwndDlg)
     lstrcatn(buf,g_cap_video_ext,sizeof(buf));
   }
 #endif
-  if (g_cap_gif) lstrcatn(buf, " GIF", sizeof(buf));
-  
+  if (g_cap_base_encoder) lstrcatn(buf, " GIF", sizeof(buf));
+
   if (g_cap_state)
   {
     snprintf_append(buf,sizeof(buf), " %d:%02d", g_ms_written/60000, (g_ms_written/1000)%60);
@@ -706,18 +920,25 @@ void Capture_Finish(HWND hwndDlg)
   delete g_cap_video;
   g_cap_video=0;
 #endif
-  if (g_cap_gif)
+  if (g_cap_dashcam_encoder)
   {
-    delete g_cap_gif;
-    g_cap_gif=0;
+      delete g_cap_dashcam_encoder;
+      g_cap_dashcam_encoder = 0;
   }
 
+  if (g_cap_gif_encoder)
+  {
+      delete g_cap_gif_encoder;
+      g_cap_gif_encoder = 0;
+  }
+  g_cap_base_encoder = 0;
 #ifdef TEST_MULTIPLE_MODES
   delete g_cap_gif2;
   g_cap_gif2 = 0;
   delete g_cap_gif3;
   g_cap_gif3 = 0;
 #endif
+
 
   delete g_cap_bm;
   g_cap_bm=0;
@@ -782,11 +1003,27 @@ static UINT_PTR CALLBACK SaveOptsProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPA
         EnableWindow(GetDlgItem(hwndDlg,IDC_STOPAFTER_SEC_LBL),0);
         EnableWindow(GetDlgItem(hwndDlg,IDC_STOPAFTER_SEC),0);
       }
+
+
+      if (is_dashcam_style_enabled())
+      {
+          CheckDlgButton(hwndDlg, IDC_DASHCAM_CHECK, BST_CHECKED);
+      }
+      else
+      {
+          EnableWindow(GetDlgItem(hwndDlg, IDC_DASHCAM_TIME_SEC_LBL), 0);
+          EnableWindow(GetDlgItem(hwndDlg, IDC_DASHCAM_TIME_SEC), 0);
+      }
+
+
       char buf[256];
       snprintf(buf, sizeof(buf), "%.1f", (double)g_titlems/1000.0);
       SetDlgItemText(hwndDlg, IDC_MS, buf);
-      snprintf(buf, sizeof(buf), "%.1f", (double)g_stop_after_msec/1000.0);
+      snprintf(buf, sizeof(buf), "%.1f", (double)g_stop_after_msec / 1000.0);
       SetDlgItemText(hwndDlg, IDC_STOPAFTER_SEC, buf);
+
+      snprintf(buf, sizeof(buf), "%.1f", (double)g_dashcam_record_time_msec / 1000.0);
+      SetDlgItemText(hwndDlg, IDC_DASHCAM_TIME_SEC, buf);
 
       SetDlgItemText(hwndDlg, IDC_TITLE, (g_title[0] ? g_title : "Title"));
       EnableWindow(GetDlgItem(hwndDlg, IDC_MS), (g_prefs&1));
@@ -808,13 +1045,17 @@ static UINT_PTR CALLBACK SaveOptsProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPA
       if (IsDlgButtonChecked(hwndDlg, IDC_SSPAUSE)) g_prefs |= 16;
       if (IsDlgButtonChecked(hwndDlg, IDC_CHECK1)) g_prefs |= 32;
       if (IsDlgButtonChecked(hwndDlg, IDC_CHECK2)) g_prefs |= 64;
+      if (IsDlgButtonChecked(hwndDlg, IDC_DASHCAM_CHECK)) g_prefs |= 128;
 
       char buf[256];
       GetDlgItemText(hwndDlg, IDC_MS, buf, sizeof(buf));
       g_titlems = (int)(atof(buf)*1000.0);
 
       GetDlgItemText(hwndDlg, IDC_STOPAFTER_SEC, buf, sizeof(buf));
-      g_stop_after_msec=(int) (atof(buf)*1000.0);
+      g_stop_after_msec = (int)(atof(buf) * 1000.0);
+
+      GetDlgItemText(hwndDlg, IDC_DASHCAM_TIME_SEC, buf, sizeof(buf));
+      g_dashcam_record_time_msec = (int)(atof(buf) * 1000.0);
 
       GetDlgItemText(hwndDlg, IDC_TITLE, g_title, sizeof(g_title));
       if (!strcmp(g_title, "Title")) g_title[0]=0;
@@ -830,14 +1071,21 @@ static UINT_PTR CALLBACK SaveOptsProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPA
     case WM_COMMAND:
       switch (LOWORD(wParam))
       {
-        case IDC_CHECK2:
-          {
-            int use = !!IsDlgButtonChecked(hwndDlg, IDC_CHECK2);
-            EnableWindow(GetDlgItem(hwndDlg,IDC_STOPAFTER_SEC_LBL),use);
-            EnableWindow(GetDlgItem(hwndDlg,IDC_STOPAFTER_SEC),use);
-          }
-        break;
-        case IDC_TITLEUSE:
+      case IDC_CHECK2:
+      {
+          int use = !!IsDlgButtonChecked(hwndDlg, IDC_CHECK2);
+          EnableWindow(GetDlgItem(hwndDlg, IDC_STOPAFTER_SEC_LBL), use);
+          EnableWindow(GetDlgItem(hwndDlg, IDC_STOPAFTER_SEC), use);
+      }
+      break;
+      case IDC_DASHCAM_CHECK:
+      {
+          int use = !!IsDlgButtonChecked(hwndDlg, IDC_DASHCAM_CHECK);
+          EnableWindow(GetDlgItem(hwndDlg, IDC_DASHCAM_TIME_SEC_LBL), use);
+          EnableWindow(GetDlgItem(hwndDlg, IDC_DASHCAM_TIME_SEC), use);
+      }
+      break;
+      case IDC_TITLEUSE:
         {
           bool use = !!IsDlgButtonChecked(hwndDlg, IDC_TITLEUSE);
           EnableWindow(GetDlgItem(hwndDlg, IDC_MS), use);
@@ -941,11 +1189,11 @@ void WriteTextFrame(const char* str, int ms, bool isTitle, int w, int h, double 
   }
 #endif
 
-  if (g_cap_gif)
+  if (g_cap_base_encoder)
   {
-    g_cap_gif->frame_finish(); 
-    g_cap_gif->frame_new(g_cap_bm,0,0,g_cap_bm->getWidth(),g_cap_bm->getHeight());
-    g_cap_gif->frame_advancetime(ms);
+      g_cap_base_encoder->frame_finish();
+      g_cap_base_encoder->frame_new(g_cap_bm,0,0,g_cap_bm->getWidth(),g_cap_bm->getHeight());
+      g_cap_base_encoder->frame_advancetime(ms);
     g_cap_gif_lastsec_written=-1;
   }
 
@@ -985,6 +1233,10 @@ void WriteTextFrame(const char* str, int ms, bool isTitle, int w, int h, double 
 
 WDL_DLGRET InsertProc(HWND hwnd, UINT Message, WPARAM wParam, LPARAM lParam)
 {
+    // we donot support inserting text while working in dashcam style..
+    if (is_dashcam_style_enabled())
+        return 0;
+
 	switch(Message)
 	{
     case WM_INITDIALOG :
@@ -1063,8 +1315,11 @@ void SaveConfig(HWND hwndDlg)
   sprintf(buf, "%d", g_gif_loopcount);
   WritePrivateProfileString("licecap","gifloopcnt",buf,g_ini_file.Get());
   sprintf(buf, "%d", g_stop_after_msec);
-  WritePrivateProfileString("licecap","stopafter",buf,g_ini_file.Get());
-  
+  WritePrivateProfileString("licecap", "stopafter", buf, g_ini_file.Get());
+
+  sprintf(buf, "%d", g_dashcam_record_time_msec);
+  WritePrivateProfileString("licecap", "dashcamrecordtime", buf, g_ini_file.Get());
+
   
 
   WritePrivateProfileString("licecap","title",g_title,g_ini_file.Get());
@@ -1152,6 +1407,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
       g_prefs = GetPrivateProfileInt("licecap", "prefs", g_prefs, g_ini_file.Get());
       g_titlems = GetPrivateProfileInt("licecap", "titlems", g_titlems, g_ini_file.Get());
       g_stop_after_msec = GetPrivateProfileInt("licecap", "stopafter", g_stop_after_msec, g_ini_file.Get());
+      g_dashcam_record_time_msec = GetPrivateProfileInt("licecap", "dashcamrecordtime", g_stop_after_msec, g_ini_file.Get());
 
       GetPrivateProfileString("licecap","title","",g_title,sizeof(g_title),g_ini_file.Get());
 
@@ -1175,6 +1431,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
     break;
     case WM_TIMER:
+
       if (wParam==1)
       {     
         const DWORD now=timeGetTime();
@@ -1254,14 +1511,14 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
               }
 #endif
 
-              if (g_cap_gif)
+              if (g_cap_base_encoder)
               {
                 // draw old time display for frame_compare(), so that it finds the portion other than the time display that changes
                 int old_time_coords[4]={0,};
                 if (dotime && g_cap_gif_lastsec_written>=0)
                   draw_timedisp(g_cap_bm,g_cap_gif_lastsec_written,old_time_coords,bw,bh);
             
-                g_cap_gif->frame_advancetime(now-g_last_frame_capture_time);
+                g_cap_base_encoder->frame_advancetime(now-g_last_frame_capture_time);
 #ifdef TEST_MULTIPLE_MODES
                 if (g_cap_gif2) g_cap_gif2->frame_advancetime(now-g_last_frame_capture_time);
                 if (g_cap_gif3) g_cap_gif3->frame_advancetime(now-g_last_frame_capture_time);
@@ -1269,9 +1526,9 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 
                 int diffs[4];
                 
-                if (g_cap_gif->frame_compare(g_cap_bm,diffs))
+                if (g_cap_base_encoder->frame_compare(g_cap_bm,diffs))
                 {
-                  g_cap_gif->frame_finish();
+                    g_cap_base_encoder->frame_finish();
 #ifdef TEST_MULTIPLE_MODES
                   if (g_cap_gif2) g_cap_gif2->frame_finish();
                   if (g_cap_gif3) g_cap_gif3->frame_finish();
@@ -1293,7 +1550,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                     }
                   }
 
-                  g_cap_gif->frame_new(g_cap_bm,diffs[0],diffs[1],diffs[2],diffs[3]);
+                  g_cap_base_encoder->frame_new(g_cap_bm,diffs[0],diffs[1],diffs[2],diffs[3]);
 #ifdef TEST_MULTIPLE_MODES
                   if (g_cap_gif2) g_cap_gif2->frame_new(g_cap_bm,diffs[0],diffs[1],diffs[2],diffs[3]);
                   if (g_cap_gif3) g_cap_gif3->frame_new(g_cap_bm,diffs[0],diffs[1],diffs[2],diffs[3]);
@@ -1303,7 +1560,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                 if (dotime && frame_time_in_seconds != g_cap_gif_lastsec_written)
                 {
                   // time changed and wasn't previously included, so include as a dedicated frame
-                  g_cap_gif->frame_finish();
+                    g_cap_base_encoder->frame_finish();
 #ifdef TEST_MULTIPLE_MODES
                   if (g_cap_gif2) g_cap_gif2->frame_finish();
                   if (g_cap_gif3) g_cap_gif3->frame_finish();
@@ -1314,7 +1571,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                   union_diffs(pos, old_time_coords);
 
                   g_cap_gif_lastsec_written = frame_time_in_seconds;
-                  g_cap_gif->frame_new(g_cap_bm,pos[0],pos[1],pos[2],pos[3]);
+                  g_cap_base_encoder->frame_new(g_cap_bm,pos[0],pos[1],pos[2],pos[3]);
 #ifdef TEST_MULTIPLE_MODES
                   if (g_cap_gif2) g_cap_gif2->frame_new(g_cap_bm,pos[0],pos[1],pos[2],pos[3]);
                   if (g_cap_gif3) g_cap_gif3->frame_new(g_cap_bm,pos[0],pos[1],pos[2],pos[3]);
@@ -1490,15 +1747,19 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
         break;
 
         case IDC_INSERT:
-          if (!g_cap_bm_txt)
-          {
-            int w,h;
-            GetViewRectSize(&w,&h);
-            g_cap_bm_txt = LICE_CreateSysBitmap(w,h);
-            LICE_Copy(g_cap_bm_txt, g_cap_bm);
-          }
-          DialogBox(g_hInst,MAKEINTRESOURCE(IDD_INSERT),hwndDlg,InsertProc);
-          g_last_frame_capture_time=timeGetTime();
+            // as currently we donot support pausing and inserting text during dashcam style working.
+            if (!is_dashcam_style_enabled())
+            {
+                if (!g_cap_bm_txt)
+                {
+                    int w, h;
+                    GetViewRectSize(&w, &h);
+                    g_cap_bm_txt = LICE_CreateSysBitmap(w, h);
+                    LICE_Copy(g_cap_bm_txt, g_cap_bm);
+                }
+                DialogBox(g_hInst, MAKEINTRESOURCE(IDD_INSERT), hwndDlg, InsertProc);
+                g_last_frame_capture_time = timeGetTime();
+            }
         break;
 
         case IDC_REC:
@@ -1589,8 +1850,19 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
               if (strlen(g_last_fn)>4 && !stricmp(g_last_fn+strlen(g_last_fn)-4,".gif"))
               {
                 void *ctx = LICE_WriteGIFBeginNoFrame(g_last_fn,w,h,(g_prefs&32) ? (-1)&~7 : 0,true);
-                if (ctx) g_cap_gif = new gif_encoder(ctx,g_gif_loopcount,0xf8);
+                if (ctx) g_cap_gif_encoder = new gif_encoder(ctx,g_gif_loopcount,0xf8);
                 g_cap_gif_lastsec_written = -1;
+                g_cap_base_encoder = g_cap_gif_encoder;
+
+                // Now lets create the dashcam encoder if required.
+                if (is_dashcam_style_enabled())
+                {
+                    g_cap_dashcam_encoder = new dashcam_encoder(g_cap_gif_encoder, g_dashcam_record_time_msec, 0xf8);
+                    // dont set it here as we will first writet eh title frame on the normal and will then set this one as deault.
+                    //g_cap_base_encoder = g_cap_dashcam_encoder;
+
+                }
+
 
 #ifdef TEST_MULTIPLE_MODES
                 char tmp[1024];
@@ -1660,7 +1932,7 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
               }
 #endif
 
-              if (g_cap_gif
+              if (g_cap_gif_encoder
 #ifndef NO_LCF_SUPPORT
                 || g_cap_lcf
 #endif
@@ -1715,13 +1987,18 @@ static WDL_DLGRET liceCapMainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
                 UpdateCaption(hwndDlg);
                 UpdateStatusText(hwndDlg);
                 UpdateDimBoxes(hwndDlg);
+
+                // Now lets set the dashcam encoder as default encoder settings.
+                if (is_dashcam_style_enabled())
+                    g_cap_base_encoder = g_cap_dashcam_encoder;
               }
             }
           }
           else if (g_cap_state==1)
           {
             g_pause_time = timeGetTime();
-            ShowWindow(GetDlgItem(hwndDlg, IDC_INSERT), SW_SHOWNA);
+            if ( !is_dashcam_style_enabled())       // as we donot allow inserting text frames in dashcam style...
+                ShowWindow(GetDlgItem(hwndDlg, IDC_INSERT), SW_SHOWNA);
             ShowWindow(GetDlgItem(hwndDlg,IDC_STATUS),SW_HIDE);
             SetDlgItemText(hwndDlg,IDC_REC,"[unpause]");
             g_cap_state=2;
