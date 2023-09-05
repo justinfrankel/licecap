@@ -227,7 +227,7 @@ void DoMouseCursor(LICE_IBitmap* sbm, HWND h, int xoffs, int yoffs)
       ICONINFO inf={0,};
       GetIconInfo(ci.hCursor,&inf);
 
-      __LogicalToPhysicalPointForPerMonitorDPI(g_hwnd,&ci.ptScreenPos);
+      __LogicalToPhysicalPointForPerMonitorDPI(0,&ci.ptScreenPos);
 
       int mousex = ci.ptScreenPos.x+xoffs;
       int mousey = ci.ptScreenPos.y+yoffs;
